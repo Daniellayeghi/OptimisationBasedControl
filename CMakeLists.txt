@@ -41,7 +41,14 @@ option(RUN_X11_TESTS "Run tests that require X11" OFF)
 
 #Mujoco paths
 set(MUJOCO_PY_MJPRO_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-message(STATUS "MuJoCo path: " ${MUJOCO_PY_MJPRO_PATH})
+
+if(DEFINED MUJ_KEY_PATH)
+    message(STATUS "Addingg definition Mujoco key path defined as:" ${MUJ_KEY_PATH})
+    add_definitions(-DMUJ_KEY_PATH="${MUJ_KEY_PATH}")
+else()
+    message(FATAL_ERROR "Mujoco key path NOT defined")
+endif()
+
 include_directories(${MUJOCO_PY_MJPRO_PATH}/include)
 link_directories(${MUJOCO_PY_MJPRO_PATH}/libraries)
 
@@ -51,7 +58,6 @@ if(${USE_GL})
 else()
     file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco[0-9][0-9][0-9]nogl.so)
 endif()
-#Showing mujoco library found
-message(STATUS "MuJoCo lib: " ${LIB_MUJOCO})
 
+#Showing mujoco library found
 add_subdirectory(src)

@@ -1,0 +1,3 @@
+#!/bin/bash
+MUJ_KEY_PATH=$(locate -b 'mjkey.txt')
+export MUJ_KEY_PATH
