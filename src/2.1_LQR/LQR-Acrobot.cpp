@@ -170,7 +170,7 @@ int main(int argc, const char** argv)
 {
 
     // activate software
-    mj_activate("../../../mjkey.txt");
+    mj_activate(MUJ_KEY_PATH);
 
 
     // load and compile model

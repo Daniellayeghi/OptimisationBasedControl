@@ -124,7 +124,7 @@ void mycontroller(const mjModel* m, mjData* d)
     // printouts for debugging purposes
     mjtObj geom = mjOBJ_GEOM;
     mjtObj body = mjOBJ_BODY;
-    mjtObj dof = mjOBJ_JOINT;
+    mjtObj dof  = mjOBJ_JOINT;
     int ball_id = mj_name2id(m, body, "ballbody");
     int rod_id = mj_name2id(m, geom, "rod");
     int pivot_id = mj_name2id(m, dof, "pivot");
@@ -153,7 +153,7 @@ void mycontroller(const mjModel* m, mjData* d)
     A_(1,1) = - m->dof_damping[pivot_id]/(m->body_mass[ball_id]*mju_pow(m->geom_size[rod_id*3+1]*2,2.0));
     B_(0,0) = 0.0;
     B_(1,0) = 1.0;
-    Q_ *= 10.0;
+    Q_ *= 2.0;
 
     drake::systems::controllers::LinearQuadraticRegulatorResult lqr_result =
             drake::systems::controllers::LinearQuadraticRegulator(A_, B_, Q_, R_, N);
@@ -189,7 +189,7 @@ int main(int argc, const char** argv)
 {
 
     // activate software
-    mj_activate("../../../mjkey.txt");
+    mj_activate(MUJ_KEY_PATH);
 
 
     // load and compile model
