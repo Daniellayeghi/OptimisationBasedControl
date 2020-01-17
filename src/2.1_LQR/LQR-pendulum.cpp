@@ -160,10 +160,6 @@ void mycontroller(const mjModel* m, mjData* d)
     Eigen::Matrix<mjtNum, 2, 2> S1_ = lqr_result.S;
     Eigen::Matrix<mjtNum, 1, 2> K_= -lqr_result.K;
 
-
-    // controller with true values, but it is cheating.
-//    ctrl = 3.5*(-d->qvel[0]-10.0*d->qpos[0]);
-
     // controller with sensor readings
     if (previous_time == 0)
     {
