@@ -35,6 +35,7 @@ mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
+mjtNum* massMatrix;
 
 // mouse interaction
 bool button_left = false;
@@ -124,6 +125,8 @@ void mycontroller(const mjModel* m, mjData* d)
     std::cout << "v0: " << d->qvel[0] << std::endl;
     std::cout << "v1: " << d->qvel[1] << std::endl;
 
+    mj_fullM(m, massMatrix, d->qM);
+    mju_printMat(massMatrix, m->nv, m->nv);
 
     mjtNum state[2*m->nq];
     mju_copy(state, d->qpos, 2*m->nq);
@@ -145,7 +148,7 @@ drake::systems::controllers::LinearQuadraticRegulatorResult getLQRControl()
     Eigen::Matrix<mjtNum , 1, 1> R_ = Eigen::Matrix<mjtNum , 1, 1>::Identity();
     Eigen::Matrix<mjtNum , 4, 1> N = Eigen::Matrix<mjtNum , 4, 1>::Zero();
 
-// A
+    // A
     A_.topRightCorner(2,2) = Eigen::Matrix<mjtNum , 2, 2>::Identity();
 
 // Based on Spong
@@ -216,6 +219,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     lqr_result = getLQRControl();
+    lqr_result.K.setZero();
 
     // install control callback
     mjcb_control = mycontroller;
@@ -239,7 +243,6 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
             mj_step(m, d);
 
-
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
         // get framebuffer viewport
@@ -255,7 +258,6 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
-
     }
 
     // free visualization storage

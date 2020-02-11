@@ -145,33 +145,33 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // control loop callback
 void mycontroller(const mjModel* m, mjData* d)
 {
-    // printouts for debugging purposes
-    std::cout << "number of position coordinates: " << m->nq << std::endl;
-    std::cout << "number of degrees of freedom: " << m->nv << std::endl;
-    std::cout << "joint position: " << d->qpos[0] << std::endl;
-    std::cout << "joint velocity: " << d->qvel[0] << std::endl;
-    std::cout << "Sensor output: " << d->sensordata[0] << std::endl;
+//    // printouts for debugging purposes
+//    std::cout << "number of position coordinates: " << m->nq << std::endl;
+//    std::cout << "number of degrees of freedom: " << m->nv << std::endl;
+//    std::cout << "joint position: " << d->qpos[0] << std::endl;
+//    std::cout << "joint velocity: " << d->qvel[0] << std::endl;
+//    std::cout << "Sensor output: " << d->sensordata[0] << std::endl;
+//
+//    // controller with true values, but it is cheating.
+////    ctrl = 3.5*(-d->qvel[0]-10.0*d->qpos[0]);
+//
+//    // controller with sensor readings
+//    if (previous_time == 0)
+//    {
+//        previous_time = d->time;
+//        return;
+//    }
+//    if (d->time - last_update > 1.0/ctrl_update_freq)
+//    {
+//        mjtNum vel = (d->sensordata[0] - position_history)/(d->time-previous_time);
+//        ctrl = 3.5*(-vel-10.0*d->sensordata[0]);
+//        last_update = d->time;
+//        position_history = d->sensordata[0];
+//        previous_time = d->time;
+//    }
+//    d->ctrl[0] = ctrl;
 
-    // controller with true values, but it is cheating.
-//    ctrl = 3.5*(-d->qvel[0]-10.0*d->qpos[0]);
-
-    // controller with sensor readings
-    if (previous_time == 0)
-    {
-        previous_time = d->time;
-        return;
-    }
-    if (d->time - last_update > 1.0/ctrl_update_freq)
-    {
-        mjtNum vel = (d->sensordata[0] - position_history)/(d->time-previous_time);
-        ctrl = 3.5*(-vel-10.0*d->sensordata[0]);
-        last_update = d->time;
-        position_history = d->sensordata[0];
-        previous_time = d->time;
-    }
-    d->ctrl[0] = ctrl;
-
-    std::cout << "torque effort: " << ctrl << std::endl;
+//    std::cout << "torque effort: " << ctrl << std::endl;
 }
 
 
