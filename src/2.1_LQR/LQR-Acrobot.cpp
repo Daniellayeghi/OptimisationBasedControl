@@ -14,7 +14,7 @@
 #include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
-
+#include "../controller/controller.h"
 
 // Eigen, used by drake
 #include <Eigen/Core>
@@ -35,8 +35,6 @@ mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
-mjtNum* massMatrix;
-mjtNum* constant_acc;
 
 // mouse interaction
 bool button_left = false;
@@ -45,8 +43,13 @@ bool button_right =  false;
 double lastx = 0;
 double lasty = 0;
 
+namespace
+{
+    MyController *my_ctrl;
+    void callback_wrapper(const mjModel* m, mjData* d)
+    { my_ctrl->controller(); }
+}
 
-static bool first_run = true;
 
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
@@ -118,28 +121,7 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // control loop callback
 void mycontroller(const mjModel* m, mjData* d)
 {
-    mjtNum* torque = mj_stackAlloc(d, m->nv*m->nv);
-    mjtNum* inertial_torque = mj_stackAlloc(d, m->nv);
 
-    mj_rne(m, d, 0, torque);
-    mj_sensorPos(m, d);
-
-    std::cout << "Torque: " << std::endl;
-    std::cout << torque[0] << " " << torque[1] << " " <<torque[2] << std::endl;
-
-    mjtNum state[2*m->nq];
-    mju_copy(state, d->qpos, 2*m->nq);
-
-    state[0] -= M_PI_2; // stand-up position
-    mjtNum ctrl = mju_dot(lqr_result.K.data(), state, 2*m->nq);
-
-    mj_mulM(m, d, inertial_torque, constant_acc);
-
-    std::cout << d->qfrc_bias[0] << " " << d->qfrc_bias[1] << " " <<d->qfrc_bias[2] << std::endl;
-
-    d->qfrc_applied[0] = d->qfrc_bias[0] + inertial_torque[0];
-    d->qfrc_applied[1] = d->qfrc_bias[1] + inertial_torque[0];
-    d->qfrc_applied[2] = d->qfrc_bias[2] + inertial_torque[0];
 }
 
 drake::systems::controllers::LinearQuadraticRegulatorResult getLQRControl()
@@ -176,7 +158,6 @@ int main(int argc, const char** argv)
 
     // activate software
     mj_activate(MUJ_KEY_PATH);
-
 
     // load and compile model
     char error[1000] = "Could not load binary model";
@@ -220,17 +201,15 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    constant_acc = mj_stackAlloc(d, m->nv);
-    for (std::size_t row = 0; row < 3; ++row) {
-        constant_acc[row] = 0.4;
-    }
+    MyController control(m, d);
+    my_ctrl = &control;
 
     lqr_result = getLQRControl();
     lqr_result.K.setZero();
 
 
     // install control callback
-    mjcb_control = mycontroller;
+    mjcb_control = callback_wrapper;
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;

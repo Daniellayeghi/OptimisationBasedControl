@@ -21,6 +21,10 @@ set(PYTHONPATH "${drake_PYTHON_DIRS}:$ENV{PYTHONPATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${MUJOCO_PY_MJPRO_PATH}/cmake/modules")
 
+SET(CONTROL_HEADER_LIST ../controller/controller.h)
+SET(CONTROL_SOURCE_LIST ../controller/controller.cpp)
+add_library(control_lib ${CONTROL_SOURCE_LIST} ${CONTROL_HEADER_LIST})
+
 #####add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
 #file(GLOB APP_SOURCES *.cxx)
 file(GLOB APP_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp)
@@ -38,5 +42,6 @@ foreach(testsourcefile ${APP_SOURCES})
 
     # Drake stuff
     target_link_libraries(${BIN_NAME} drake::drake)
+    target_link_libraries(${BIN_NAME} control_lib)
 
 endforeach( testsourcefile ${APP_SOURCES} )
