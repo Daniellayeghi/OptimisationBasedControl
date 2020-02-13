@@ -6,11 +6,15 @@
 
 class MyController
 {
-
 public:
     MyController(const mjModel *m, mjData *d);
 
     void controller();
+
+    static void set_instance(MyController *my_ctrl);
+
+    static void callback_wrapper(const mjModel* m, mjData* d);
+
 
 private:
     const mjModel* _m;

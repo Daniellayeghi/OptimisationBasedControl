@@ -43,13 +43,6 @@ bool button_right =  false;
 double lastx = 0;
 double lasty = 0;
 
-namespace
-{
-    MyController *my_ctrl;
-    void callback_wrapper(const mjModel* m, mjData* d)
-    { my_ctrl->controller(); }
-}
-
 
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
@@ -202,14 +195,13 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     MyController control(m, d);
-    my_ctrl = &control;
+    MyController::set_instance(&control);
 
     lqr_result = getLQRControl();
     lqr_result.K.setZero();
 
-
     // install control callback
-    mjcb_control = callback_wrapper;
+    mjcb_control = MyController::callback_wrapper;
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
