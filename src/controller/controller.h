@@ -15,7 +15,6 @@ public:
 
     static void callback_wrapper(const mjModel* m, mjData* d);
 
-
 private:
     const mjModel* _m;
     mjData* _d;
