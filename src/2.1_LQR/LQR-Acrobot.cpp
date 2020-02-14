@@ -111,39 +111,6 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-// control loop callback
-void mycontroller(const mjModel* m, mjData* d)
-{
-
-}
-
-drake::systems::controllers::LinearQuadraticRegulatorResult getLQRControl()
-{
-    Eigen::Matrix<mjtNum , 4, 4> A_ = Eigen::Matrix<mjtNum , 4, 4>::Zero();
-    Eigen::Matrix<mjtNum , 4, 1> B_ = Eigen::Matrix<mjtNum , 4, 1>::Zero();
-    Eigen::Matrix<mjtNum , 4, 4> Q_ = Eigen::Matrix<mjtNum , 4, 4>::Identity();
-    Eigen::Matrix<mjtNum , 1, 1> R_ = Eigen::Matrix<mjtNum , 1, 1>::Identity();
-    Eigen::Matrix<mjtNum , 4, 1> N = Eigen::Matrix<mjtNum , 4, 1>::Zero();
-
-    // A
-    A_.topRightCorner(2,2) = Eigen::Matrix<mjtNum , 2, 2>::Identity();
-
-// Based on Spong
-    A_(2,0) = 12.49;
-    A_(2,1) = -12.54;
-    A_(3,0) = -14.49;
-    A_(3,1) = 29.36;
-
-// B
-    B_(2,0) = -2.98;
-    B_(3,0) = 5.98;
-
-// Q
-//    Q_.topLefCorner(2,2) *= 10.0;  // optional
-
-    return drake::systems::controllers::LinearQuadraticRegulator(A_, B_, Q_, R_, N);
-}
-
 
 // main function
 int main(int argc, const char** argv)
@@ -179,7 +146,7 @@ int main(int argc, const char** argv)
     GLFWwindow* window = glfwCreateWindow(1200, 900, "Demo", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
-
+    
     // initialize visualization data structures
     mjv_defaultCamera(&cam);
     mjv_defaultOption(&opt);
