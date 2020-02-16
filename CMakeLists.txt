@@ -30,10 +30,12 @@
 # Inspired by http://www.mujoco.org/forum/index.php?threads/cmake-request.3361/#post-3747
 
 cmake_minimum_required(VERSION 3.5)
-project(drake_cmake_installed)
+project(OptControl_MUJOCO)
 set(USE_GL 1)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+find_package(autodiff REQUIRED)
 
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
@@ -61,3 +63,4 @@ endif()
 
 #Showing mujoco library found
 add_subdirectory(src)
+add_subdirectory(app)

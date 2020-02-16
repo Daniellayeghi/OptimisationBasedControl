@@ -17,31 +17,42 @@ option(RUN_X11_TESTS "Run tests that require X11" OFF)
 set(drake_DIR "/opt/drake/lib/cmake/drake")
 find_package(drake CONFIG REQUIRED)
 find_package(PythonInterp 2.7 EXACT MODULE REQUIRED)
+
 set(PYTHONPATH "${drake_PYTHON_DIRS}:$ENV{PYTHONPATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${MUJOCO_PY_MJPRO_PATH}/cmake/modules")
 
-SET(CONTROL_HEADER_LIST ../controller/controller.h)
-SET(CONTROL_SOURCE_LIST ../controller/controller.cpp)
-add_library(control_lib ${CONTROL_SOURCE_LIST} ${CONTROL_HEADER_LIST})
-
 #####add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
 #file(GLOB APP_SOURCES *.cxx)
-file(GLOB APP_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp)
-foreach(testsourcefile ${APP_SOURCES})
+#file(GLOB APP_SOURCES RELATIVE . *.cpp)
 
-    string(REPLACE ".cpp" "" BIN_NAME ${testsourcefile})
-    add_executable(${BIN_NAME} ${testsourcefile} LQR-Acrobot.h)
-    target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#foreach(testsourcefile ${APP_SOURCES})
+#    string(REPLACE ".cpp" "" BIN_NAME ${testsourcefile})
+#    add_executable(${BIN_NAME} ${testsourcefile} LQR-Acrobot.h)
+#    target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#
+#    # Standard libraries for GL
+#    target_link_libraries(${BIN_NAME} GL GLU glut )
+#
+#    # Additional libraries from mujoco package
+#    target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+#
+#    # Drake stuff
+#    target_link_libraries(${BIN_NAME} drake::drake)
+#    target_link_libraries(${BIN_NAME} control_lib)
+#    target_link_libraries(${BIN_NAME} autodiff::autodiff)
+#endforeach(testsourcefile ${APP_SOURCES} )
 
-    # Standard libraries for GL
-    target_link_libraries(${BIN_NAME} GL GLU glut )
 
-    # Additional libraries from mujoco package
-    target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+set(BIN_NAME LQR-Acrobot)
+add_executable(${BIN_NAME} ${BIN_NAME}.cpp ${BIN_NAME}.h)
+target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#Standard libraries for GL
+target_link_libraries(${BIN_NAME} GL GLU glut)
+# Additional libraries from mujoco package
+target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
 
-    # Drake stuff
-    target_link_libraries(${BIN_NAME} drake::drake)
-    target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} drake::drake)
+target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} autodiff::autodiff)
 
-endforeach( testsourcefile ${APP_SOURCES} )

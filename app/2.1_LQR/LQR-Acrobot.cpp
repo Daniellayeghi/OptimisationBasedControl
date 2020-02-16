@@ -14,7 +14,7 @@
 #include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
-#include "../controller/controller.h"
+#include "../../src/controller/controller.h"
 
 // Eigen, used by drake
 #include <Eigen/Core>
@@ -146,7 +146,7 @@ int main(int argc, const char** argv)
     GLFWwindow* window = glfwCreateWindow(1200, 900, "Demo", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
-    
+
     // initialize visualization data structures
     mjv_defaultCamera(&cam);
     mjv_defaultOption(&opt);
@@ -164,9 +164,6 @@ int main(int argc, const char** argv)
     MyController control(m, d);
     MyController::set_instance(&control);
 
-    lqr_result = getLQRControl();
-    lqr_result.K.setZero();
-
     // install control callback
     mjcb_control = MyController::callback_wrapper;
 
@@ -176,7 +173,6 @@ int main(int argc, const char** argv)
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
-
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
