@@ -9,9 +9,9 @@
 
 
 #include "mujoco.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 
 // enable compilation with and without OpenMP support
@@ -20,7 +20,9 @@
 #else
     // omp timer replacement
     #include <chrono>
-    double omp_get_wtime(void)
+#include <iostream>
+
+double omp_get_wtime(void)
     {
         static std::chrono::system_clock::time_point _start = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed = std::chrono::system_clock::now() - _start;
@@ -51,9 +53,11 @@ int nstep = 500;            // number of simulation steps per epoch
 double eps = 1e-6;          // finite-difference epsilon
 
 
-// worker function for parallel finite-difference computation of derivatives
-void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
+
+static void perturb (){}
+void f_u(const mjModel* m, const mjData* dmain, mjData* d, int id)
 {
+
     int nv = m->nv;
 
     // allocate stack space for result at center
@@ -119,8 +123,172 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 2
         for( int j=0; j<nv; j++ )
-        deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+            deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+    }
+
+    std::cout << "Printing Jacobian Matrix" << "\n";
+    mju_printMat(deriv, nv, nv);
 }
+
+
+void f_uu(const mjModel* m, const mjData* dmain, mjData* d, int id)
+{
+
+    int nv = m->nv;
+
+    // allocate stack space for result at center
+    mjMARKSTACK
+    mjtNum* center = mj_stackAlloc(d, nv);
+    mjtNum* warmstart = mj_stackAlloc(d, nv);
+
+    // prepare static schedule: range of derivative columns to be computed by this thread
+    int chunk = (m->nv + nthread-1) / nthread;
+    int istart = id * chunk;
+    int iend = mjMIN(istart + chunk, m->nv);
+
+    // copy state and control from dmain to thread-specific d
+    d->time = dmain->time;
+    mju_copy(d->qpos, dmain->qpos, m->nq);
+    mju_copy(d->qvel, dmain->qvel, m->nv);
+    mju_copy(d->qacc, dmain->qacc, m->nv);
+    mju_copy(d->qacc_warmstart, dmain->qacc_warmstart, m->nv);
+    mju_copy(d->qfrc_applied, dmain->qfrc_applied, m->nv);
+    mju_copy(d->xfrc_applied, dmain->xfrc_applied, 6*m->nbody);
+    mju_copy(d->ctrl, dmain->ctrl, m->nu);
+
+    // run full computation at center point (usually faster than copying dmain)
+    if( isforward )
+    {
+        mj_forward(m, d);
+
+        // extra solver iterations to improve warmstart (qacc) at center point
+        for( int rep=1; rep<nwarmup; rep++ )
+            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+    }
+    else
+        mj_inverse(m, d);
+
+    // select output from forward or inverse dynamics
+    mjtNum* output = (isforward ? d->qacc : d->qfrc_inverse);
+
+    // save output for center point and warmstart (needed in forward only)
+    mju_copy(center, output, nv);
+    mju_copy(warmstart, d->qacc_warmstart, nv);
+
+    // select target vector and original vector for force or acceleration derivative
+    mjtNum* target_1 = (isforward ? d->qfrc_applied : d->qacc);
+    const mjtNum* original = (isforward ? dmain->qfrc_applied : dmain->qacc);
+
+    mjtNum* perturb_1 = nullptr;
+
+    // finite-difference over force or acceleration: skip = mjSTAGE_VEL
+    for( int i=istart; i<iend; i++ )
+    {
+        // perturb selected target
+        target_1[i] += eps;
+
+        // evaluate dynamics, with center warmstart
+        if( isforward )
+        {
+            mju_copy(d->qacc_warmstart, warmstart, m->nv);
+            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+        }
+        else
+            mj_inverseSkip(m, d, mjSTAGE_VEL, 1);
+
+        mju_copy(perturb_1, output, nv);
+        target_1[i] += eps;
+
+        // evaluate dynamics, with center warmstart
+        if( isforward )
+        {
+            mju_copy(d->qacc_warmstart, warmstart, m->nv);
+            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+        }
+        else
+            mj_inverseSkip(m, d, mjSTAGE_VEL, 1);
+
+        // undo perturbation
+        target_1[i] = original[i];
+
+        // compute column i of derivative 2
+        for( int j=0; j<nv; j++ )
+            deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - 2*perturb_1[j] + center[j])/(eps*eps);
+    }
+    std::cout << "Printing Hessian Matrix" << "\n";
+    mju_printMat(deriv, nv, nv);
+}
+
+
+// worker function for parallel finite-difference computation of derivatives
+void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
+{
+    int nv = m->nv;
+    // allocate stack space for result at center
+    mjMARKSTACK
+    mjtNum* center = mj_stackAlloc(d, nv);
+    mjtNum* warmstart = mj_stackAlloc(d, nv);
+
+    // prepare static schedule: range of derivative columns to be computed by this thread
+    int chunk = (m->nv + nthread-1) / nthread;
+    int istart = id * chunk;
+    int iend = mjMIN(istart + chunk, m->nv);
+
+    // copy state and control from dmain to thread-specific d
+    d->time = dmain->time;
+    mju_copy(d->qpos, dmain->qpos, m->nq);
+    mju_copy(d->qvel, dmain->qvel, m->nv);
+    mju_copy(d->qacc, dmain->qacc, m->nv);
+    mju_copy(d->qacc_warmstart, dmain->qacc_warmstart, m->nv);
+    mju_copy(d->qfrc_applied, dmain->qfrc_applied, m->nv);
+    mju_copy(d->xfrc_applied, dmain->xfrc_applied, 6*m->nbody);
+    mju_copy(d->ctrl, dmain->ctrl, m->nu);
+
+    // run full computation at center point (usually faster than copying dmain)
+    if( isforward )
+    {
+        mj_forward(m, d);
+
+        // extra solver iterations to improve warmstart (qacc) at center point
+        for( int rep=1; rep<nwarmup; rep++ )
+            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+    }
+    else
+        mj_inverse(m, d);
+
+    // select output from forward or inverse dynamics
+    mjtNum* output = (isforward ? d->qacc : d->qfrc_inverse);
+
+    // save output for center point and warmstart (needed in forward only)
+    mju_copy(center, output, nv);
+    mju_copy(warmstart, d->qacc_warmstart, nv);
+
+    // select target vector and original vector for force or acceleration derivative
+    mjtNum* target = (isforward ? d->qfrc_applied : d->qacc);
+    const mjtNum* original = (isforward ? dmain->qfrc_applied : dmain->qacc);
+
+    // finite-difference over force or acceleration: skip = mjSTAGE_VEL
+    for( int i=istart; i<iend; i++ )
+    {
+        // perturb selected target
+        target[i] += eps;
+
+        // evaluate dynamics, with center warmstart
+        if( isforward )
+        {
+            mju_copy(d->qacc_warmstart, warmstart, m->nv);
+            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+        }
+        else
+            mj_inverseSkip(m, d, mjSTAGE_VEL, 1);
+
+        // undo perturbation
+        target[i] = original[i];
+
+        // compute column i of derivative 2
+        for( int j=0; j<nv; j++ )
+        deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+    }
 
     // finite-difference over velocity: skip = mjSTAGE_POS
     for( int i=istart; i<iend; i++ )
@@ -326,7 +494,7 @@ int main(int argc, char** argv)
     }
 
     // activate and load model
-    mj_activate("mjkey.txt");
+    mj_activate(MUJ_KEY_PATH);
     mjModel* m = 0;
     if( strlen(argv[1])>4 && !strcmp(argv[1]+strlen(argv[1])-4, ".mjb") )
         m = mj_loadModel(argv[1], NULL);
@@ -389,6 +557,9 @@ int main(int argc, char** argv)
         // set solver options for finite differences
         m->opt.iterations = niter;
         m->opt.tolerance = 0;
+
+        f_u(m, dmain, d[0], 0);
+        f_uu(m, dmain, d[0], 0);
 
         // test forward and inverse
         for( isforward=0; isforward<2; isforward++ )

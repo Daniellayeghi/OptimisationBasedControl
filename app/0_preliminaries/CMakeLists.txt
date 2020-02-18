@@ -1,4 +1,3 @@
-set(BIN_NAME pd)
 
 find_package(glfw3 REQUIRED)
 #include_directories(${GLFW_INCLUDE_DIRS})
@@ -8,11 +7,11 @@ find_package(GLEW REQUIRED)
 include_directories(${GLEW_INCLUDE_DIRS})
 
 
-add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
-target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+add_executable(pd pd.cpp)
+target_link_libraries(pd ${LIB_MUJOCO})
 
 #Standard libraries for GL
-target_link_libraries(${BIN_NAME} GL GLU glut )
+target_link_libraries(pd GL GLU glut )
 
 #Additional libraries from mujoco package
-target_link_libraries(${BIN_NAME} ${GLEW_LIBRARIES} libglfw.so)
+target_link_libraries(pd ${GLEW_LIBRARIES} libglfw.so)
