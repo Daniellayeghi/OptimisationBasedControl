@@ -40,8 +40,10 @@ double omp_get_wtime(void)
 const int MAXTHREAD = 64;   // maximum number of threads allowed
 const int MAXEPOCH = 100;   // maximum number of epochs
 int isforward = 0;          // dynamics mode: forward or inverse
-mjtNum* deriv = 0;          // dynamics derivatives (6*nv*nv):
+mjtNum* f_du = 0;          // dynamics derivatives (6*nv*nv):
                             //  dinv/dpos, dinv/dvel, dinv/dacc, dacc/dpos, dacc/dvel, dacc/dfrc
+mjtNum* f_duu = 0;          // dynamics derivatives (6*nv*nv):
+
 
 
 // global variables: user-defined, with defaults
@@ -123,11 +125,11 @@ void f_u(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 2
         for( int j=0; j<nv; j++ )
-            deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+            f_du[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
     }
 
     std::cout << "Printing Jacobian Matrix" << "\n";
-    mju_printMat(deriv, nv, nv);
+    mju_printMat(f_du, nv, nv);
 }
 
 
@@ -139,6 +141,7 @@ void f_uu(const mjModel* m, const mjData* dmain, mjData* d, int id)
     // allocate stack space for result at center
     mjMARKSTACK
     mjtNum* center = mj_stackAlloc(d, nv);
+    mjtNum* perturb_1 = mj_stackAlloc(d, nv);
     mjtNum* warmstart = mj_stackAlloc(d, nv);
 
     // prepare static schedule: range of derivative columns to be computed by this thread
@@ -179,8 +182,6 @@ void f_uu(const mjModel* m, const mjData* dmain, mjData* d, int id)
     mjtNum* target_1 = (isforward ? d->qfrc_applied : d->qacc);
     const mjtNum* original = (isforward ? dmain->qfrc_applied : dmain->qacc);
 
-    mjtNum* perturb_1 = nullptr;
-
     // finite-difference over force or acceleration: skip = mjSTAGE_VEL
     for( int i=istart; i<iend; i++ )
     {
@@ -213,10 +214,10 @@ void f_uu(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 2
         for( int j=0; j<nv; j++ )
-            deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - 2*perturb_1[j] + center[j])/(eps*eps);
+            f_duu[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - 2*perturb_1[j] + center[j])/(eps*eps);
     }
     std::cout << "Printing Hessian Matrix" << "\n";
-    mju_printMat(deriv, nv, nv);
+    mju_printMat(f_duu, nv, nv);
 }
 
 
@@ -287,7 +288,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 2
         for( int j=0; j<nv; j++ )
-        deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+        f_du[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
     }
 
     // finite-difference over velocity: skip = mjSTAGE_POS
@@ -310,7 +311,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 1
         for( int j=0; j<nv; j++ )
-            deriv[(3*isforward+1)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+            f_du[(3*isforward+1)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
     }
 
     // finite-difference over position: skip = mjSTAGE_NONE
@@ -356,7 +357,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
 
         // compute column i of derivative 0
         for( int j=0; j<nv; j++ )
-            deriv[(3*isforward+0)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
+            f_du[(3*isforward+0)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
     }
 
     mjFREESTACK
@@ -400,12 +401,12 @@ void checkderiv(const mjModel* m, mjData* d, mjtNum error[7])
     mjtNum* mat = mj_stackAlloc(d, nv*nv);
 
     // get pointers to derivative matrices
-    mjtNum* G0 = deriv;                 // dinv/dpos
-    mjtNum* G1 = deriv + nv*nv;         // dinv/dvel
-    mjtNum* G2 = deriv + 2*nv*nv;       // dinv/dacc
-    mjtNum* F0 = deriv + 3*nv*nv;       // dacc/dpos
-    mjtNum* F1 = deriv + 4*nv*nv;       // dacc/dvel
-    mjtNum* F2 = deriv + 5*nv*nv;       // dacc/dfrc
+    mjtNum* G0 = f_du;                 // dinv/dpos
+    mjtNum* G1 = f_du + nv*nv;         // dinv/dvel
+    mjtNum* G2 = f_du + 2*nv*nv;       // dinv/dacc
+    mjtNum* F0 = f_du + 3*nv*nv;       // dacc/dpos
+    mjtNum* F1 = f_du + 4*nv*nv;       // dacc/dvel
+    mjtNum* F2 = f_du + 5*nv*nv;       // dacc/dfrc
 
     // G2*F2 - I
     mju_mulMatMat(mat, G2, F2, nv, nv, nv);
@@ -525,7 +526,8 @@ int main(int argc, char** argv)
         d[n] = mj_makeData(m);
 
     // allocate derivatives
-    deriv = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*m->nv*m->nv);
+    f_du = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*m->nv*m->nv);
+    f_duu = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*m->nv*m->nv);
 
     // set up OpenMP (if not enabled, this does nothing)
     omp_set_dynamic(0);
@@ -558,7 +560,7 @@ int main(int argc, char** argv)
         m->opt.iterations = niter;
         m->opt.tolerance = 0;
 
-        f_u(m, dmain, d[0], 0);
+//        f_u(m, dmain, d[0], 0);
         f_uu(m, dmain, d[0], 0);
 
         // test forward and inverse
@@ -569,8 +571,8 @@ int main(int argc, char** argv)
 
             // run worker threads in parallel if OpenMP is enabled
             #pragma omp parallel for schedule(static)
-            for( int n=0; n<nthread; n++ )
-                worker(m, dmain, d[n], n);
+//            for( int n=0; n<nthread; n++ )
+//                worker(m, dmain, d[n], n);
 
             // record duration in ms
             cputm[epoch][isforward] = 1000*(omp_get_wtime() - starttm);
@@ -602,7 +604,8 @@ int main(int argc, char** argv)
     printf("\n");
 
     // shut down
-    mju_free(deriv);
+    mju_free(f_du);
+    mju_free(f_duu);
     mj_deleteData(dmain);
     for( int n=0; n<nthread; n++ )
         mj_deleteData(d[n]);

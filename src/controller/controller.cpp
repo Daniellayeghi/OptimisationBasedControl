@@ -6,15 +6,86 @@
 static MyController *my_ctrl;
 
 #include <iostream>
-#include "autodiff/forward.hpp"
+
 
 using namespace std;
-using namespace autodiff;
 
-// The multi-variable function for which derivatives are needed
-dual f(dual x, dual y, dual z)
+static int isforward = 1;
+static float eps = 0.000001;
+static int nwarmup = 3;
+
+static void f_uu(const mjModel* m, const mjData* dmain, mjData* d, mjtNum* f_duu, int id = 0)
 {
-    return 1 + x + y + z + x*y + y*z + x*z + x*y*z + exp(x/y + y/z);
+    int nv = m->nv;
+
+    // allocate stack space for result at center
+    mjMARKSTACK
+    mjtNum* center = mj_stackAlloc(d, nv);
+    mjtNum* perturb_1 = mj_stackAlloc(d, nv);
+    mjtNum* warmstart = mj_stackAlloc(d, nv);
+
+    // prepare static schedule: range of derivative columns to be computed by this thread
+    int chunk = (m->nv);
+    int istart = id * chunk;
+    int iend = mjMIN(istart + chunk, m->nv);
+
+    // copy state and control from dmain to thread-specific d
+    d->time = dmain->time;
+    mju_copy(d->qpos, dmain->qpos, m->nq);
+    mju_copy(d->qvel, dmain->qvel, m->nv);
+    mju_copy(d->qacc, dmain->qacc, m->nv);
+    mju_copy(d->qacc_warmstart, dmain->qacc_warmstart, m->nv);
+    mju_copy(d->qfrc_applied, dmain->qfrc_applied, m->nv);
+    mju_copy(d->xfrc_applied, dmain->xfrc_applied, 6*m->nbody);
+    mju_copy(d->ctrl, dmain->ctrl, m->nu);
+
+    // run full computation at center point (usually faster than copying dmain)
+
+    mj_forward(m, d);
+
+    // extra solver iterations to improve warmstart (qacc) at center point
+    for( int rep=1; rep<nwarmup; rep++ )
+        mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+
+
+    // select output from forward or inverse dynamics
+    mjtNum* output = (isforward ? d->qacc : d->qfrc_inverse);
+
+    // save output for center point and warmstart (needed in forward only)
+    mju_copy(center, output, nv);
+    mju_copy(warmstart, d->qacc_warmstart, nv);
+
+    // select target vector and original vector for force or acceleration derivative
+    mjtNum* target_1 = (isforward ? d->qfrc_applied : d->qacc);
+    const mjtNum* original = (isforward ? dmain->qfrc_applied : dmain->qacc);
+
+    // finite-difference over force or acceleration: skip = mjSTAGE_VEL
+    for( int i=istart; i<iend; i++ )
+    {
+        // perturb selected target
+        target_1[i] += eps;
+
+        // evaluate dynamics, with center warmstart
+        mju_copy(d->qacc_warmstart, warmstart, m->nv);
+        mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+
+
+        mju_copy(perturb_1, output, nv);
+        target_1[i] += eps;
+
+        // evaluate dynamics, with center warmstart
+        mju_copy(d->qacc_warmstart, warmstart, m->nv);
+        mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+
+        // undo perturbation
+        target_1[i] = original[i];
+
+        // compute column i of derivative 2
+        for( int j=0; j<nv; j++ )
+            f_duu[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - 2*perturb_1[j] + center[j])/(eps*eps);
+    }
+    std::cout << "Printing Hessian Matrix" << "\n";
+    mju_printMat(f_duu, nv, nv);
 }
 
 
@@ -22,35 +93,30 @@ MyController::MyController(const mjModel *m, mjData *d) : _m(m), _d(d)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);
+    f_duu = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*m->nv*m->nv);
+    dmain = mj_makeData(m);
     for (std::size_t row = 0; row < 3; ++row)
     {
         _constant_acc[row] = 0.4;
     }
 }
 
+MyController::~MyController()
+{
+    mju_free(f_duu);
+    mj_deleteData(dmain);
+}
+
 
 void MyController::controller()
 {
-    dual x = 1.0;
-    dual y = 2.0;
-    dual z = 3.0;
-
-    dual u = f(x, y, z);
-
-    double dudx = derivative(f, wrt(x), at(x, y, z));
-    double dudy = derivative(f, wrt(y), at(x, y, z));
-    double dudz = derivative(f, wrt(z), at(x, y, z));
-
-    cout << "u = " << u << endl;
-    cout << "du/dx = " << dudx << endl;
-    cout << "du/dy = " << dudy << endl;
-    cout << "du/dz = " << dudz << endl;
-
+    std::cout << "here" << std::endl;
     mj_mulM(_m, _d, _inertial_torque, _constant_acc);
+    f_uu(_m, _d, dmain, f_duu);
 
-    _d->qfrc_applied[0] = _d->qfrc_bias[0] + _inertial_torque[0];
-    _d->qfrc_applied[1] = _d->qfrc_bias[1] + _inertial_torque[0];
-    _d->qfrc_applied[2] = _d->qfrc_bias[2] + _inertial_torque[0];
+//    _d->qfrc_applied[0] = _d->qfrc_bias[0] + _inertial_torque[0];
+//    _d->qfrc_applied[1] = _d->qfrc_bias[1] + _inertial_torque[0];
+//    _d->qfrc_applied[2] = _d->qfrc_bias[2] + _inertial_torque[0];
 }
 
 
