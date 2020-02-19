@@ -30,7 +30,9 @@
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
+mjModel* m_cp = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
+mjData* d_cp = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
@@ -115,7 +117,6 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // main function
 int main(int argc, const char** argv)
 {
-
     // activate software
     mj_activate(MUJ_KEY_PATH);
 
@@ -123,20 +124,25 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
     // check command-line arguments
-    if( argc<2 )
+    if( argc<2 ) {
         m = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
-
-    else
-    if( strlen(argv[1])>4 && !strcmp(argv[1]+strlen(argv[1])-4, ".mjb") )
-        m = mj_loadModel(argv[1], 0);
-    else
-        m = mj_loadXML(argv[1], 0, error, 1000);
-    if( !m )
+        m_cp = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
+    }else {
+        if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
+            m = mj_loadModel(argv[1], 0);
+            m_cp = mj_loadModel(argv[1], 0);
+        }
+        else {
+            m = mj_loadXML(argv[1], 0, error, 1000);
+            m_cp = mj_loadXML(argv[1], 0, error, 1000);
+        }
+    }
+    if( !m or !m_cp) {
         mju_error_s("Load model error: %s", error);
-
+    }
     // make data
     d = mj_makeData(m);
-
+    d_cp = mj_makeData(m_cp);
 
     // init GLFW
     if( !glfwInit() )
@@ -161,11 +167,15 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    MyController control(m, d);
+    MyController control(m, m_cp , d, d_cp);
     MyController::set_instance(&control);
 
+    MyController control_2(m_cp, m, d_cp, d);
+    MyController::set_instance(&control_2);
+    
     // install control callback
-    mjcb_control = MyController::callback_wrapper;
+    mjcb_control = control.callback_wrapper;
+    mjcb_control = control_2.callback_wrapper;
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
@@ -173,6 +183,12 @@ int main(int argc, const char** argv)
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
+
+    d_cp ->qpos[0] = -0 + 0.45;
+    d_cp ->qpos[1] = 0.0;
+    d_cp ->qvel[0] = 0.0;
+    d_cp ->qvel[1] = 0.0;
+
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
@@ -182,9 +198,10 @@ int main(int argc, const char** argv)
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
         mjtNum simstart = d->time;
-        while( d->time - simstart < 1.0/60.0 )
+        while( d->time - simstart < 1.0/60.0 ) {
             mj_step(m, d);
-
+            mj_step(m_cp, d_cp);
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
         // get framebuffer viewport
@@ -208,6 +225,7 @@ int main(int argc, const char** argv)
 
     // free MuJoCo model and data, deactivate
     mj_deleteData(d);
+    mj_deleteData(d_cp);
     mj_deleteModel(m);
     mj_deactivate();
 

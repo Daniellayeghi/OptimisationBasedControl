@@ -7,7 +7,7 @@
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d);
+    MyController(const mjModel *m, const mjModel *m_cp, mjData *d, mjData *d_cp);
 
     ~MyController();
 
@@ -19,12 +19,13 @@ public:
 
 private:
     const mjModel* _m;
+    const mjModel* _m_cp;
     mjData* _d;
+    mjData* _d_cp;
     mjtNum* _inertial_torque;
     mjtNum* _constant_acc;
     mjtNum* f_duu = nullptr;
-    mjData* dmain = nullptr;
-
+    mjtNum* f_du  = nullptr;
 };
 
 #endif //DRAKE_CMAKE_INSTALLED_CONTROLLER_H

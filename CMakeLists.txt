@@ -34,9 +34,9 @@ project(OptControl_MUJOCO)
 set(USE_GL 1)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "-g")
 
 find_package(autodiff REQUIRED)
-
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
