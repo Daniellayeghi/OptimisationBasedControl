@@ -54,5 +54,6 @@ target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosm
 
 target_link_libraries(${BIN_NAME} drake::drake)
 target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} util_lib)
 target_link_libraries(${BIN_NAME} autodiff::autodiff)
 

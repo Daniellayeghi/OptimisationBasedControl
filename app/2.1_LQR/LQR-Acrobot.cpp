@@ -15,6 +15,8 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
+#include "../../src/utilities/finite_diff.h"
+
 
 // Eigen, used by drake
 #include <Eigen/Core>
@@ -32,7 +34,6 @@
 mjModel* m = NULL;                  // MuJoCo model
 mjModel* m_cp = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
-mjData* d_cp = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
@@ -140,10 +141,10 @@ int main(int argc, const char** argv)
     if( !m or !m_cp) {
         mju_error_s("Load model error: %s", error);
     }
+
+    std::cout << m << "      " << m_cp << std::endl;
     // make data
     d = mj_makeData(m);
-    d_cp = mj_makeData(m_cp);
-
     // init GLFW
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
@@ -167,15 +168,12 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    MyController control(m, m_cp , d, d_cp);
+    FiniteDifference fd(m_cp);
+    MyController control(m, d, fd);
     MyController::set_instance(&control);
-
-    MyController control_2(m_cp, m, d_cp, d);
-    MyController::set_instance(&control_2);
     
     // install control callback
-    mjcb_control = control.callback_wrapper;
-    mjcb_control = control_2.callback_wrapper;
+    mjcb_control = MyController::callback_wrapper;
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
@@ -183,12 +181,6 @@ int main(int argc, const char** argv)
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
-
-    d_cp ->qpos[0] = -0 + 0.45;
-    d_cp ->qpos[1] = 0.0;
-    d_cp ->qvel[0] = 0.0;
-    d_cp ->qvel[1] = 0.0;
-
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
@@ -200,7 +192,7 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 ) {
             mj_step(m, d);
-            mj_step(m_cp, d_cp);
+            fd.f_u(d);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
@@ -225,7 +217,6 @@ int main(int argc, const char** argv)
 
     // free MuJoCo model and data, deactivate
     mj_deleteData(d);
-    mj_deleteData(d_cp);
     mj_deleteModel(m);
     mj_deactivate();
 

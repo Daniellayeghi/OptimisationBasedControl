@@ -22,7 +22,7 @@
     #include <chrono>
 #include <iostream>
 
-double omp_get_wtime(void)
+double omp_get_wtime()
     {
         static std::chrono::system_clock::time_point _start = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed = std::chrono::system_clock::now() - _start;
@@ -53,8 +53,6 @@ int nwarmup = 3;            // center point repetitions to improve warmstart
 int nepoch = 20;            // number of timing epochs
 int nstep = 500;            // number of simulation steps per epoch
 double eps = 1e-6;          // finite-difference epsilon
-
-
 
 static void perturb (){}
 void f_u(const mjModel* m, const mjData* dmain, mjData* d, int id)
@@ -560,7 +558,7 @@ int main(int argc, char** argv)
         m->opt.iterations = niter;
         m->opt.tolerance = 0;
 
-//        f_u(m, dmain, d[0], 0);
+        f_u(m, dmain, d[0], 0);
         f_uu(m, dmain, d[0], 0);
 
         // test forward and inverse
