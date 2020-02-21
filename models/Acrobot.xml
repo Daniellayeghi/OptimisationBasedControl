@@ -7,10 +7,10 @@
 	<default>
 		<geom solimp="0 0.9 0.01" solref=".02 1"/>
 		<joint type="hinge" axis="0 -1 0"/>
-		<motor ctrllimited="true" ctrlrange="-1 1"/>
+		<motor ctrllimited="false"/>
 		<default class="finger">
 			<joint damping=".01" limited="false"/>
-			<motor ctrllimited="true" ctrlrange="-1 1"/>
+			<motor ctrllimited="false"/>
 			<site type="ellipsoid" size=".025 .03 .025" group="3"/>
 		</default>
 	</default>
@@ -46,8 +46,9 @@
 	</worldbody>
 
 	<actuator>
-		<motor name="proximal" joint="proximal" gear="30"/>
-		<motor name="distal" joint="distal" gear="15"/>
+		<motor name="proximal" joint="proximal" gear="1"/>
+		<motor name="distal" joint="distal" gear="1"/>
+		<motor name="hinge" joint="distal" gear="1"/>
 	</actuator>
 
 	<!-- All finger observations are functions of sensors. This is useful for finite-differencing. -->

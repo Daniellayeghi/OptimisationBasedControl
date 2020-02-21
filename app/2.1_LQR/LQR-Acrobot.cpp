@@ -192,7 +192,6 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 ) {
             mj_step(m, d);
-            fd.f_u(d);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
