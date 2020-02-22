@@ -12,11 +12,12 @@ public:
 
     void controller();
 
-    void dummy_controller();
-
     static void set_instance(MyController *my_ctrl);
 
     static void callback_wrapper(const mjModel* m, mjData* d);
+
+    static void dummy_controller(const mjModel* m, mjData* d);
+
 
 private:
     FiniteDifference& _fd;

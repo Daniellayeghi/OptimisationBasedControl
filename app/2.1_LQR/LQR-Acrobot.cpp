@@ -191,7 +191,10 @@ int main(int argc, const char** argv)
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 ) {
+            mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
+            mjcb_control = MyController::dummy_controller;
+            fd.f_u(d);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 

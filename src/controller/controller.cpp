@@ -21,16 +21,8 @@ MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd) : 
 void MyController::controller()
 {
     mj_mulM(_m, _d, _inertial_torque, _constant_acc);
-    std::cout << "Controller addr " << _m << std::endl;
     _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[0];
-//    _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[0];
-}
-
-
-void MyController::dummy_controller()
-{
-    _fd.f_u(_d);
 }
 
 
@@ -43,4 +35,9 @@ void MyController::set_instance(MyController *myctrl)
 void MyController::callback_wrapper(const mjModel *m, mjData *d)
 {
     my_ctrl->controller();
+}
+
+void MyController::dummy_controller(const mjModel *m, mjData *d)
+{
+
 }
