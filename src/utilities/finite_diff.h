@@ -19,7 +19,7 @@ private:
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;
     mjtNum* _f_du     = nullptr;
-    const double eps  = 0.001;
+    const double eps  = 1e-6;
 };
 
 
