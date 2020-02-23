@@ -16,13 +16,15 @@ public:
     explicit FiniteDifference(const mjModel* m);
     ~FiniteDifference();
 
-    void f_u(mjData *d, mjtNum *wrt);
-    mjtNum * get_wrt(const WithRespectTo wrt);
+    void differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id);
+    mjtNum* get_wrt(const WithRespectTo wrt);
 
 private:
     void copy_state(const mjData* d);
-    void first_order_forward_diff(mjtNum* target, const mjtNum* original, const mjtNum* output,
-                                  const mjtNum* center, Eigen::Matrix<mjtNum, 3, 3>& result);
+    void first_order_forward_diff_general(mjtNum* target, const mjtNum* original, const mjtNum* output,
+                                          const mjtNum* center, Eigen::Matrix<mjtNum, 3, 3>& result);
+    void first_order_forward_diff_positional(mjtNum* target, const mjtNum* original, const mjtNum* output,
+                                             const mjtNum* center, Eigen::Matrix<mjtNum, 3, 3>& result);
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;

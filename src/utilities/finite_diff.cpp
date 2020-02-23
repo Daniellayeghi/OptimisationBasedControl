@@ -1,7 +1,22 @@
 #include <iostream>
 #include "finite_diff.h"
 
-using Mat33 = Eigen::Matrix<mjtNum, 3, 3>;
+
+namespace
+{
+    using Mat33 = Eigen::Matrix<mjtNum, 3, 3>;
+
+    mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
+    {
+        switch (wrt)
+        {
+            case FiniteDifference::WithRespectTo::CTRL: return d->ctrl;
+            case FiniteDifference::WithRespectTo::ACC:  return d->qacc;
+            case FiniteDifference::WithRespectTo::VEL:  return d->qvel;
+            case FiniteDifference::WithRespectTo::POS:  return d->qpos;
+        }
+    }
+}
 
 FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
@@ -21,7 +36,7 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-void FiniteDifference::f_u(mjData *d, mjtNum *wrt)
+void FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id)
 {
     Mat33 result;
     mjMARKSTACK
@@ -44,15 +59,18 @@ void FiniteDifference::f_u(mjData *d, mjtNum *wrt)
 
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
-    const mjtNum* original = d->ctrl;
+    const mjtNum* original = select_original_ptr(id, d);
 
-    first_order_forward_diff(target, original, output, center,result);
+    if (id == WithRespectTo::POS)
+        first_order_forward_diff_positional(target, original, output, center,result);
+    else
+        first_order_forward_diff_general(target, original, output, center, result);
     mjFREESTACK
 }
 
 
-void FiniteDifference::first_order_forward_diff(mjtNum *target, const mjtNum *original,
-                                                const mjtNum* output, const mjtNum* center, Mat33& result)
+void FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original,
+                                                        const mjtNum* output, const mjtNum* center, Mat33& result)
 {
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
@@ -76,6 +94,57 @@ void FiniteDifference::first_order_forward_diff(mjtNum *target, const mjtNum *or
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
             result(i, j) = (output[j] - center[j])/eps;
         }
+    }
+    std::cout << "Printing Jacobian Matrix" << "\n";
+    std::cout << result << "\n";
+}
+
+
+void FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original,
+                                                           const mjtNum* output, const mjtNum* center, Mat33& result)
+{
+    mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
+
+    for(int i = 0; i < _m->nv; i++)
+    {
+        // get joint id for this dof
+        int jid = _m->dof_jntid[i];
+
+        // get quaternion address and dof position within quaternion (-1: not in quaternion)
+        int quatadr = -1, dofpos = 0;
+        if(_m->jnt_type[jid] == mjJNT_BALL )
+        {
+            quatadr = _m->jnt_qposadr[jid];
+            dofpos = i - _m->jnt_dofadr[jid];
+        }
+        else if(_m->jnt_type[jid] == mjJNT_FREE && i >= _m->jnt_dofadr[jid]+3)
+        {
+            quatadr = _m->jnt_qposadr[jid] + 3;
+            dofpos = i - _m->jnt_dofadr[jid] - 3;
+        }
+
+        // apply quaternion or simple perturbation
+        if( quatadr>=0 )
+        {
+            mjtNum angvel[3] = {0,0,0};
+            angvel[dofpos] = eps;
+            mju_quatIntegrate(target+quatadr, angvel, 1);
+        }
+        else
+            target[_m->jnt_qposadr[jid] + i - _m->jnt_dofadr[jid]] += eps;
+
+        // evaluate dynamics, with center warmstart
+        mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
+        mj_forwardSkip(_m, _d_cp, mjSTAGE_NONE, 1);
+
+
+        // undo perturbation
+        mju_copy(target, original, _m->nq);
+
+        // compute column i of derivative 0
+        for(int j = 0; j < _m->nv; j++)
+            result(i, j) = (output[j] - center[j])/eps;
     }
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
