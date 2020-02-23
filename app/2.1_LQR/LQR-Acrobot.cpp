@@ -194,7 +194,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            fd.f_u(d);
+            fd.f_u(d, fd.get_wrt(FiniteDifference::WithRespectTo::CTRL));
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 

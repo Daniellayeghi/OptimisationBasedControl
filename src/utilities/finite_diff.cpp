@@ -1,10 +1,16 @@
 #include <iostream>
 #include "finite_diff.h"
 
+using Mat33 = Eigen::Matrix<mjtNum, 3, 3>;
+
 FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
     _d_cp = mj_makeData(m);
     _f_du  = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*_m->nv*_m->nv);
+    _wrt[WithRespectTo::ACC] = _d_cp->qacc;  _skip[WithRespectTo::ACC] = mjtStage::mjSTAGE_VEL;
+    _wrt[WithRespectTo::VEL] = _d_cp->qvel;  _skip[WithRespectTo::VEL] = mjtStage::mjSTAGE_POS;
+    _wrt[WithRespectTo::POS] = _d_cp->qpos;  _skip[WithRespectTo::POS] = mjtStage::mjSTAGE_NONE;
+    _wrt[WithRespectTo::CTRL] = _d_cp->ctrl; _skip[WithRespectTo::CTRL] = mjtStage::mjSTAGE_VEL;
 }
 
 
@@ -15,8 +21,9 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-void FiniteDifference::f_u(const mjData *d)
+void FiniteDifference::f_u(mjData *d, mjtNum *wrt)
 {
+    Mat33 result;
     mjMARKSTACK
     mjtNum* center = mj_stackAlloc(_d_cp, _m->nv);
 
@@ -36,15 +43,16 @@ void FiniteDifference::f_u(const mjData *d)
     mju_copy(center, output, _m->nv);
 
     // select target vector and original vector for force or acceleration derivative
-    mjtNum* target = _d_cp->ctrl;
+    mjtNum* target = wrt;
     const mjtNum* original = d->ctrl;
 
-    first_order_forward_diff(target, original, output, center);
+    first_order_forward_diff(target, original, output, center,result);
+    mjFREESTACK
 }
 
 
 void FiniteDifference::first_order_forward_diff(mjtNum *target, const mjtNum *original,
-                                                const mjtNum* output, const mjtNum* center)
+                                                const mjtNum* output, const mjtNum* center, Mat33& result)
 {
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
@@ -66,11 +74,11 @@ void FiniteDifference::first_order_forward_diff(mjtNum *target, const mjtNum *or
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            _f_du[(3+2)*_m->nv*_m->nv + i + j*_m->nv] = (output[j] - center[j])/eps;
+            result(i, j) = (output[j] - center[j])/eps;
         }
     }
     std::cout << "Printing Jacobian Matrix" << "\n";
-    mju_printMat(_f_du, _m->nv, _m->nv);
+    std::cout << result << "\n";
 }
 
 
@@ -84,4 +92,10 @@ void FiniteDifference::copy_state(const mjData *d)
     mju_copy(_d_cp->qfrc_applied, d->qfrc_applied, _m->nv);
     mju_copy(_d_cp->xfrc_applied, d->xfrc_applied, 6*_m->nbody);
     mju_copy(_d_cp->ctrl, d->ctrl, _m->nu);
+}
+
+
+mjtNum * FiniteDifference::get_wrt(const WithRespectTo wrt)
+{
+    return _wrt[wrt];
 }
