@@ -23,6 +23,8 @@ public:
 
     Eigen::Matrix<mjtNum, 9, 2> f_x(mjData *d);
 
+    Eigen::Matrix<mjtNum, 9, 3> f_x_f_u(mjData *d);
+
     mjtNum* get_wrt(const WithRespectTo wrt);
 
 private:

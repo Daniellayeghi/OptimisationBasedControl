@@ -182,6 +182,7 @@ int main(int argc, const char** argv)
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
 
+    std::cout << m->nv << "\n";
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -194,7 +195,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            auto result = fd.f_x(d);
+            auto result = fd.f_x_f_u(d);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 

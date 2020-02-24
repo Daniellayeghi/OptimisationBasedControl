@@ -54,7 +54,7 @@ int nepoch = 20;            // number of timing epochs
 int nstep = 500;            // number of simulation steps per epoch
 double eps = 1e-6;          // finite-difference epsilon
 
-static void perturb (){}
+
 void f_u(const mjModel* m, const mjData* dmain, mjData* d, int id)
 {
 

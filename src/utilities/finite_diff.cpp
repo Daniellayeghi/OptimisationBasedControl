@@ -7,6 +7,7 @@ namespace
 {
     using Mat9x1 = Eigen::Matrix<mjtNum, 9, 1>;
     using Mat9x2 = Eigen::Matrix<mjtNum, 9, 2>;
+    using Mat9x3 = Eigen::Matrix<mjtNum, 9, 3>;
 
     mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
     {
@@ -53,9 +54,9 @@ FiniteDifference::~FiniteDifference()
 Mat9x1 FiniteDifference::f_u(mjData *d)
 {
     Mat9x1 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    std::cout << "f_vel" << "\n";
-    std::cout << result << "\n";
+    return result;
 }
+
 
 Mat9x2 FiniteDifference::f_x(mjData *d)
 {
@@ -64,7 +65,17 @@ Mat9x2 FiniteDifference::f_x(mjData *d)
     Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
 
     result << f_pos, f_vel;
-    std::cout << "f_x" << "\n";
+    return result;
+}
+
+
+Mat9x3 FiniteDifference::f_x_f_u(mjData *d)
+{
+    Mat9x3 result;
+    Mat9x1 ctrl_deriv  = f_u(d);
+    Mat9x2 state_deriv = f_x(d);
+    result << state_deriv, ctrl_deriv;
+    std::cout << "Full Jacobian" << "\n";
     std::cout << result << "\n";
     return result;
 }

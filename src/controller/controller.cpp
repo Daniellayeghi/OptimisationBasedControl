@@ -22,7 +22,8 @@ void MyController::controller()
 {
     mj_mulM(_m, _d, _inertial_torque, _constant_acc);
     _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
-    _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[0];
+    _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
+    _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
 }
 
 
