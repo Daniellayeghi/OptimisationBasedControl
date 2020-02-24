@@ -1,10 +1,12 @@
 #include <iostream>
+#include <tuple>
 #include "finite_diff.h"
 
 
 namespace
 {
-    using Mat33 = Eigen::Matrix<mjtNum, 3, 3>;
+    using Mat9x1 = Eigen::Matrix<mjtNum, 9, 1>;
+    using Mat9x2 = Eigen::Matrix<mjtNum, 9, 2>;
 
     mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
     {
@@ -16,16 +18,28 @@ namespace
             case FiniteDifference::WithRespectTo::POS:  return d->qpos;
         }
     }
+
+
+    mjtStage skip_stage(const FiniteDifference::WithRespectTo wrt)
+    {
+        switch (wrt)
+        {
+            case FiniteDifference::WithRespectTo::CTRL:
+            case FiniteDifference::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
+            case FiniteDifference::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
+            case FiniteDifference::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
+        }
+    }
 }
 
 FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
     _d_cp = mj_makeData(m);
     _f_du  = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*_m->nv*_m->nv);
-    _wrt[WithRespectTo::ACC] = _d_cp->qacc;  _skip[WithRespectTo::ACC] = mjtStage::mjSTAGE_VEL;
-    _wrt[WithRespectTo::VEL] = _d_cp->qvel;  _skip[WithRespectTo::VEL] = mjtStage::mjSTAGE_POS;
-    _wrt[WithRespectTo::POS] = _d_cp->qpos;  _skip[WithRespectTo::POS] = mjtStage::mjSTAGE_NONE;
-    _wrt[WithRespectTo::CTRL] = _d_cp->ctrl; _skip[WithRespectTo::CTRL] = mjtStage::mjSTAGE_VEL;
+    _wrt[WithRespectTo::ACC] = _d_cp->qacc;
+    _wrt[WithRespectTo::VEL] = _d_cp->qvel;
+    _wrt[WithRespectTo::POS] = _d_cp->qpos;
+    _wrt[WithRespectTo::CTRL] = _d_cp->ctrl;
 }
 
 
@@ -36,9 +50,28 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-void FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id)
+Mat9x1 FiniteDifference::f_u(mjData *d)
 {
-    Mat33 result;
+    Mat9x1 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    std::cout << "f_vel" << "\n";
+    std::cout << result << "\n";
+}
+
+Mat9x2 FiniteDifference::f_x(mjData *d)
+{
+    Mat9x2 result;
+    Mat9x1 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
+    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
+
+    result << f_pos, f_vel;
+    std::cout << "f_x" << "\n";
+    std::cout << result << "\n";
+    return result;
+}
+
+
+Mat9x1 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id)
+{
     mjMARKSTACK
     mjtNum* center = mj_stackAlloc(_d_cp, _m->nv);
 
@@ -47,10 +80,11 @@ void FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo
     std::cout << "FD addr " << _m << std::endl;
 #endif
     mj_forward(_m, _d_cp);
+    auto skip = skip_stage(id);
 
     // extra solver iterations to improve warmstart (qacc) at center point
     for(int rep = 1; rep < 3; ++rep)
-        mj_forwardSkip(_m, _d_cp, mjSTAGE_VEL, 1);
+        mj_forwardSkip(_m, _d_cp, skip, 1);
 
     mjtNum* output = _d_cp->qacc;
 
@@ -62,16 +96,16 @@ void FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo
     const mjtNum* original = select_original_ptr(id, d);
 
     if (id == WithRespectTo::POS)
-        first_order_forward_diff_positional(target, original, output, center,result);
+        return first_order_forward_diff_positional(target, original, output, center, skip_stage(id));
     else
-        first_order_forward_diff_general(target, original, output, center, result);
-    mjFREESTACK
+        return first_order_forward_diff_general(target, original, output, center, skip_stage(id));
 }
 
 
-void FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original,
-                                                        const mjtNum* output, const mjtNum* center, Mat33& result)
+Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original, const mjtNum* output,
+                                                          const mjtNum* center, const mjtStage skip)
 {
+    Mat9x1 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -82,7 +116,7 @@ void FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mj
 
         // evaluate dynamics, with center warmstart
         mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_forwardSkip(_m, _d_cp, mjSTAGE_VEL, 1);
+        mj_forwardSkip(_m, _d_cp, skip, 1);
 
         // undo perturbation
         target[i] = original[i];
@@ -92,17 +126,22 @@ void FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mj
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            result(i, j) = (output[j] - center[j])/eps;
+            result(3*i+j, 0) = (output[j] - center[j])/eps;
         }
     }
+
+#if NDEBUG
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
+#endif
+    return result;
 }
 
 
-void FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original,
-                                                           const mjtNum* output, const mjtNum* center, Mat33& result)
+Mat9x1 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original, const mjtNum* output,
+                                                             const mjtNum* center, const mjtStage skip)
 {
+    Mat9x1 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -136,18 +175,23 @@ void FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const
 
         // evaluate dynamics, with center warmstart
         mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_forwardSkip(_m, _d_cp, mjSTAGE_NONE, 1);
+        mj_forwardSkip(_m, _d_cp, skip, 1);
 
 
         // undo perturbation
         mju_copy(target, original, _m->nq);
 
         // compute column i of derivative 0
-        for(int j = 0; j < _m->nv; j++)
-            result(i, j) = (output[j] - center[j])/eps;
+        for(int j = 0; j < _m->nv; j++) {
+            result(i * 3 + j, 0) = (output[j] - center[j]) / eps;
+        }
     }
+
+#if NDEBUG
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
+#endif
+    return result;
 }
 
 
