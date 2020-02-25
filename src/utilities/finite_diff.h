@@ -17,7 +17,7 @@ public:
 
     ~FiniteDifference();
 
-    Eigen::Matrix<mjtNum, 9, 1> differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id);
+    Eigen::Matrix<mjtNum, 9, 1> differentiate(mjData *d, mjtNum *wrt, WithRespectTo id);
 
     Eigen::Matrix<mjtNum, 9, 1> f_u(mjData *d);
 
@@ -25,7 +25,7 @@ public:
 
     Eigen::Matrix<mjtNum, 9, 3> f_x_f_u(mjData *d);
 
-    mjtNum* get_wrt(const WithRespectTo wrt);
+    mjtNum* get_wrt(WithRespectTo wrt);
 
 private:
     void copy_state(const mjData* d);

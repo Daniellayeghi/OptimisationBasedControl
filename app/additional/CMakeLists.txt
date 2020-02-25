@@ -5,3 +5,4 @@ target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
 target_link_libraries(${BIN_NAME} GL GLU glut)
 # Additional libraries from mujoco package
 target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} util_lib)
