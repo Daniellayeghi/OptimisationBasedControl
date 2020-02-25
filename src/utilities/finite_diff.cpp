@@ -11,6 +11,7 @@ namespace
         switch (wrt)
         {
             case FiniteDifference::WithRespectTo::CTRL: return d->ctrl;
+            case FiniteDifference::WithRespectTo::FRC:  return d->qfrc_applied;
             case FiniteDifference::WithRespectTo::ACC:  return d->qacc;
             case FiniteDifference::WithRespectTo::VEL:  return d->qvel;
             case FiniteDifference::WithRespectTo::POS:  return d->qpos;
@@ -23,12 +24,14 @@ namespace
         switch (wrt)
         {
             case FiniteDifference::WithRespectTo::CTRL:
+            case FiniteDifference::WithRespectTo::FRC:
             case FiniteDifference::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
             case FiniteDifference::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
             case FiniteDifference::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
         }
     }
 }
+
 
 FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
@@ -38,6 +41,7 @@ FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
     _wrt[WithRespectTo::VEL] = _d_cp->qvel;
     _wrt[WithRespectTo::POS] = _d_cp->qpos;
     _wrt[WithRespectTo::CTRL] = _d_cp->ctrl;
+    _wrt[WithRespectTo::FRC]  = _d_cp->qfrc_applied;
 }
 
 
@@ -72,8 +76,7 @@ Mat9x3 FiniteDifference::f_x_f_u(mjData *d)
     Mat9x1 ctrl_deriv  = f_u(d);
     Mat9x2 state_deriv = f_x(d);
     result << state_deriv, ctrl_deriv;
-    std::cout << "Full Jacobian" << "\n";
-    std::cout << result << "\n";
+
     return result;
 }
 
@@ -135,6 +138,7 @@ Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const 
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
             result(3*i+j, 0) = (output[j] - center[j])/eps;
+            std::cout << "Center FD at: " << 3*i+j  << " " << output[j] << std::endl;
         }
     }
 

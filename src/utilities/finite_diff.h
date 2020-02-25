@@ -11,7 +11,7 @@
 class FiniteDifference
 {
 public:
-    enum class WithRespectTo{ACC, VEL, POS, CTRL};
+    enum class WithRespectTo{ACC, VEL, POS, CTRL, FRC};
 
     explicit FiniteDifference(const mjModel* m);
 
@@ -34,13 +34,13 @@ private:
                                                                  const mjtNum* original,
                                                                  const mjtNum* output,
                                                                  const mjtNum* center,
-                                                                 const mjtStage skip);
+                                                                 mjtStage skip);
 
     Eigen::Matrix<mjtNum, 9, 1> first_order_forward_diff_positional(mjtNum* target,
                                                                     const mjtNum* original,
                                                                     const mjtNum* output,
                                                                     const mjtNum* center,
-                                                                    const mjtStage skip);
+                                                                    mjtStage skip);
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;

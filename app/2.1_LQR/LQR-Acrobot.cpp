@@ -188,7 +188,9 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            auto result = fd.f_x_f_u(d);
+            auto result = fd.f_u(d);
+//            std::cout << "Jacobian" << "\n";
+//            std::cout << result << "\n";
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
 

@@ -24,6 +24,9 @@ void MyController::controller()
     _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
+
+    for (auto i = 0; i < 3; ++i)
+        std::cout << "CTRL: " << _d->ctrl[i] << "FRCS: " << _d->qfrc_applied[i] << "\n";
 }
 
 

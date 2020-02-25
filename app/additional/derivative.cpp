@@ -13,7 +13,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "../../src/utilities/internal_types.h"
+#include "eigen3/Eigen/Core"
 
 // enable compilation with and without OpenMP support
 #if defined(_OPENMP)
@@ -52,8 +53,9 @@ int nwarmup = 3;            // center point repetitions to improve warmstart
 int nepoch = 1;            // number of timing epochs
 int nstep = 500;            // number of simulation steps per epoch
 double eps = 1e-6;          // finite-difference epsilon
+static InternalTypes::Mat9x1 mj_result;
 
-
+EIGEN_PACKET_MATH_HALF_CUDA_H
 // worker function for parallel finite-difference computation of derivatives
 void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
 {
@@ -123,10 +125,8 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id)
         // compute column i of derivative 2
         for( int j=0; j<nv; j++ ) {
             deriv[(3 * isforward + 2) * nv * nv + i + j * nv] = (output[j] - center[j]) / eps;
-            if (isforward) {
-                std::cout << "Printing df/du" << std::endl;
-                std::cout << deriv[(3 * isforward + 2) * nv * nv + i + j * nv] << std::endl;
-            }
+            std::cout << "Center mj FD at: " << 3*i+j << " " << output[j] << std::endl;
+            mj_result(3*i+j, 0) = (output[j] - center[j])/eps;
         }
     }
 
@@ -380,6 +380,9 @@ int main(int argc, char** argv)
     double cputm[MAXEPOCH][2];
     mjtNum error[MAXEPOCH][8];
 
+    FiniteDifference finite_diff(m);
+    InternalTypes::Mat9x1 result;
+
     // run epochs, collect statistics
     for( int epoch=0; epoch<nepoch; epoch++ )
     {
@@ -398,10 +401,8 @@ int main(int argc, char** argv)
         m->opt.iterations = niter;
         m->opt.tolerance = 0;
 
-        FiniteDifference finite_diff(m);
-
         // test forward and inverse
-        for( isforward=0; isforward<2; isforward++ )
+        for( isforward=1; isforward<2; isforward++ )
         {
             // start timer
             double starttm = omp_get_wtime();
@@ -409,10 +410,10 @@ int main(int argc, char** argv)
             // run worker threads in parallel if OpenMP is enabled
 #pragma omp parallel for schedule(static)
             for( int n=0; n<nthread; n++ ){
+                std::cout << "worker result" << "\n";
                 worker(m, dmain, d[n], n);
-                auto result = finite_diff.f_u(dmain);
-                std::cout << "result is " << std::endl;
-                std::cout << result << std::endl;
+                result = finite_diff.differentiate(dmain, finite_diff.get_wrt(FiniteDifference::WithRespectTo::FRC),
+                        FiniteDifference::WithRespectTo::FRC);
             }
 
             // record duration in ms
@@ -422,6 +423,13 @@ int main(int argc, char** argv)
         // check derivatives
         checkderiv(m,  d[0], error[epoch]);
     }
+
+    std::cout << "---------------Result is--------------" << std::endl;
+    std::cout << result << "\n";
+    std::cout << "-----------------df/du----------------" << std::endl;
+    std::cout << mj_result << std::endl;
+    std::cout << "---------------Difference-------------" << std::endl;
+    std::cout << (mj_result - result).cwiseAbs() << std::endl;
 
     // compute statistics
     double mcputm[2] = {0,0}, merror[8] = {0,0,0,0,0,0,0,0};
