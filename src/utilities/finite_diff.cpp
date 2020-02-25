@@ -1,14 +1,11 @@
 #include <iostream>
-#include <tuple>
 #include "finite_diff.h"
+#include "internal_types.h"
 
+using namespace InternalTypes;
 
 namespace
 {
-    using Mat9x1 = Eigen::Matrix<mjtNum, 9, 1>;
-    using Mat9x2 = Eigen::Matrix<mjtNum, 9, 2>;
-    using Mat9x3 = Eigen::Matrix<mjtNum, 9, 3>;
-
     mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
     {
         switch (wrt)

@@ -19,12 +19,6 @@
 #include <chrono>
 #include <thread>
 
-// Eigen, used by drake
-#include <Eigen/Core>
-#include <unsupported/Eigen/MatrixFunctions>
-#include "drake/systems/controllers/linear_quadratic_regulator.h"
-
-
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data

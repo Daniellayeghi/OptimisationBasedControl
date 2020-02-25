@@ -15,12 +15,6 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/utilities/finite_diff.h"
-
-
-// Eigen, used by drake
-#include <Eigen/Core>
-#include <unsupported/Eigen/MatrixFunctions>
 
 
 // for sleep timers
@@ -28,7 +22,6 @@
 #include <thread>
 
 // local variables include
-#include "LQR-Acrobot.h"
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
@@ -171,7 +164,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m_cp);
     MyController control(m, d, fd);
     MyController::set_instance(&control);
-    
+
     // install control callback
     mjcb_control = MyController::callback_wrapper;
 

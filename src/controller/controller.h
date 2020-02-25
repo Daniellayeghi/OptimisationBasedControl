@@ -18,7 +18,6 @@ public:
 
     static void dummy_controller(const mjModel* m, mjData* d);
 
-
 private:
     FiniteDifference& _fd;
     const mjModel* _m;
