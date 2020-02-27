@@ -36,7 +36,6 @@ namespace
 FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
     _d_cp = mj_makeData(m);
-    _f_du  = (mjtNum*) mju_malloc(6*sizeof(mjtNum)*_m->nv*_m->nv);
     _wrt[WithRespectTo::ACC] = _d_cp->qacc;
     _wrt[WithRespectTo::VEL] = _d_cp->qvel;
     _wrt[WithRespectTo::POS] = _d_cp->qpos;
@@ -47,7 +46,6 @@ FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 
 FiniteDifference::~FiniteDifference()
 {
-    mju_free(_f_du);
     mj_deleteData(_d_cp);
 }
 
@@ -138,7 +136,6 @@ Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const 
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
             result(3*i+j, 0) = (output[j] - center[j])/eps;
-            std::cout << "Center FD at: " << 3*i+j  << " " << output[j] << std::endl;
         }
     }
 

@@ -20,7 +20,7 @@ public:
 
 private:
     FiniteDifference& _fd;
-    const mjModel* _m;
+    const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;
     mjtNum* _constant_acc;
