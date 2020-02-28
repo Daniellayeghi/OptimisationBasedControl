@@ -174,7 +174,7 @@ int main(int argc, const char** argv)
 
     FiniteDifference fd(m_cp);
     CostFunction cost_func(&running, &terminal, d);
-    MyController control(m, d, fd);
+    MyController control(m, d, fd, cost_func);
     MyController::set_instance(&control);
 
     // install control callback

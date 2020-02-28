@@ -8,6 +8,13 @@ CostFunction::CostFunction(OBJ_FUNC_PTR running, OBJ_FUNC_PTR terminal, mjData *
 }
 
 
+void CostFunction::fill_data()
+{
+    fill_state();
+    fill_control();
+}
+
+
 void CostFunction::fill_state()
 {
     _x(0, 0) = _state->qpos[0];
@@ -24,14 +31,14 @@ void CostFunction::fill_control()
 }
 
 
-VectorXd CostFunction::L_x()
+Vector4d CostFunction::L_x()
 {
     dual running_cost;
     return gradient(_running_cost, wrt(_x), at(_x, _u), running_cost);
 }
 
 
-VectorXd CostFunction::L_u()
+Vector2d CostFunction::L_u()
 {
     dual running_cost;
     return gradient(_running_cost, wrt(_u), at(_x, _u), running_cost);

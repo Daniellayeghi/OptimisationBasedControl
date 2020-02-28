@@ -76,7 +76,7 @@ void FiniteDifference::f_x_f_u(mjData *d)
 }
 
 
-Mat9x3 FiniteDifference::get_full_derivatives(mjData *d)
+Mat9x3& FiniteDifference::get_full_derivatives()
 {
     return _full_jacobian;
 }

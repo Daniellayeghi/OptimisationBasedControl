@@ -15,12 +15,13 @@ class CostFunction
 public:
     using OBJ_FUNC_PTR = dual(*)(Vector4dual &x, Vector2dual &u);
     explicit CostFunction(OBJ_FUNC_PTR running, OBJ_FUNC_PTR terminal, mjData *state);
+    void fill_data();
 
     dual Lf();
     VectorXd Lf_x();
     VectorXd Lf_xx();
-    VectorXd L_x();
-    VectorXd L_u();
+    Vector4d L_x();
+    Vector2d L_u();
     VectorXd L_xx();
     VectorXd L_ux();
 

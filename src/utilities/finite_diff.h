@@ -27,6 +27,9 @@ public:
 
     mjtNum* get_wrt(WithRespectTo wrt);
 
+    Eigen::Matrix<mjtNum, 9, 3>& get_full_derivatives();
+
+
 private:
     void copy_state(const mjData* d);
 
@@ -41,9 +44,6 @@ private:
                                                                     const mjtNum* output,
                                                                     const mjtNum* center,
                                                                     mjtStage skip);
-
-    Eigen::Matrix<mjtNum, 9, 3> get_full_derivatives(mjData *d);
-
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;
