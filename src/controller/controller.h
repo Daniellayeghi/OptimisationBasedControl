@@ -4,11 +4,11 @@
 
 #include "mujoco.h"
 #include "../utilities/finite_diff.h"
-
+#include "cost_function.h"
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, FiniteDifference& fd);
+    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf);
 
     void controller();
 
@@ -20,6 +20,7 @@ public:
 
 private:
     FiniteDifference& _fd;
+    CostFunction&     _cf;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

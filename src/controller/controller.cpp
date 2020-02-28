@@ -3,11 +3,13 @@
 #include <chrono>
 #include "controller.h"
 #include "../utilities/finite_diff.h"
+#include "cost_function.h"
 
 static MyController *my_ctrl;
 
 
-MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd) : _m(m), _d(d), _fd(fd)
+MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf) :
+_m(m), _d(d), _fd(fd), _cf(cf)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);

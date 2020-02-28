@@ -1,4 +1,3 @@
-#include <iostream>
 #include "finite_diff.h"
 #include "internal_types.h"
 
@@ -61,30 +60,36 @@ Mat9x2 FiniteDifference::f_x(mjData *d)
 {
     Mat9x2 result;
     Mat9x1 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
+    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
 
     result << f_pos, f_vel;
     return result;
 }
 
 
-Mat9x3 FiniteDifference::f_x_f_u(mjData *d)
+void FiniteDifference::f_x_f_u(mjData *d)
 {
-    Mat9x3 result;
-    Mat9x1 ctrl_deriv  = f_u(d);
-    Mat9x2 state_deriv = f_x(d);
-    result << state_deriv, ctrl_deriv;
-
-    return result;
+    Mat9x1 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    Mat9x1 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
+    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    _full_jacobian << f_pos, f_vel, ctrl_deriv;
 }
 
 
-Mat9x1 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id)
+Mat9x3 FiniteDifference::get_full_derivatives(mjData *d)
+{
+    return _full_jacobian;
+}
+
+
+Mat9x1 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
 {
     mjMARKSTACK
     mjtNum* center = mj_stackAlloc(_d_cp, _m->nv);
 
-    copy_state(d);
+    if (do_copy)
+        copy_state(d);
+
 #ifdef NDEBUG
     std::cout << "FD addr " << _m << std::endl;
 #endif
@@ -221,3 +226,4 @@ mjtNum * FiniteDifference::get_wrt(const WithRespectTo wrt)
 {
     return _wrt[wrt];
 }
+

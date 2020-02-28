@@ -34,7 +34,6 @@ project(OptControl_MUJOCO)
 set(USE_GL 1)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-g")
 
 find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)

@@ -15,8 +15,7 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-
-
+#include "../../src/controller/cost_function.h"
 // for sleep timers
 #include <chrono>
 #include <thread>
@@ -38,6 +37,18 @@ bool button_middle = false;
 bool button_right =  false;
 double lastx = 0;
 double lasty = 0;
+
+
+dual running(Vector4dual &x, Vector2dual &u)
+{
+    return (x.transpose() * x + u.transpose() * u)(0, 0);
+}
+
+
+dual terminal (Vector4dual &x, Vector2dual &u)
+{
+    return 1000.0;
+}
 
 
 // keyboard callback
@@ -162,6 +173,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     FiniteDifference fd(m_cp);
+    CostFunction cost_func(&running, &terminal, d);
     MyController control(m, d, fd);
     MyController::set_instance(&control);
 
@@ -188,7 +200,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            auto result = fd.f_u(d);
+            fd.f_x_f_u(d);
 //            std::cout << "Jacobian" << "\n";
 //            std::cout << result << "\n";
         }
