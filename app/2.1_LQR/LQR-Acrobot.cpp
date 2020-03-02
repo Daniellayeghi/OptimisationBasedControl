@@ -39,13 +39,15 @@ double lastx = 0;
 double lasty = 0;
 
 
-dual running(Vector4dual &x, Vector2dual &u)
+double running(Eigen::Matrix<double, Eigen::Dynamic, 1> &x,
+               Eigen::Matrix<double, Eigen::Dynamic, 1> &u)
 {
     return (x.transpose() * x + u.transpose() * u)(0, 0);
 }
 
 
-dual terminal (Vector4dual &x, Vector2dual &u)
+double terminal (Eigen::Matrix<double, Eigen::Dynamic, 1> &x,
+                 Eigen::Matrix<double, Eigen::Dynamic, 1> &u)
 {
     return 1000.0;
 }
@@ -173,7 +175,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     FiniteDifference fd(m_cp);
-    CostFunction cost_func(&running, &terminal, d);
+    CostFunction cost_func(d);
     MyController control(m, d, fd, cost_func);
     MyController::set_instance(&control);
 
@@ -201,11 +203,12 @@ int main(int argc, const char** argv)
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
             fd.f_x_f_u(d);
+            cost_func.Lf_x();
 //            std::cout << "Jacobian" << "\n";
 //            std::cout << result << "\n";
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
-
+//
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);

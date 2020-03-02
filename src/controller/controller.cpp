@@ -27,15 +27,6 @@ void MyController::controller()
     _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
-
-//    InternalTypes::Mat9x3 full_jacobian = _fd.get_full_derivatives();
-//    std::cout << "Full Jacobian" << "\n";
-//    std::cout << full_jacobian << "\n";
-    _cf.fill_data();
-    auto Lx = _cf.L_xx();
-    std::cout << "Lx" << "\n";
-    std::cout << Lx << "\n";
-
 }
 
 
