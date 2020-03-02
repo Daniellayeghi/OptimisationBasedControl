@@ -34,7 +34,7 @@ project(OptControl_MUJOCO)
 set(USE_GL 1)
 
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wall -Wextra)
+#add_compile_options(-Wall -Wextra)
 find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac

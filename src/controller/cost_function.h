@@ -24,14 +24,14 @@ public:
 //    VectorXd L_ux();
 
 private:
-    Eigen::Matrix<double, Eigen::Dynamic, 1> _u;
-    Eigen::Matrix<double, Eigen::Dynamic, 1> _x;
-    Eigen::Matrix<double, Eigen::Dynamic, 1> _gradient;
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> _hessian;
+    Eigen::Matrix<double, 2, 1> _u;
+    Eigen::Matrix<double, 4, 1> _x;
+    Eigen::Matrix<double, 6, 1> _gradient;
+    Eigen::Matrix<double, 6, 6> _hessian;
 
-    AutoDiffTypes::AVector _Ax;
-    AutoDiffTypes::AVector _Au;
-    AutoDiffTypes::outer_active_scalar _Ac;
+    AutoDiffTypes::AVector4x1 _Ax;
+    AutoDiffTypes::AVector4x1 _Au;
+    AutoDiffTypes::outer_active_scalar4x1 _Ac;
 
     mjData* _state;
 };
