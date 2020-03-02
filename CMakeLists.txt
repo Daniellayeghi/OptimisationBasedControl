@@ -51,6 +51,16 @@ else()
     message(FATAL_ERROR "Mujoco key path NOT defined")
 endif()
 
+
+
+OPTION(DEFINE_DEBUG "Build the project using debugging code" OFF)
+IF(DEFINE_DEBUG)
+    MESSAGE("Adding Debug flag...")
+    ADD_DEFINITIONS(-DDEBUG)
+    SET(CMAKE_BUILD_TYPE Debug)
+    MESSAGE("Build type is " ${CMAKE_BUILD_TYPE})
+ENDIF(DEFINE_DEBUG)
+
 include_directories(${MUJOCO_PY_MJPRO_PATH}/include)
 link_directories(${MUJOCO_PY_MJPRO_PATH}/libraries)
 

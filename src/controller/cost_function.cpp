@@ -20,7 +20,7 @@ namespace
     }
 
 
-    void fill_data(Eigen::Matrix<double, 2, 1>& _u,
+    void fill_data(Eigen::Matrix<double, 4, 1>& _u,
                    Eigen::Matrix<double, 4, 1>& _x,
                    mjData* _state)
     {
@@ -30,22 +30,24 @@ namespace
         _x(3, 0) = _state->qvel[1];
         _u(0, 0) = _state->ctrl[0];
         _u(1, 0) = _state->ctrl[1];
+        _u(2, 0) = 0;
+        _u(3, 0) = 0;
     }
-
 
 
     template <typename T>
     inline T running(Eigen::Matrix<T, 4, 1> &x, Eigen::Matrix<T, 4, 1> &u)
     {
-        Eigen::Matrix<T, 2, 1> gain_state; gain_state.setOnes();
-        Eigen::Matrix<T, 2, 1> gain_action; gain_action.setOnes();
+        Eigen::Matrix<T, 4, 1> gain_state; gain_state.setOnes();
+        Eigen::Matrix<T, 4, 1> gain_action; gain_action.setOnes();
+        for (auto row = 0; row < gain_action.rows(); ++row){gain_action(row) *= 2;}
 
-        return (x.transpose() * x + u.transpose() * u)(0, 0);
+        return (x.transpose() * gain_state.asDiagonal() * x + u.transpose() * gain_action.asDiagonal() * u)(0, 0);
     }
 
 
     template <typename T>
-    T terminal (Eigen::Matrix<T, 4, 1> &x, Eigen::Matrix<T, 2, 1> &u)
+    T terminal (Eigen::Matrix<T, 4, 1> &x, Eigen::Matrix<T, 4, 1> &u)
     {
         return 1000.0;
     }
@@ -66,12 +68,12 @@ namespace
 CostFunction::CostFunction(mjData *state)
 {
     _state = state;
-//    _u.resize(4, 1);
-//    _x.resize(4, 1);
-//    _Ax.resize(_x.size());
-//    _Au.resize(_u.size());
-//    _gradient.resize(6, 1);
-//    _hessian.resize(6, 6);
+    _u.setZero();
+    _x.setZero();
+    _Ax.setZero();
+    _Au.setZero();
+    _gradient.setZero();
+    _hessian.setZero();
 }
 
 
@@ -88,8 +90,9 @@ VectorXd CostFunction::Lf_x()
         _Au(row).value().value() = _u(row);
 
 //  initialize derivative vectors
-    auto derivative_num = _x.size() + _u.size() - 2;
+    auto derivative_num = _x.size() + _u.size();
     int derivative_idx = 0;
+
     for(int row = 0; row < _Ax.size(); ++row)
     {
         init_twice_active_var(_Ax(row), derivative_num, derivative_idx);
@@ -103,14 +106,14 @@ VectorXd CostFunction::Lf_x()
     }
 
     _Ac = running(_Ax, _Au);
-//
-//    for(int idx = 0; idx < _Ac.derivatives().size(); ++idx)
-//    {
-//        _hessian.middleRows(idx,1) = _Ac.derivatives()(idx).derivatives().transpose();
-//    }
-#ifdef MUJ_KEY_PATH
-    std::cout << "Gradient:" << _Ac.value().derivatives().transpose() << "\n";
-    std::cout << "Hessian:" << "\n" << _hessian << "\n";
+
+    for(int idx = 0; idx < _Ac.derivatives().size(); ++idx)
+    {
+        _hessian.middleRows(idx,1) = _Ac.derivatives()(idx).derivatives().transpose();
+    }
+#if DEFINE_DEBUG
+    std::cout << "Gradient:" << _Ac.value().derivatives().transpose().block<1, 6>(0,0) << "\n";
+    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
 #endif
 }
 

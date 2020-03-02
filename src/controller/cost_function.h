@@ -24,10 +24,10 @@ public:
 //    VectorXd L_ux();
 
 private:
-    Eigen::Matrix<double, 2, 1> _u;
+    Eigen::Matrix<double, 4, 1> _u;
     Eigen::Matrix<double, 4, 1> _x;
-    Eigen::Matrix<double, 6, 1> _gradient;
-    Eigen::Matrix<double, 6, 6> _hessian;
+    Eigen::Matrix<double, 8, 1> _gradient;
+    Eigen::Matrix<double, 8, 8> _hessian;
 
     AutoDiffTypes::AVector4x1 _Ax;
     AutoDiffTypes::AVector4x1 _Au;

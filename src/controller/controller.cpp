@@ -27,6 +27,13 @@ void MyController::controller()
     _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
+
+    auto result = _fd.get_full_derivatives();
+
+#ifdef DEFINE_DEBUG
+    std::cout << "LQR dynamics derivatives: " << result << "\n";
+#endif
+
 }
 
 
