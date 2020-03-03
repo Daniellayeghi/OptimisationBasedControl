@@ -14,16 +14,19 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // TODO: Pass cost as functor
     explicit CostFunction(mjData *state);
+    void derivatives();
 
-//    double Lf();
-    VectorXd Lf_x();
+//    VectorXd Lf_x();
 //    VectorXd Lf_xx();
-//    Vector4d L_x();
-//    Vector2d L_u();
-//    VectorXd L_xx();
-//    VectorXd L_ux();
+    Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 4>> L_x();
+    Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 2>> L_u();
+    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>> L_xx();
+    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> L_uu();
+    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> L_ux();
+
 
 private:
+
     Eigen::Matrix<double, 4, 1> _u;
     Eigen::Matrix<double, 4, 1> _x;
     Eigen::Matrix<double, 8, 1> _gradient;

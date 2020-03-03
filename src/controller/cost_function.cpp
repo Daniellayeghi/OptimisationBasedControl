@@ -51,17 +51,6 @@ namespace
     {
         return 1000.0;
     }
-
-
-    template <typename T>
-    T my_matrixfun(Eigen::Matrix<T, 4, 1> const &a)
-    {
-        Eigen::Matrix<T, 4, 1> gain;
-        for (auto row = 0; row < gain.rows(); ++row){gain(row) = 2;};
-        return ( a.transpose() * gain.asDiagonal() * a)(0,0);
-    }
-
-
 }
 
 
@@ -77,7 +66,7 @@ CostFunction::CostFunction(mjData *state)
 }
 
 
-VectorXd CostFunction::Lf_x()
+void CostFunction::derivatives()
 {
     using namespace AutoDiffTypes;
     fill_data(_u, _x, _state);
@@ -89,7 +78,7 @@ VectorXd CostFunction::Lf_x()
     for(int row = 0; row < _u.size(); ++row)
         _Au(row).value().value() = _u(row);
 
-//  initialize derivative vectors
+    // initialize derivative vectors
     auto derivative_num = _x.size() + _u.size();
     int derivative_idx = 0;
 
@@ -111,57 +100,39 @@ VectorXd CostFunction::Lf_x()
     {
         _hessian.middleRows(idx,1) = _Ac.derivatives()(idx).derivatives().transpose();
     }
-#if DEFINE_DEBUG
-    std::cout << "Gradient:" << _Ac.value().derivatives().transpose().block<1, 6>(0,0) << "\n";
-    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
-#endif
+////#if DEFINE_DEBUG
+//    std::cout << "Gradient:" << _Ac.value().derivatives().transpose().block<1, 6>(0,0) << "\n";
+//    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
+////#endif
 }
 
 
-//
-//Vector4d CostFunction::L_x()
-//{
-//    dual running_cost;
-//    return gradient(_running_cost, wrt(_x), at(_x, _u), running_cost);
-//}
 
-
-/*Vector2d CostFunction::L_u()
+Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 4>> CostFunction::L_x()
 {
-    dual running_cost;
-    return gradient(_running_cost, wrt(_u), at(_x, _u), running_cost);
+    return _Ac.value().derivatives().transpose().block<1, 4>(0,0);
 }
 
 
-VectorXd CostFunction::L_xx()
+Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 2>> CostFunction::L_u()
 {
-    dual running_cost;
-    return gradient(_running_cost, wrt<2>(_x), at(_x, _u), running_cost);
+    return _Ac.value().derivatives().transpose().block<1, 2>(0,4);
 }
 
 
-VectorXd CostFunction::L_ux()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>> CostFunction::L_xx()
 {
-    dual running_cost;
-    return gradient(_running_cost, wrt(_u, _x), at(_x, _u), running_cost);
+    return _hessian.block<6, 6>(0, 0);
 }
 
 
-dual CostFunction::Lf()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> CostFunction::L_uu()
 {
-    return _terminal_cost(_x, _u);
+    return _hessian.block<2, 2>(4, 4);
 }
 
 
-VectorXd CostFunction::Lf_x()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> CostFunction::L_ux()
 {
-    dual running_cost;
-    return gradient(_terminal_cost, wrt(_x), at(_x, _u), running_cost);
+    return _hessian.block<2, 4>(4, 0);
 }
-
-
-VectorXd CostFunction::Lf_xx()
-{
-    dual running_cost;
-    return gradient(_terminal_cost, wrt<2>(_x), at(_x, _u), running_cost);
-}*/

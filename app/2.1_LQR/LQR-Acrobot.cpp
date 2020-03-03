@@ -203,12 +203,16 @@ int main(int argc, const char** argv)
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
             fd.f_x_f_u(d);
-            cost_func.Lf_x();
-//            std::cout << "Jacobian" << "\n";
-//            std::cout << result << "\n";
+            cost_func.derivatives();
+            std::cout << "Lx: " << "\n" << cost_func.L_x() << "\n";
+            std::cout << "Lu: " << "\n" << cost_func.L_u() << "\n";
+            std::cout << "Lux: " << "\n" << cost_func.L_ux() << "\n";
+            std::cout << "Lxx: " << "\n" << cost_func.L_xx() << "\n";
+            std::cout << "Luu: " << "\n" << cost_func.L_uu() << "\n";
+
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
-//
+
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
