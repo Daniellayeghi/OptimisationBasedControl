@@ -20,26 +20,28 @@ namespace
     }
 
 
-    void fill_data(Eigen::Matrix<double, 4, 1>& _u,
-                   Eigen::Matrix<double, 4, 1>& _x,
-                   mjData* _state)
+    void fill_data(Eigen::Matrix<double, 6, 1>& _u, Eigen::Matrix<double, 6, 1>& _x, mjData* _state)
     {
         _x(0, 0) = _state->qpos[0];
         _x(1, 0) = _state->qpos[1];
-        _x(2, 0) = _state->qvel[0];
-        _x(3, 0) = _state->qvel[1];
+        _x(2, 0) = _state->qpos[2];
+        _x(3, 0) = _state->qvel[0];
+        _x(4, 0) = _state->qvel[1];
+        _x(5, 0) = _state->qvel[2];
         _u(0, 0) = _state->ctrl[0];
         _u(1, 0) = _state->ctrl[1];
         _u(2, 0) = 0;
         _u(3, 0) = 0;
+        _u(4, 0) = 0;
+        _u(5, 0) = 0;
     }
 
 
     template <typename T>
-    inline T running(Eigen::Matrix<T, 4, 1> &x, Eigen::Matrix<T, 4, 1> &u)
+    inline T running(Eigen::Matrix<T, 6, 1> &x, Eigen::Matrix<T, 6, 1> &u)
     {
-        Eigen::Matrix<T, 4, 1> gain_state; gain_state.setOnes();
-        Eigen::Matrix<T, 4, 1> gain_action; gain_action.setOnes();
+        Eigen::Matrix<T, 6, 1> gain_state; gain_state.setOnes();
+        Eigen::Matrix<T, 6, 1> gain_action; gain_action.setOnes();
         for (auto row = 0; row < gain_action.rows(); ++row){gain_action(row) *= 2;}
 
         return (x.transpose() * gain_state.asDiagonal() * x + u.transpose() * gain_action.asDiagonal() * u)(0, 0);
@@ -47,7 +49,7 @@ namespace
 
 
     template <typename T>
-    T terminal (Eigen::Matrix<T, 4, 1> &x, Eigen::Matrix<T, 4, 1> &u)
+    T terminal (Eigen::Matrix<T, 6, 1> &x, Eigen::Matrix<T, 6, 1> &u)
     {
         return 1000.0;
     }
@@ -107,31 +109,31 @@ void CostFunction::derivatives(mjData* d)
 
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> CostFunction::L_x()
+Eigen::Ref<Block<Eigen::Matrix<double, 12, 1>, 6, 1>> CostFunction::L_x()
 {
-    return _gradient.block<4, 1>(0, 0);
+    return _gradient.block<6, 1>(0, 0);
 }
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> CostFunction::L_u()
+Eigen::Ref<Block<Eigen::Matrix<double, 12, 1>, 2, 1>> CostFunction::L_u()
 {
     return _gradient.block<2, 1>(4, 0);
 }
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>> CostFunction::L_xx()
+Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 6, 6>> CostFunction::L_xx()
 {
     return _hessian.block<6, 6>(0, 0);
 }
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> CostFunction::L_uu()
+Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 2, 2>> CostFunction::L_uu()
 {
     return _hessian.block<2, 2>(4, 4);
 }
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> CostFunction::L_ux()
+Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 2, 4>> CostFunction::L_ux()
 {
     return _hessian.block<2, 4>(4, 0);
 }

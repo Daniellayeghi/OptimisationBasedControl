@@ -24,7 +24,7 @@ private:
     std::vector<mjData> _simulated_state;
 
     InternalTypes::Mat6x1 desired_state;
-    int _simulation_time;
+    int  _simulation_time;
     FiniteDifference& _fd;
     CostFunction& _cf;
     mjData sim_data;

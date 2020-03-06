@@ -52,9 +52,12 @@ void ILQR::calculate_derivatives()
 
 void ILQR::backward_pass()
 {
+    std::array<Eigen::Matrix<double, 2, 1>, 100> Lu; std::array<Eigen::Matrix<double, 4, 1>, 100> Lx;
+    std::array<Eigen::Matrix<double, 2, 2>, 100> Luu; std::array<Eigen::Matrix<double, 2, 4>, 100> Lux;
+    std::array<Eigen::Matrix<double, 6, 6>, 100> Lxx;
 
-    auto result = _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[0];
-    std::cout << "Result: " << result << "\n";
+//    auto result = _cf.L_x() + _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[0];
+//    std::cout << "Result: " << result << "\n";
 
 //    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
 //    {

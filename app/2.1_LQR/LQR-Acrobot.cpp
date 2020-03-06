@@ -206,7 +206,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::dummy_controller;
             cost_func.derivatives(d);
             ilqr.backward_pass();
-            std::cout << "Full derivatives" << "\n" << fd.f_u(d) << "\n";
+            std::cout << "Full derivatives" << "\n" << fd.f_x(d) << "\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
