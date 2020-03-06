@@ -12,16 +12,15 @@
 class ILQR
 {
 public:
-    ILQR(FiniteDifference& fd, CostFunction& cf, mjModel * m, int simulation_time);
-
+    ILQR(FiniteDifference& fd, CostFunction& cf, const mjModel * m, int simulation_time);
+    void backward_pass();
 private:
     void forward_simulate(const mjData* d);
-    void backward_pass();
     void calculate_derivatives();
 
     std::vector<double> _V;
-    std::vector<InternalTypes::Mat9x1> _V_x;
-    std::vector<InternalTypes::Mat9x9> _V_xx;
+    std::vector<InternalTypes::Mat6x1> _V_x;
+    std::vector<InternalTypes::Mat6x6> _V_xx;
     std::vector<mjData> _simulated_state;
 
     InternalTypes::Mat6x1 desired_state;
@@ -30,7 +29,7 @@ private:
     CostFunction& _cf;
     mjData sim_data;
     mjData* _d_cp;
-    mjModel* _m;
+    const mjModel* _m;
 };
 
 

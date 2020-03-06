@@ -177,6 +177,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m_cp);
     CostFunction cost_func;
     MyController control(m, d, fd, cost_func);
+    ILQR ilqr(fd, cost_func, m, 100);
     MyController::set_instance(&control);
 
     // install control callback
@@ -204,8 +205,8 @@ int main(int argc, const char** argv)
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
             cost_func.derivatives(d);
-            fd.f_x_f_u(d);
-            std::cout << "Full derivatives" << "\n" << fd.get_full_derivatives() << "\n";
+            ilqr.backward_pass();
+            std::cout << "Full derivatives" << "\n" << fd.f_u(d) << "\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(15));

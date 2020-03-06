@@ -13,7 +13,7 @@ static std::uniform_real_distribution<double> distribution(-.2,.2);
 
 
 MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf) :
-_m(m), _d(d), _fd(fd), _cf(cf)
+_m(m), _d(d), _fd(fd), _cf(cf), _ilqr(_fd, _cf, _m, 100)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);
@@ -32,14 +32,13 @@ void MyController::controller()
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2] + distribution(generator);
     _d->ctrl[3] = _d->qfrc_bias[3] + _inertial_torque[3] + distribution(generator);
 
-    auto result = _fd.get_full_derivatives();
 
-    std::cout << "Fux" << "\n" << result << std::endl;
-    std::cout << "Lx: " << "\n" << _cf.L_x() << "\n";
-    std::cout << "Lu: " << "\n" << _cf.L_u() << "\n";
-    std::cout << "Lux: " << "\n" << _cf.L_ux() << "\n";
-    std::cout << "Lxx: " << "\n" << _cf.L_xx() << "\n";
-    std::cout << "Luu: " << "\n" << _cf.L_uu() << "\n";
+//    std::cout << "Fux" << "\n" << result << std::endl;
+//    std::cout << "Lx: " << "\n" << _cf.L_x() << "\n";
+//    std::cout << "Lu: " << "\n" << _cf.L_u() << "\n";
+//    std::cout << "Lux: " << "\n" << _cf.L_ux() << "\n";
+//    std::cout << "Lxx: " << "\n" << _cf.L_xx() << "\n";
+//    std::cout << "Luu: " << "\n" << _cf.L_uu() << "\n";
 
 #ifdef DEFINE_DEBUG
     std::cout << "LQR dynamics derivatives: " << result << "\n";

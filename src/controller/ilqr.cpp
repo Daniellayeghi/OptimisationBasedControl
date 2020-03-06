@@ -1,3 +1,4 @@
+#include <iostream>
 #include "mujoco.h"
 #include "ilqr.h"
 namespace
@@ -16,13 +17,18 @@ namespace
 }
 
 
-ILQR::ILQR(FiniteDifference& fd, CostFunction& cf, mjModel * m, int simulation_time) :
+ILQR::ILQR(FiniteDifference& fd, CostFunction& cf, const mjModel * m, int simulation_time) :
 _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 {
     _simulated_state.reserve(_simulation_time);
+
     _V.reserve(_simulation_time);
     _V_x.reserve(_simulation_time);
     _V_xx.reserve(_simulation_time);
+
+    std::fill(_V.begin(), _V.end(), 0);
+    std::fill(_V_x.begin(), _V_x.end(), Eigen::Matrix<double, 6, 1>::Zero());
+    std::fill(_V_xx.begin(), _V_xx.end(), Eigen::Matrix<double, 6, 6>::Zero());
 }
 
 
@@ -46,10 +52,13 @@ void ILQR::calculate_derivatives()
 
 void ILQR::backward_pass()
 {
-    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
-    {
-        calculate_derivatives();
-//        auto result =
 
-    }
+    auto result = _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[0];
+    std::cout << "Result: " << result << "\n";
+
+//    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
+//    {
+//        calculate_derivatives();
+//        auto result = _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[time_step];
+//    }
 }

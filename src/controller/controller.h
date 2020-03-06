@@ -5,6 +5,7 @@
 #include "mujoco.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
+#include "ilqr.h"
 class MyController
 {
 public:
@@ -21,6 +22,7 @@ public:
 private:
     FiniteDifference& _fd;
     CostFunction&     _cf;
+    ILQR              _ilqr;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

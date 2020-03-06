@@ -8,6 +8,9 @@
 
 namespace InternalTypes
 {
+    using Mat3x3 = Eigen::Matrix<mjtNum, 3, 3>;
+    using Mat3x6 = Eigen::Matrix<mjtNum, 3, 6>;
+    using Mat3x9 = Eigen::Matrix<mjtNum, 3, 9>;
     using Mat9x1 = Eigen::Matrix<mjtNum, 9, 1>;
     using Mat9x2 = Eigen::Matrix<mjtNum, 9, 2>;
     using Mat9x3 = Eigen::Matrix<mjtNum, 9, 3>;

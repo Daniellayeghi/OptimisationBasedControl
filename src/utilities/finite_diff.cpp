@@ -49,18 +49,18 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-Mat9x1 FiniteDifference::f_u(mjData *d)
+Mat3x3 FiniteDifference::f_u(mjData *d)
 {
-    Mat9x1 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    Mat3x3 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
     return result;
 }
 
 
-Mat9x2 FiniteDifference::f_x(mjData *d)
+Mat3x6 FiniteDifference::f_x(mjData *d)
 {
-    Mat9x2 result;
-    Mat9x1 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    Mat3x6 result;
+    Mat3x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
+    Mat3x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
 
     result << f_pos, f_vel;
     return result;
@@ -69,20 +69,20 @@ Mat9x2 FiniteDifference::f_x(mjData *d)
 
 void FiniteDifference::f_x_f_u(mjData *d)
 {
-    Mat9x1 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    Mat9x1 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
-    Mat9x1 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    Mat3x3 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    Mat3x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
+    Mat3x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
     _full_jacobian << f_pos, f_vel, ctrl_deriv;
 }
 
 
-Mat9x3& FiniteDifference::get_full_derivatives()
+Mat3x9& FiniteDifference::get_full_derivatives()
 {
     return _full_jacobian;
 }
 
 
-Mat9x1 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
+Mat3x3 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
 {
     mjMARKSTACK
     mjtNum* center = mj_stackAlloc(_d_cp, _m->nv);
@@ -116,10 +116,10 @@ Mat9x1 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
 }
 
 
-Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original, const mjtNum* output,
+Mat3x3 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original, const mjtNum* output,
                                                           const mjtNum* center, const mjtStage skip)
 {
-    Mat9x1 result;
+    Mat3x3 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -140,7 +140,7 @@ Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const 
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            result(3*i+j, 0) = (output[j] - center[j])/eps;
+            result(i, j) = (output[j] - center[j])/eps;
         }
     }
 
@@ -152,10 +152,10 @@ Mat9x1 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const 
 }
 
 
-Mat9x1 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original, const mjtNum* output,
+Mat3x3 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original, const mjtNum* output,
                                                              const mjtNum* center, const mjtStage skip)
 {
-    Mat9x1 result;
+    Mat3x3 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -197,7 +197,7 @@ Mat9x1 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, con
 
         // compute column i of derivative 0
         for(int j = 0; j < _m->nv; j++) {
-            result(i * 3 + j, 0) = (output[j] - center[j]) / eps;
+            result(i, j) = (output[j] - center[j]) / eps;
         }
     }
 
