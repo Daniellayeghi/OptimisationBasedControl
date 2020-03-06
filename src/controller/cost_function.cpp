@@ -54,9 +54,8 @@ namespace
 }
 
 
-CostFunction::CostFunction(mjData *state)
+CostFunction::CostFunction()
 {
-    _state = state;
     _u.setZero();
     _x.setZero();
     _Ax.setZero();
@@ -66,11 +65,11 @@ CostFunction::CostFunction(mjData *state)
 }
 
 
-void CostFunction::derivatives()
+void CostFunction::derivatives(mjData* d)
 {
     using namespace AutoDiffTypes;
-    fill_data(_u, _x, _state);
 
+    fill_data(_u, _x, d);
     // copy value from non-active example
     for(int row = 0; row < _x.size(); ++row)
         _Ax(row).value().value() = _x(row);
@@ -95,28 +94,28 @@ void CostFunction::derivatives()
     }
 
     _Ac = running(_Ax, _Au);
+    _gradient = _Ac.value().derivatives().transpose();
 
     for(int idx = 0; idx < _Ac.derivatives().size(); ++idx)
     {
         _hessian.middleRows(idx,1) = _Ac.derivatives()(idx).derivatives().transpose();
     }
 ////#if DEFINE_DEBUG
-//    std::cout << "Gradient:" << _Ac.value().derivatives().transpose().block<1, 6>(0,0) << "\n";
 //    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
 ////#endif
 }
 
 
 
-Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 4>> CostFunction::L_x()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> CostFunction::L_x()
 {
-    return _Ac.value().derivatives().transpose().block<1, 4>(0,0);
+    return _gradient.block<4, 1>(0, 0);
 }
 
 
-Eigen::Ref<Block<Eigen::Transpose<Eigen::Matrix<double, 8, 1, 0, 8, 1> >, 1, 2>> CostFunction::L_u()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> CostFunction::L_u()
 {
-    return _Ac.value().derivatives().transpose().block<1, 2>(0,4);
+    return _gradient.block<2, 1>(4, 0);
 }
 
 

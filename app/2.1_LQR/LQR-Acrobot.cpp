@@ -175,7 +175,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     FiniteDifference fd(m_cp);
-    CostFunction cost_func(d);
+    CostFunction cost_func;
     MyController control(m, d, fd, cost_func);
     MyController::set_instance(&control);
 
@@ -184,7 +184,7 @@ int main(int argc, const char** argv)
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
-    d->qpos[0] = -0 + 0.45;
+    d->qpos[0] = M_PI_2/2;
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
@@ -198,21 +198,17 @@ int main(int argc, const char** argv)
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
         mjtNum simstart = d->time;
-        while( d->time - simstart < 1.0/60.0 ) {
+        while( d->time - simstart < 1.0/60.0 )
+        {
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
+            cost_func.derivatives(d);
             fd.f_x_f_u(d);
-            cost_func.derivatives();
-            std::cout << "Lx: " << "\n" << cost_func.L_x() << "\n";
-            std::cout << "Lu: " << "\n" << cost_func.L_u() << "\n";
-            std::cout << "Lux: " << "\n" << cost_func.L_ux() << "\n";
-            std::cout << "Lxx: " << "\n" << cost_func.L_xx() << "\n";
-            std::cout << "Luu: " << "\n" << cost_func.L_uu() << "\n";
-
+            std::cout << "Full derivatives" << "\n" << fd.get_full_derivatives() << "\n";
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(15));
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(15));
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
