@@ -52,6 +52,7 @@ void ILQR::calculate_derivatives()
 
 void ILQR::backward_pass(mjData* d)
 {
+    _cf.derivatives(d);
 //    auto result = _fd.f_x(d);
     std::cout << "Result: " <<  "\n" <<_fd.f_x(d) << "\n";
 //    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
