@@ -24,11 +24,11 @@ namespace InternalTypes
 
 namespace AutoDiffTypes
 {
-    using inner_derivative_type4x1 = Eigen::Matrix<double, 8, 1>;
+    using inner_derivative_type4x1 = Eigen::Matrix<double, 12, 1>;
     using inner_active_scalar4x1   = Eigen::AutoDiffScalar<inner_derivative_type4x1>;
-    using outer_derivative_type4x1 = Eigen::Matrix<inner_active_scalar4x1, 8, 1>;
+    using outer_derivative_type4x1 = Eigen::Matrix<inner_active_scalar4x1, 12, 1>;
     using outer_active_scalar4x1   = Eigen::AutoDiffScalar<outer_derivative_type4x1>;
-    using AVector4x1               = Eigen::Matrix<outer_active_scalar4x1, 4, 1>;
+    using AVector4x1               = Eigen::Matrix<outer_active_scalar4x1, 6, 1>;
 
     using inner_derivative_type2x1 = Eigen::Matrix<double, 2, 1>;
     using inner_active_scalar2x1   = Eigen::AutoDiffScalar<inner_derivative_type2x1>;

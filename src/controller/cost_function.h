@@ -18,18 +18,18 @@ public:
 
 //    VectorXd Lf_x();
 //    VectorXd Lf_xx();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> L_x();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> L_u();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>> L_xx();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> L_uu();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> L_ux();
+    Eigen::Ref<Block<Eigen::Matrix<double, 12, 1>, 6, 1>> L_x();
+    Eigen::Ref<Block<Eigen::Matrix<double, 12, 1>, 2, 1>> L_u();
+    Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 6, 6>> L_xx();
+    Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 2, 2>> L_uu();
+    Eigen::Ref<Block<Eigen::Matrix<double, 12, 12, 0, 12, 12>, 2, 4>> L_ux();
 
 
 private:
-    Eigen::Matrix<double, 4, 1> _u;
-    Eigen::Matrix<double, 4, 1> _x;
-    Eigen::Matrix<double, 8, 1> _gradient;
-    Eigen::Matrix<double, 8, 8> _hessian;
+    Eigen::Matrix<double, 6, 1> _u;
+    Eigen::Matrix<double, 6, 1> _x;
+    Eigen::Matrix<double, 12, 1> _gradient;
+    Eigen::Matrix<double, 12, 12> _hessian;
 
     AutoDiffTypes::AVector4x1 _Ax;
     AutoDiffTypes::AVector4x1 _Au;
