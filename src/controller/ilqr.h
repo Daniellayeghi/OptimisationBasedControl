@@ -13,7 +13,7 @@ class ILQR
 {
 public:
     ILQR(FiniteDifference& fd, CostFunction& cf, const mjModel * m, int simulation_time);
-    void backward_pass();
+    void backward_pass(mjData* d);
 private:
     void forward_simulate(const mjData* d);
     void calculate_derivatives();

@@ -412,8 +412,8 @@ int main(int argc, char** argv)
             for( int n=0; n<nthread; n++ ){
                 std::cout << "worker result" << "\n";
                 worker(m, dmain, d[n], n);
-//                result = finite_diff.differentiate(dmain, finite_diff.get_wrt(FiniteDifference::WithRespectTo::FRC),
-//                        FiniteDifference::WithRespectTo::FRC);
+                auto result = finite_diff.differentiate(dmain, finite_diff.get_wrt(FiniteDifference::WithRespectTo::FRC),
+                        FiniteDifference::WithRespectTo::FRC);
             }
 
             // record duration in ms
@@ -424,12 +424,12 @@ int main(int argc, char** argv)
         checkderiv(m,  d[0], error[epoch]);
     }
 
-//    std::cout << "---------------Result is--------------" << std::endl;
-//    std::cout << result << "\n";
-//    std::cout << "-----------------df/du----------------" << std::endl;
-//    std::cout << mj_result << std::endl;
-//    std::cout << "---------------Difference-------------" << std::endl;
-//    std::cout << (mj_result - result).cwiseAbs() << std::endl;
+    std::cout << "---------------Result is--------------" << std::endl;
+    std::cout << result << "\n";
+    std::cout << "-----------------df/du----------------" << std::endl;
+    std::cout << mj_result << std::endl;
+    std::cout << "---------------Difference-------------" << std::endl;
+    std::cout << (mj_result - result).cwiseAbs() << std::endl;
 
     // compute statistics
     double mcputm[2] = {0,0}, merror[8] = {0,0,0,0,0,0,0,0};

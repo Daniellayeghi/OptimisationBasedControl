@@ -50,11 +50,10 @@ void ILQR::calculate_derivatives()
     _cf.derivatives(_d_cp);
 }
 
-void ILQR::backward_pass()
+void ILQR::backward_pass(mjData* d)
 {
-
-    auto result = _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[0];
-    std::cout << "Result: " << result << "\n";
+//    auto result = _fd.f_x(d);
+    std::cout << "Result: " <<  "\n" <<_fd.f_x(d) << "\n";
 
 //    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
 //    {

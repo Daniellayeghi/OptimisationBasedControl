@@ -1,3 +1,4 @@
+#include <iostream>
 #include "finite_diff.h"
 #include "internal_types.h"
 
@@ -49,18 +50,18 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-Mat3x3 FiniteDifference::f_u(mjData *d)
+Mat6x3 FiniteDifference::f_u(mjData *d)
 {
-    Mat3x3 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    Mat6x3 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
     return result;
 }
 
 
-Mat3x6 FiniteDifference::f_x(mjData *d)
+Mat6x6 FiniteDifference::f_x(mjData *d)
 {
-    Mat3x6 result;
-    Mat3x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    Mat3x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    Mat6x6 result;
+    Mat6x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
+    Mat6x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
 
     result << f_pos, f_vel;
     return result;
@@ -69,24 +70,23 @@ Mat3x6 FiniteDifference::f_x(mjData *d)
 
 void FiniteDifference::f_x_f_u(mjData *d)
 {
-    Mat3x3 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    Mat3x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
-    Mat3x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    Mat6x3 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    Mat6x3 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
+    Mat6x3 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
     _full_jacobian << f_pos, f_vel, ctrl_deriv;
 }
 
 
-Mat3x9& FiniteDifference::get_full_derivatives()
+Mat6x9& FiniteDifference::get_full_derivatives()
 {
     return _full_jacobian;
 }
 
 
-Mat3x3 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
+Mat6x3 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
 {
-    mjMARKSTACK
-    mjtNum* center = mj_stackAlloc(_d_cp, _m->nv);
 
+    mjMARKSTACK
     if (do_copy)
         copy_state(d);
 
@@ -100,48 +100,61 @@ Mat3x3 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
     for(int rep = 1; rep < 3; ++rep)
         mj_forwardSkip(_m, _d_cp, skip, 1);
 
-    mjtNum* output = _d_cp->qacc;
+    mjtNum* output_vel = _d_cp->qvel;
+    mjtNum* output_pos = _d_cp->qpos;
 
+    mjtNum * center_pos = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(center_pos, output_pos, _m->nv);
+
+    mjtNum * center_vel = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(center_vel, output_vel, _m->nv);
     // save output for center point and warmstart (needed in forward only)
-    mju_copy(center, output, _m->nv);
+//    mju_copy(centers[1], output_vel, _m->nv);
 
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
     const mjtNum* original = select_original_ptr(id, d);
 
     if (id == WithRespectTo::POS)
-        return first_order_forward_diff_positional(target, original, output, center, skip_stage(id));
+        return first_order_forward_diff_positional(target, original, output_pos, center_pos, center_vel, skip_stage(id));
     else
-        return first_order_forward_diff_general(target, original, output, center, skip_stage(id));
+        return first_order_forward_diff_general(target, original, output_vel, center_pos, center_vel, skip_stage(id));
 }
 
 
-Mat3x3 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const mjtNum *original, const mjtNum* output,
-                                                          const mjtNum* center, const mjtStage skip)
+Mat6x3 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
+                                                          const mjtNum *original,
+                                                          const mjtNum* output,
+                                                          const mjtNum* center_pos,
+                                                          const mjtNum* center_vel,
+                                                          const mjtStage skip)
 {
-    Mat3x3 result;
+    Mat6x3 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
-    for(int i = 0; i < _m->nv; ++i)
+    for(int i = 2; i < _m->nv; ++i)
     {
+        std::cout << "Before perturbation vel: " << _d_cp->qvel[1] << std::endl;
+        std::cout << "Before perturbation pos: " << _d_cp->qpos[1] << std::endl;
+
         // perturb selected target
         target[i] += eps;
 
         // evaluate dynamics, with center warmstart
         mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_forwardSkip(_m, _d_cp, skip, 1);
-
-        // undo perturbation
-        target[i] = original[i];
+        mj_step(_m, _d_cp);
 
         // compute column i of derivative 2
         for(int j = 0; j < _m->nv; ++j)
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            result(i, j) = (output[j] - center[j])/eps;
+            result(j, i) = (_d_cp->qpos[j] - center_pos[j])/eps;
+            result(j + _m->nv, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
         }
+        // undo perturbation
+        target[i] = original[i];
     }
 
 #if NDEBUG
@@ -152,10 +165,14 @@ Mat3x3 FiniteDifference::first_order_forward_diff_general(mjtNum *target, const 
 }
 
 
-Mat3x3 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, const mjtNum *original, const mjtNum* output,
-                                                             const mjtNum* center, const mjtStage skip)
+Mat6x3 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
+                                                             const mjtNum *original,
+                                                             const mjtNum* output,
+                                                             const mjtNum* center_pos,
+                                                             const mjtNum* center_vel,
+                                                             const mjtStage skip)
 {
-    Mat3x3 result;
+    Mat6x3 result;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -189,18 +206,16 @@ Mat3x3 FiniteDifference::first_order_forward_diff_positional(mjtNum *target, con
 
         // evaluate dynamics, with center warmstart
         mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_forwardSkip(_m, _d_cp, skip, 1);
-
-
-        // undo perturbation
-        mju_copy(target, original, _m->nq);
+        mj_step(_m, _d_cp);
 
         // compute column i of derivative 0
         for(int j = 0; j < _m->nv; j++) {
-            result(i, j) = (output[j] - center[j]) / eps;
+            result(j, i) = (_d_cp->qpos[j] - center_pos[j])/eps;
+            result(j + _m->nv, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
         }
+        // undo perturbation
+        mju_copy(target, original, _m->nq);
     }
-
 #if NDEBUG
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
@@ -226,4 +241,3 @@ mjtNum * FiniteDifference::get_wrt(const WithRespectTo wrt)
 {
     return _wrt[wrt];
 }
-

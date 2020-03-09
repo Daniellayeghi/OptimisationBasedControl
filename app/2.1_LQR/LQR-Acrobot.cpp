@@ -185,7 +185,7 @@ int main(int argc, const char** argv)
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
-    d->qpos[0] = M_PI_2/2;
+    d->qpos[0] = -M_PI_2;
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
@@ -204,9 +204,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            cost_func.derivatives(d);
-            ilqr.backward_pass();
-            std::cout << "Full derivatives" << "\n" << fd.f_u(d) << "\n";
+            ilqr.backward_pass(d);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
