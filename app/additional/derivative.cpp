@@ -379,7 +379,7 @@ int main(int argc, char** argv)
     int nefc = 0;
     double cputm[MAXEPOCH][2];
     mjtNum error[MAXEPOCH][8];
-
+    Eigen::Matrix<double, 6 , 3> result;
     FiniteDifference finite_diff(m);
 //    InternalTypes::Mat9x1 result;
 
@@ -412,7 +412,7 @@ int main(int argc, char** argv)
             for( int n=0; n<nthread; n++ ){
                 std::cout << "worker result" << "\n";
                 worker(m, dmain, d[n], n);
-                auto result = finite_diff.differentiate(dmain, finite_diff.get_wrt(FiniteDifference::WithRespectTo::FRC),
+                result = finite_diff.differentiate(dmain, finite_diff.get_wrt(FiniteDifference::WithRespectTo::FRC),
                         FiniteDifference::WithRespectTo::FRC);
             }
 
