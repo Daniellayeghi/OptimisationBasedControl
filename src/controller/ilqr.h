@@ -19,6 +19,11 @@ public:
 
 private:
     void forward_simulate(const mjData* d);
+    Eigen::Matrix<mjtNum, 4, 1> Q_x(int time);
+    Eigen::Matrix<mjtNum, 2, 1> Q_u(int time);
+    Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time);
+    Eigen::Matrix<mjtNum, 2, 4> Q_ux(int time);
+    Eigen::Matrix<mjtNum, 2, 2> Q_uu(int time);
 
     std::vector<mjtNum> _V;
     std::vector<InternalTypes::Mat4x4> _V_xx;
@@ -32,6 +37,9 @@ private:
     std::vector<InternalTypes::Mat4x4> _L_xx;
     std::vector<InternalTypes::Mat2x4> _L_ux;
     std::vector<InternalTypes::Mat2x2> _L_uu;
+
+    std::vector<Eigen::Matrix<mjtNum, 2, 4>> _ff_K;
+    std::vector<Eigen::Matrix<mjtNum, 2, 1>> _fb_k ;
 
     std::vector<mjData> _simulated_state;
 

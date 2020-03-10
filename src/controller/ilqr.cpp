@@ -55,7 +55,6 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 ILQR::~ILQR()
 {
     mj_deleteData(_d_cp);
-
 }
 
 
@@ -78,14 +77,51 @@ void ILQR::forward_simulate(const mjData* d)
 }
 
 
+Eigen::Matrix<mjtNum, 4, 1> ILQR::Q_x(int time)
+{
+    return _L_x[time] + _F_x[time].transpose() * _V_x[time] ;
+}
+
+
+Eigen::Matrix<mjtNum, 2, 1> ILQR::Q_u(int time)
+{
+    return _L_u[time] + _F_u[time].transpose() * _V_x[time] ;
+}
+
+
+Eigen::Matrix<mjtNum, 4, 4> ILQR::Q_xx(int time)
+{
+    return _L_xx[time] + _F_x[time].transpose() * _V_xx[time] * _F_x[time];
+}
+
+
+Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time)
+{
+    return _L_ux[time] + _F_u[time].transpose() * _V_xx[time] * _F_x[time];
+}
+
+
+Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time)
+{
+    return _L_uu[time] + _F_u[time].transpose() * _V_xx[time] * _F_u[time];
+}
+
+
 // TODO: make data const if you can
 void ILQR::backward_pass(mjData* d)
 {
     forward_simulate(d);
-//    std::cout << "Result: " <<  "\n" <<_F_x[0] << "\n";
-//    for(auto time_step = _simulation_time - 2; time_step >= 0; --time_step )
-//    {
-//        calculate_derivatives();
-//        auto result = _fd.get_full_derivatives().block<3, 6>(0, 0) * _V_x[time_step];
-//    }
+    std::cout << "Q_x: " <<  "\n" << Q_x(0) << "\n";
+    std::cout << "Q_u: " <<  "\n" << Q_u(0) << "\n";
+    std::cout << "Q_xx: " <<  "\n" << Q_xx(0) << "\n";
+    std::cout << "Q_ux: " <<  "\n" << Q_ux(0) << "\n";
+    std::cout << "Q_uu: " <<  "\n" << Q_uu(0) << "\n";
+
+
+    std::cout << "k: " <<  "\n" << -1 * Q_uu(0).colPivHouseholderQr().solve(Q_u(0)) << "\n";
+    std::cout << "K: " <<  "\n" << -1 * Q_uu(0).colPivHouseholderQr().solve(Q_ux(0)) << "\n";
+    for (auto time = _simulation_time - 1; time <= 0; --time)
+    {
+
+    }
 }

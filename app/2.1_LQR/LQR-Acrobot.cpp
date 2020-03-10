@@ -180,7 +180,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m_cp);
     CostFunction cost_func;
     MyController control(m, d, fd, cost_func);
-    ILQR ilqr(fd, cost_func, m_cp, 100);
+    ILQR ilqr(fd, cost_func, m_cp, 10);
     MyController::set_instance(&control);
 
     // install control callback
