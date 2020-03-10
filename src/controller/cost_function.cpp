@@ -30,7 +30,6 @@ namespace
         _u(1, 0) = _state->ctrl[1];
         _u(2, 0) = 0;
         _u(3, 0) = 0;
-
     }
 
 
@@ -99,11 +98,11 @@ void CostFunction::derivatives(mjData* d)
     {
         _hessian.middleRows(idx,1) = _Ac.derivatives()(idx).derivatives().transpose();
     }
-////#if DEFINE_DEBUG
-//    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
-////#endif
-}
 
+#if DEFINE_DEBUG
+    std::cout << "Hessian:" << "\n" << _hessian.block<6, 6>(0, 0) << "\n";
+#endif
+}
 
 
 Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> CostFunction::L_x()
@@ -118,9 +117,9 @@ Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> CostFunction::L_u()
 }
 
 
-Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>>  CostFunction::L_xx()
+Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 4, 4>>  CostFunction::L_xx()
 {
-    return _hessian.block<6, 6>(0, 0);
+    return _hessian.block<4, 4>(0, 0);
 }
 
 

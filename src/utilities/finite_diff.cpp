@@ -4,6 +4,9 @@
 
 using namespace InternalTypes;
 
+static int _mark = 0;
+#define myFREESTACK   _d_cp->pstack = _mark;
+
 namespace
 {
     mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
@@ -50,21 +53,15 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-Mat4x2 FiniteDifference::f_u(mjData *d)
+Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> FiniteDifference::f_u(mjData *d)
 {
-    Mat4x2 result = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    return result;
+    return _full_jacobian.block<4, 2>(0,4);
 }
 
 
-Mat4x4 FiniteDifference::f_x(mjData *d)
+Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x(mjData *d)
 {
-    Mat4x4 result;
-    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
-
-    result << f_pos, f_vel;
-    return result;
+    return _full_jacobian.block<4, 4>(0,0);
 }
 
 
@@ -85,8 +82,6 @@ Mat4x6& FiniteDifference::get_full_derivatives()
 
 Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
 {
-
-    mjMARKSTACK
     if (do_copy)
         copy_state(d);
 
@@ -103,6 +98,7 @@ Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
     mjtNum* output_vel = _d_cp->qvel;
     mjtNum* output_pos = _d_cp->qpos;
 
+    _mark = _d_cp->pstack;
     mjtNum * center_pos = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(center_pos, output_pos, _m->nv);
 
@@ -136,9 +132,6 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
 
     for(int i = 0; i < row; ++i)
     {
-        std::cout << "Before perturbation vel: " << _d_cp->qvel[1] << std::endl;
-        std::cout << "Before perturbation pos: " << _d_cp->qpos[1] << std::endl;
-
         // perturb selected target
         target[i] += eps;
 
@@ -162,6 +155,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
 #endif
+    myFREESTACK
     return result;
 }
 
@@ -222,6 +216,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
 #endif
+    myFREESTACK
     return result;
 }
 

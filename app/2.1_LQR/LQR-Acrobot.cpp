@@ -20,6 +20,8 @@
 #include <chrono>
 #include <thread>
 
+using namespace std;
+using namespace std::chrono;
 // local variables include
 
 // MuJoCo data structures
@@ -134,6 +136,7 @@ int main(int argc, const char** argv)
     if( argc<2 ) {
         m = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
         m_cp = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
+
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
             m = mj_loadModel(argv[1], 0);
@@ -177,7 +180,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m_cp);
     CostFunction cost_func;
     MyController control(m, d, fd, cost_func);
-    ILQR ilqr(fd, cost_func, m, 100);
+    ILQR ilqr(fd, cost_func, m_cp, 100);
     MyController::set_instance(&control);
 
     // install control callback
@@ -185,10 +188,11 @@ int main(int argc, const char** argv)
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
-    d->qpos[0] = -M_PI_2;
+    d->qpos[0] = M_PI_2;
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
+    auto iteration = 0;
 
     std::cout << m->nv << "\n";
     // use the first while condition if you want to simulate for a period.
@@ -207,7 +211,7 @@ int main(int argc, const char** argv)
             ilqr.backward_pass(d);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);

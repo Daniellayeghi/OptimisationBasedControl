@@ -16,11 +16,9 @@ public:
     explicit CostFunction();
     void derivatives(mjData* d);
 
-//    VectorXd Lf_x();
-//    VectorXd Lf_xx();
     Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> L_x();
     Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> L_u();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 6, 6>> L_xx();
+    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 4, 4>> L_xx();
     Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> L_uu();
     Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> L_ux();
 

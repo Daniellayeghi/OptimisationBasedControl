@@ -20,9 +20,9 @@ public:
 
     InternalTypes::Mat4x2 differentiate(mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy = true);
 
-    InternalTypes::Mat4x2 f_u(mjData *d);
+    Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> f_u(mjData *d);
 
-    InternalTypes::Mat4x4 f_x(mjData *d);
+    Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4> f_x(mjData *d);
 
     void f_x_f_u(mjData *d);
 

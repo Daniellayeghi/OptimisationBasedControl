@@ -22,7 +22,6 @@ public:
 private:
     FiniteDifference& _fd;
     CostFunction&     _cf;
-    ILQR              _ilqr;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;
