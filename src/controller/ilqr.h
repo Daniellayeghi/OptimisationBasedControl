@@ -15,20 +15,20 @@ public:
     ILQR(FiniteDifference& fd, CostFunction& cf, const mjModel * m, int simulation_time);
     ~ILQR();
 
+    void control(mjData* d);
     void backward_pass(mjData* d);
+    void forward_pass();
+    Eigen::Ref<InternalTypes::Mat2x1> get_control();
 
 private:
     void forward_simulate(const mjData* d);
-    Eigen::Matrix<mjtNum, 4, 1> Q_x(int time);
-    Eigen::Matrix<mjtNum, 2, 1> Q_u(int time);
-    Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time);
-    Eigen::Matrix<mjtNum, 2, 4> Q_ux(int time);
-    Eigen::Matrix<mjtNum, 2, 2> Q_uu(int time);
+    Eigen::Matrix<mjtNum, 4, 1> Q_x(int time, InternalTypes::Mat4x1& _V_x);
+    Eigen::Matrix<mjtNum, 2, 1> Q_u(int time,  InternalTypes::Mat4x1& _V_x);
+    Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time, InternalTypes::Mat4x4& _V_xx);
+    Eigen::Matrix<mjtNum, 2, 4> Q_ux(int time, InternalTypes::Mat4x4& _V_xx);
+    Eigen::Matrix<mjtNum, 2, 2> Q_uu(int time, InternalTypes::Mat4x4& _V_xx);
 
-    std::vector<mjtNum> _V;
-    std::vector<InternalTypes::Mat4x4> _V_xx;
-    std::vector<InternalTypes::Mat4x1> _V_x;
-
+    std::vector<double> _F;
     std::vector<InternalTypes::Mat4x4> _F_x;
     std::vector<InternalTypes::Mat4x2> _F_u;
 
@@ -38,17 +38,23 @@ private:
     std::vector<InternalTypes::Mat2x4> _L_ux;
     std::vector<InternalTypes::Mat2x2> _L_uu;
 
-    std::vector<Eigen::Matrix<mjtNum, 2, 4>> _ff_K;
-    std::vector<Eigen::Matrix<mjtNum, 2, 1>> _fb_k ;
 
-    std::vector<mjData> _simulated_state;
+    std::vector<InternalTypes::Mat2x1> _u_traj;
+    std::vector<InternalTypes::Mat2x4> _ff_K;
+    std::vector<InternalTypes::Mat4x1> _x_traj;
+    std::vector<InternalTypes::Mat2x1> _fb_k ;
+    std::vector<InternalTypes::Mat4x1> _x_traj_new;
 
     InternalTypes::Mat6x1 desired_state;
     int  _simulation_time;
-    FiniteDifference& _fd;
-    CostFunction& _cf;
-    mjData* _d_cp = nullptr;
+
     const mjModel* _m;
+    mjData* _d_cp = nullptr;
+
+    CostFunction& _cf;
+    FiniteDifference& _fd;
+    InternalTypes::Mat2x1 _cached_control;
+
 };
 
 

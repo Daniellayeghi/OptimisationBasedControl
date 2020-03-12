@@ -14,6 +14,22 @@ namespace
         mju_copy(data_cp->xfrc_applied, data->xfrc_applied, 6*model->nbody);
         mju_copy(data_cp->ctrl, data->ctrl, model->nu);
     }
+
+    template<typename T, int M, int N>
+    void set_control_data(mjData* data, const Eigen::Matrix<T, M, N> ctrl)
+    {
+        for(auto row = 0; row < ctrl.rows(); ++row)
+        {
+            data->qfrc_applied[row] = ctrl(row, 0);
+        }
+    }
+
+    template<typename T, int M, int N>
+    void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N> state)
+    {
+        state(0, 0) = data->qpos[0]; state(1, 0) = data->qpos[1];
+        state(2, 0) = data->qvel[0]; state(3, 0) = data->qvel[1];
+    }
 }
 
 
@@ -22,33 +38,39 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 {
     _d_cp = mj_makeData(m);
 
-    _simulated_state.reserve(_simulation_time);
-
-    _V.reserve(_simulation_time);
-    _V_x.reserve(_simulation_time);
-    _V_xx.reserve(_simulation_time);
-
+    _F.reserve(_simulation_time);
     _F_x.reserve(_simulation_time);
     _F_u.reserve(_simulation_time);
 
-    _L_x.reserve(_simulation_time);
     _L_u.reserve(_simulation_time);
-    _L_xx.reserve(_simulation_time);
     _L_ux.reserve(_simulation_time);
     _L_uu.reserve(_simulation_time);
 
-    std::fill(_V.begin(), _V.end(), 0);
-    std::fill(_V_x.begin(), _V_x.end(), Eigen::Matrix<double, 4, 1>::Zero());
-    std::fill(_V_xx.begin(), _V_xx.end(), Eigen::Matrix<double, 4, 4>::Zero());
+    _L_x.reserve(_simulation_time + 1);
+    _L_xx.reserve(_simulation_time + 1);
 
-    std::fill(_F_x.begin(), _F_x.end(), Eigen::Matrix<double, 4, 4>::Zero());
-    std::fill(_F_u.begin(), _F_u.end(), Eigen::Matrix<double, 4, 2>::Zero());
+    _ff_K.reserve(_simulation_time);
+    _fb_k.reserve(_simulation_time);
 
-    std::fill(_L_x.begin(), _L_x.end(), Eigen::Matrix<double, 4, 1>::Zero());
-    std::fill(_L_u.begin(), _L_u.end(), Eigen::Matrix<double, 2, 1>::Zero());
-    std::fill(_L_xx.begin(), _L_xx.end(), Eigen::Matrix<double, 4, 4>::Zero());
-    std::fill(_L_ux.begin(), _L_ux.end(), Eigen::Matrix<double, 2, 4>::Zero());
-    std::fill(_L_uu.begin(), _L_uu.end(), Eigen::Matrix<double, 2, 2>::Zero());
+    _x_traj_new.reserve(_simulation_time + 1);
+    _x_traj.reserve(_simulation_time + 1);
+    _u_traj.reserve(_simulation_time);
+
+    for(auto i =0; i < _simulation_time; ++i)
+    {
+        _F_x.emplace_back(Eigen::Matrix<double, 4, 4>::Zero());
+        _F_u.emplace_back(Eigen::Matrix<double, 4, 2>::Zero());
+        _L_x.emplace_back(Eigen::Matrix<double, 4, 1>::Zero());
+        _L_u.emplace_back(Eigen::Matrix<double, 2, 1>::Zero());
+        _L_xx.emplace_back(Eigen::Matrix<double, 4, 4>::Zero());
+        _L_ux.emplace_back(Eigen::Matrix<double, 2, 4>::Zero());
+        _L_uu.emplace_back(Eigen::Matrix<double, 2, 2>::Zero());
+        _ff_K.emplace_back(Eigen::Matrix<double, 2, 4>::Zero());
+        _fb_k.emplace_back(Eigen::Matrix<double, 2, 1>::Zero());
+        _u_traj.emplace_back(Eigen::Matrix<double, 2, 1>::Zero());
+        _x_traj.emplace_back(Eigen::Matrix<double, 4, 1>::Zero());
+        _x_traj_new.emplace_back(Eigen::Matrix<double, 4, 1>::Zero());
+    };
 }
 
 
@@ -58,13 +80,43 @@ ILQR::~ILQR()
 }
 
 
+Eigen::Matrix<mjtNum, 4, 1> ILQR::Q_x(int time, InternalTypes::Mat4x1& _V_x)
+{
+    return _L_x[time] + _F_x[time].transpose() * _V_x ;
+}
+
+
+Eigen::Matrix<mjtNum, 2, 1> ILQR::Q_u(int time,  InternalTypes::Mat4x1& _V_x)
+{
+    return _L_u[time] + _F_u[time].transpose() * _V_x ;
+}
+
+
+Eigen::Matrix<mjtNum, 4, 4> ILQR::Q_xx(int time, InternalTypes::Mat4x4& _V_xx)
+{
+    return _L_xx[time] + _F_x[time].transpose() * _V_xx * _F_x[time];
+}
+
+
+Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time, InternalTypes::Mat4x4& _V_xx)
+{
+    return _L_ux[time] + _F_u[time].transpose() * _V_xx * _F_x[time];
+}
+
+
+Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time, InternalTypes::Mat4x4& _V_xx)
+{
+    return _L_uu[time] + _F_u[time].transpose() * _V_xx * _F_u[time];
+}
+
+
 void ILQR::forward_simulate(const mjData* d)
 {
     copy_data(_m, d, _d_cp);
     for (auto time = 0; time < _simulation_time; ++time)
     {
+        fill_state_vector(_d_cp, _x_traj[time]);
         _fd.f_x_f_u(_d_cp);
-        _cf.derivatives(_d_cp);
         _F_x[time] = (_fd.f_x(_d_cp));
         _F_u[time] = (_fd.f_u(_d_cp));
         _L_u[time] = (_cf.L_u());
@@ -74,54 +126,59 @@ void ILQR::forward_simulate(const mjData* d)
         _L_uu[time] = (_cf.L_uu());
         mj_step(_m, _d_cp);
     }
-}
-
-
-Eigen::Matrix<mjtNum, 4, 1> ILQR::Q_x(int time)
-{
-    return _L_x[time] + _F_x[time].transpose() * _V_x[time] ;
-}
-
-
-Eigen::Matrix<mjtNum, 2, 1> ILQR::Q_u(int time)
-{
-    return _L_u[time] + _F_u[time].transpose() * _V_x[time] ;
-}
-
-
-Eigen::Matrix<mjtNum, 4, 4> ILQR::Q_xx(int time)
-{
-    return _L_xx[time] + _F_x[time].transpose() * _V_xx[time] * _F_x[time];
-}
-
-
-Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time)
-{
-    return _L_ux[time] + _F_u[time].transpose() * _V_xx[time] * _F_x[time];
-}
-
-
-Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time)
-{
-    return _L_uu[time] + _F_u[time].transpose() * _V_xx[time] * _F_u[time];
+    _L_x.back() = _cf.Lf_x();
+    _L_xx.back() = _cf.Lf_xx();
+    //TODO: Calculate the terminal costs
+    copy_data(_m, d, _d_cp);
 }
 
 
 // TODO: make data const if you can
 void ILQR::backward_pass(mjData* d)
 {
-    forward_simulate(d);
-    std::cout << "Q_x: " <<  "\n" << Q_x(0) << "\n";
-    std::cout << "Q_u: " <<  "\n" << Q_u(0) << "\n";
-    std::cout << "Q_xx: " <<  "\n" << Q_xx(0) << "\n";
-    std::cout << "Q_ux: " <<  "\n" << Q_ux(0) << "\n";
-    std::cout << "Q_uu: " <<  "\n" << Q_uu(0) << "\n";
+    InternalTypes::Mat4x1 V_x = _L_x.back();
+    InternalTypes::Mat4x4 V_xx = _L_xx.back();
 
-
-    std::cout << "k: " <<  "\n" << -1 * Q_uu(0).colPivHouseholderQr().solve(Q_u(0)) << "\n";
-    std::cout << "K: " <<  "\n" << -1 * Q_uu(0).colPivHouseholderQr().solve(Q_ux(0)) << "\n";
-    for (auto time = _simulation_time - 1; time <= 0; --time)
+    for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-
+        auto Q__uu = Q_uu(time, V_xx); auto Q__u = Q_u(time, V_x); auto Q__ux = Q_ux(time, V_xx);
+        _fb_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
+        _ff_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
+        V_x = Q_x(time, V_x) + _ff_K[time].transpose() * Q_uu(time, V_xx) * _fb_k[time];
+        V_x += _ff_K[time].transpose() * Q_u(time, V_x) + Q_ux(time, V_xx).transpose() * _fb_k[time];
+        V_xx = Q_xx(time, V_xx) + _ff_K[time].transpose() * Q_uu(time,V_xx) * _ff_K[time];
+        V_xx += _ff_K[time].transpose() * Q_ux(time, V_xx) + Q_ux(time, V_xx).transpose() * _ff_K[time];
+        V_xx = 0.5 * (V_xx + V_xx.transpose());
     }
 }
+
+
+void ILQR::forward_pass()
+{
+    _x_traj_new.front() = _x_traj.front();
+    for (auto time = 0; time < _simulation_time; ++ time)
+    {
+        _u_traj[time] = _u_traj[time] + _fb_k[time] + _ff_K[time] * (_x_traj_new[time] - _x_traj[time]);
+        set_control_data(_d_cp, _u_traj[time]);
+        mj_step(_m, _d_cp);
+        fill_state_vector(_d_cp, _x_traj_new[time + 1]);
+    }
+}
+
+
+void ILQR::control(mjData* d)
+{
+    forward_simulate(d);
+    backward_pass(d);
+    forward_pass();
+    _cached_control = _u_traj.front();
+    std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
+    _u_traj.back() = InternalTypes::Mat2x1::Zero();
+}
+
+
+Eigen::Ref<InternalTypes::Mat2x1> ILQR::get_control()
+{
+    return _cached_control;
+}
+

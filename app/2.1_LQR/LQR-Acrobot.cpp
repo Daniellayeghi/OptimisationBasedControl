@@ -171,6 +171,13 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
+    //Setup cost params
+    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2, 0, 0, 0;
+    InternalTypes::Mat2x1 u_desired; u_desired << 5, 5;
+    InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity(); x_terminal_gain *= 20;
+    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain *= 0.5;
+    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 0.8;
+
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -178,9 +185,9 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     FiniteDifference fd(m_cp);
-    CostFunction cost_func;
-    MyController control(m, d, fd, cost_func);
+    CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
     ILQR ilqr(fd, cost_func, m_cp, 10);
+    MyController control(m, d, fd, cost_func, ilqr);
     MyController::set_instance(&control);
 
     // install control callback
@@ -188,7 +195,7 @@ int main(int argc, const char** argv)
 
     // initial position
 //    d->qpos[0] = M_PI/10.0;
-    d->qpos[0] = M_PI_2;
+    d->qpos[0] = -M_PI_2;
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
@@ -208,7 +215,8 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            ilqr.backward_pass(d);
+            ilqr.control(d);
+
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

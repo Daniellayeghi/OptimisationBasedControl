@@ -9,7 +9,7 @@
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf);
+    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr);
 
     void controller();
 
@@ -22,6 +22,7 @@ public:
 private:
     FiniteDifference& _fd;
     CostFunction&     _cf;
+    ILQR&             _ilqr;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

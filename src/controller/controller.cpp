@@ -12,8 +12,8 @@ static std::default_random_engine generator;
 static std::uniform_real_distribution<double> distribution(-.01,.01);
 
 
-MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf) :
-_m(m), _d(d), _fd(fd), _cf(cf)
+MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr) :
+_m(m), _d(d), _fd(fd), _cf(cf), _ilqr(ilqr)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);
@@ -27,16 +27,15 @@ _m(m), _d(d), _fd(fd), _cf(cf)
 void MyController::controller()
 {
     mj_mulM(_m, _d, _inertial_torque, _constant_acc);
-    _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0] + distribution(generator);
-    _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1] + distribution(generator);
-    _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2] + distribution(generator);
-
-//    std::cout << "Fux" << "\n" << _d->qvel[0] << std::endl;
-//    std::cout << "Lx: " << "\n" << _cf.L_x() << "\n";
-//    std::cout << "Lu: " << "\n" << _cf.L_u() << "\n";
-//    std::cout << "Lux: " << "\n" << _cf.L_ux() << "\n";
-//    std::cout << "Lxx: " << "\n" << _cf.L_xx() << "\n";
-//    std::cout << "Luu: " << "\n" << _cf.L_uu() << "\n";
+#if 0
+    _d->ctrl[0] = _d->qfrc_bias[0] + _inertial_torque[0];
+    _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
+    _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
+#endif
+    auto ctrl = _ilqr.get_control();
+    std::cout << "Ctrl: " << "\n" << ctrl << "\n";
+    _d->ctrl[0] = 0;
+    _d->ctrl[1] = 0;
 
 #ifdef DEFINE_DEBUG
     for (auto joint = 0; joint < 3; ++joint)
