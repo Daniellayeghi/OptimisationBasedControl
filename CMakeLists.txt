@@ -41,6 +41,14 @@ find_package(Eigen3 REQUIRED)
 # does not need X11.
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 #Mujoco paths
 set(MUJOCO_PY_MJPRO_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 

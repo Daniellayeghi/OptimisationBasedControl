@@ -99,7 +99,7 @@ Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
     mjtNum* output_pos = _d_cp->qpos;
 
     _mark = _d_cp->pstack;
-    mjtNum * center_pos = mj_stackAlloc(_d_cp, _m->nv);
+    mjtNum * center_pos = mj_stackAlloc(_d_cp, _m->nq);
     mju_copy(center_pos, output_pos, _m->nv);
 
     mjtNum * center_vel = mj_stackAlloc(_d_cp, _m->nv);
@@ -126,7 +126,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
                                                           const mjtStage skip)
 {
     Mat4x2 result;
-    auto row = _m->nv - 1;
+    auto row = _m->nv;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -168,7 +168,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
                                                              const mjtStage skip)
 {
     Mat4x2 result;
-    auto row = _m->nv - 1;
+    auto row = _m->nv;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 

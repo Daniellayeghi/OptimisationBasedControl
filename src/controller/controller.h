@@ -19,6 +19,8 @@ public:
 
     static void dummy_controller(const mjModel* m, mjData* d);
 
+    int iteration = 0;
+
 private:
     FiniteDifference& _fd;
     CostFunction&     _cf;

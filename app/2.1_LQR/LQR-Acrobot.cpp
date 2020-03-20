@@ -151,7 +151,7 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
-    std::cout << m << "      " << m_cp << std::endl;
+    m->opt.timestep = 0.01;
     // make data
     d = mj_makeData(m);
     // init GLFW
@@ -172,11 +172,14 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     //Setup cost params
-    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2, 0, 0, 0;
-    InternalTypes::Mat2x1 u_desired; u_desired << 5, 5;
-    InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity(); x_terminal_gain *= 20;
-    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain *= 0.5;
-    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 0.8;
+    InternalTypes::Mat4x1 x_desired; x_desired << +M_PI_2, 0, 0, 0;
+    InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
+    InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
+    x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
+    x_terminal_gain *= 40;
+    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01; x_gain(3,3) = 0.01;
+    x_gain *= 100;
+    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 15;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -199,9 +202,10 @@ int main(int argc, const char** argv)
     d->qpos[1] = 0.0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
-    auto iteration = 0;
 
     std::cout << m->nv << "\n";
+
+
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -216,7 +220,6 @@ int main(int argc, const char** argv)
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
             ilqr.control(d);
-
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -30,19 +30,18 @@ public:
     Eigen::Matrix<mjtNum, 4, 1> Lf_x();
     Eigen::Matrix<mjtNum, 4, 4> Lf_xx();
 
-#if 0
-    void derivatives(const mjData* d);
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 4, 1>> L_x();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 1>, 2, 1>> L_u();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 4, 4>> L_xx();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 2>> L_uu();
-    Eigen::Ref<Block<Eigen::Matrix<double, 8, 8, 0, 8, 8>, 2, 4>> L_ux();
-#endif
+    mjtNum running_cost();
+    mjtNum terminal_cost();
+
+    template<int x_rows, int u_rows, int cols>
+    mjtNum trajectory_running_cost(const std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
+                                   const std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory);
 
 private:
     void update_errors();
-    mjtNum running_cost();
-    mjtNum terminal_cost();
+    template<int x_rows, int u_rows, int cols>
+    void update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
+                       const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl);
 
     Eigen::Matrix<double, 2, 2> _u_gain;
     Eigen::Matrix<double, 4, 4> _x_gain;
@@ -52,14 +51,8 @@ private:
     Eigen::Matrix<double, 2, 1> _u_desired;
     Eigen::Matrix<double, 4, 1> _x_desired;
 
+public:
     const mjData* _d;
-#if 0
-    Eigen::Matrix<double, 8, 1> _gradient;
-    Eigen::Matrix<double, 8, 8> _hessian;
-    AutoDiffTypes::AVector4x1 _Ax;
-    AutoDiffTypes::AVector4x1 _Au;
-    AutoDiffTypes::outer_active_scalar4x1 _Ac;
-#endif
 };
 
 #endif //OPTCONTROL_MUJOCO_COST_FUNCTION_H

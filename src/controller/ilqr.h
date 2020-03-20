@@ -19,11 +19,12 @@ public:
     void backward_pass(mjData* d);
     void forward_pass();
     Eigen::Ref<InternalTypes::Mat2x1> get_control();
+    std::vector<InternalTypes::Mat2x1> _u_traj;
 
 private:
     void forward_simulate(const mjData* d);
     Eigen::Matrix<mjtNum, 4, 1> Q_x(int time, InternalTypes::Mat4x1& _V_x);
-    Eigen::Matrix<mjtNum, 2, 1> Q_u(int time,  InternalTypes::Mat4x1& _V_x);
+    Eigen::Matrix<mjtNum, 2, 1> Q_u(int time, InternalTypes::Mat4x1& _V_x);
     Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time, InternalTypes::Mat4x4& _V_xx);
     Eigen::Matrix<mjtNum, 2, 4> Q_ux(int time, InternalTypes::Mat4x4& _V_xx);
     Eigen::Matrix<mjtNum, 2, 2> Q_uu(int time, InternalTypes::Mat4x4& _V_xx);
@@ -32,14 +33,14 @@ private:
     std::vector<InternalTypes::Mat4x4> _F_x;
     std::vector<InternalTypes::Mat4x2> _F_u;
 
+    std::vector<mjtNum> _L;
     std::vector<InternalTypes::Mat4x1> _L_x;
     std::vector<InternalTypes::Mat2x1> _L_u;
     std::vector<InternalTypes::Mat4x4> _L_xx;
     std::vector<InternalTypes::Mat2x4> _L_ux;
     std::vector<InternalTypes::Mat2x2> _L_uu;
 
-
-    std::vector<InternalTypes::Mat2x1> _u_traj;
+//    std::vector<InternalTypes::Mat2x1> _u_traj;
     std::vector<InternalTypes::Mat2x4> _ff_K;
     std::vector<InternalTypes::Mat4x1> _x_traj;
     std::vector<InternalTypes::Mat2x1> _fb_k ;
@@ -55,6 +56,11 @@ private:
     FiniteDifference& _fd;
     InternalTypes::Mat2x1 _cached_control;
 
+    mjtNum min_bound = -3;
+    mjtNum max_bound = 3;
+
+    bool recalculate = true;
+    bool converged   = false;
 };
 
 

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <numeric>
 #include "mujoco.h"
 #include "ilqr.h"
 namespace
@@ -30,6 +31,15 @@ namespace
         state(0, 0) = data->qpos[0]; state(1, 0) = data->qpos[1];
         state(2, 0) = data->qvel[0]; state(3, 0) = data->qvel[1];
     }
+
+    template<int rows, int cols>
+    void clamp_control(Eigen::Matrix<mjtNum, rows, cols>& control, mjtNum max_bound, mjtNum min_bound)
+    {
+        for (auto row = 0; row < control.rows(); ++row)
+        {
+            control(row, 0) = std::clamp(control(row, 0), min_bound, max_bound);
+        }
+    }
 }
 
 
@@ -46,6 +56,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
     _L_ux.reserve(_simulation_time);
     _L_uu.reserve(_simulation_time);
 
+    _L.reserve(_simulation_time + 1);
     _L_x.reserve(_simulation_time + 1);
     _L_xx.reserve(_simulation_time + 1);
 
@@ -58,6 +69,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 
     for(auto i =0; i < _simulation_time; ++i)
     {
+        _L.emplace_back(0);
         _F_x.emplace_back(Eigen::Matrix<double, 4, 4>::Zero());
         _F_u.emplace_back(Eigen::Matrix<double, 4, 2>::Zero());
         _L_x.emplace_back(Eigen::Matrix<double, 4, 1>::Zero());
@@ -106,30 +118,38 @@ Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time, InternalTypes::Mat4x4& _V_xx)
 
 Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time, InternalTypes::Mat4x4& _V_xx)
 {
+    Eigen::Matrix<mjtNum, 2, 2> result = _F_u[time].transpose() * _V_xx * _F_u[time];
     return _L_uu[time] + _F_u[time].transpose() * _V_xx * _F_u[time];
 }
 
 
 void ILQR::forward_simulate(const mjData* d)
 {
-    copy_data(_m, d, _d_cp);
-    for (auto time = 0; time < _simulation_time; ++time)
+    if (recalculate)
     {
-        fill_state_vector(_d_cp, _x_traj[time]);
-        _fd.f_x_f_u(_d_cp);
-        _F_x[time] = (_fd.f_x(_d_cp));
-        _F_u[time] = (_fd.f_u(_d_cp));
-        _L_u[time] = (_cf.L_u());
-        _L_x[time] = (_cf.L_x());
-        _L_xx[time] = (_cf.L_xx());
-        _L_ux[time] = (_cf.L_ux());
-        _L_uu[time] = (_cf.L_uu());
-        mj_step(_m, _d_cp);
+        copy_data(_m, d, _d_cp);
+        _cf._d = _d_cp;
+        for (auto time = 0; time < _simulation_time; ++time)
+        {
+            fill_state_vector(_d_cp, _x_traj[time]);
+            _fd.f_x_f_u(_d_cp);
+            _F_x[time] = (_fd.f_x(_d_cp));
+            _F_u[time] = (_fd.f_u(_d_cp));
+            _L[time] = _cf.running_cost();
+            _L_u[time] = (_cf.L_u());
+            _L_x[time] = (_cf.L_x());
+            _L_xx[time] = (_cf.L_xx());
+            _L_ux[time] = (_cf.L_ux());
+            _L_uu[time] = (_cf.L_uu());
+            mj_step(_m, _d_cp);
+        }
+        _L.back()    = _cf.terminal_cost();
+        _L_x.back()  = _cf.Lf_x();
+        _L_xx.back() = _cf.Lf_xx();
+        //TODO: Calculate the terminal costs
+        copy_data(_m, d, _d_cp);
+        recalculate = false;
     }
-    _L_x.back() = _cf.Lf_x();
-    _L_xx.back() = _cf.Lf_xx();
-    //TODO: Calculate the terminal costs
-    copy_data(_m, d, _d_cp);
 }
 
 
@@ -141,7 +161,6 @@ void ILQR::backward_pass(mjData* d)
 
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-        auto Q__uu = Q_uu(time, V_xx); auto Q__u = Q_u(time, V_x); auto Q__ux = Q_ux(time, V_xx);
         _fb_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
         _ff_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
         V_x = Q_x(time, V_x) + _ff_K[time].transpose() * Q_uu(time, V_xx) * _fb_k[time];
@@ -159,21 +178,37 @@ void ILQR::forward_pass()
     for (auto time = 0; time < _simulation_time; ++ time)
     {
         _u_traj[time] = _u_traj[time] + _fb_k[time] + _ff_K[time] * (_x_traj_new[time] - _x_traj[time]);
+        clamp_control(_u_traj[time], max_bound, min_bound);
         set_control_data(_d_cp, _u_traj[time]);
         mj_step(_m, _d_cp);
         fill_state_vector(_d_cp, _x_traj_new[time + 1]);
+    }
+
+    auto new_total_cost  = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
+    auto prev_total_cost = std::accumulate(_L.begin(), _L.end(), 0.0);
+
+    if (new_total_cost < prev_total_cost)
+    {
+        converged = (std::abs(prev_total_cost - new_total_cost/prev_total_cost) < 1e-6);
+        _x_traj = _x_traj_new;
+        recalculate = true;
     }
 }
 
 
 void ILQR::control(mjData* d)
 {
-    forward_simulate(d);
-    backward_pass(d);
-    forward_pass();
-    _cached_control = _u_traj.front();
-    std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
-    _u_traj.back() = InternalTypes::Mat2x1::Zero();
+    for(auto iteration = 0; iteration < 3; ++iteration)
+    {
+        forward_simulate(d);
+        backward_pass(d);
+        forward_pass();
+        _cached_control = _u_traj.front();
+        std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
+        _u_traj.back() = InternalTypes::Mat2x1::Zero();
+        if (converged)
+            break;
+    }
 }
 
 

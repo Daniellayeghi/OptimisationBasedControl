@@ -34,8 +34,8 @@ void MyController::controller()
 #endif
     auto ctrl = _ilqr.get_control();
     std::cout << "Ctrl: " << "\n" << ctrl << "\n";
-    _d->ctrl[0] = 0;
-    _d->ctrl[1] = 0;
+    _d->ctrl[0] = ctrl(0,0);
+    _d->ctrl[1] = ctrl(1,0);
 
 #ifdef DEFINE_DEBUG
     for (auto joint = 0; joint < 3; ++joint)
