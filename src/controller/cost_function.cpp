@@ -76,8 +76,8 @@ void CostFunction::update_errors()
     _x_error(1, 0) = _x_desired(1, 0) - _d->qpos[1];
     _x_error(2, 0) = _x_desired(2, 0) - _d->qvel[0];
     _x_error(3, 0) = _x_desired(3, 0) - _d->qvel[1];
-    _u_error(0, 0) = _u_desired(0, 0) - _d->ctrl[0];
-    _u_error(1, 0) = _u_desired(1, 0) - _d->ctrl[1];
+    _u_error(0, 0) = _d->ctrl[0];
+    _u_error(1, 0) = _d->ctrl[1];
 }
 
 

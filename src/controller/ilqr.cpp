@@ -118,7 +118,6 @@ Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time, InternalTypes::Mat4x4& _V_xx)
 
 Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time, InternalTypes::Mat4x4& _V_xx)
 {
-    Eigen::Matrix<mjtNum, 2, 2> result = _F_u[time].transpose() * _V_xx * _F_u[time];
     return _L_uu[time] + _F_u[time].transpose() * _V_xx * _F_u[time];
 }
 
@@ -198,7 +197,7 @@ void ILQR::forward_pass()
 
 void ILQR::control(mjData* d)
 {
-    for(auto iteration = 0; iteration < 3; ++iteration)
+    for(auto iteration = 0; iteration < 5; ++iteration)
     {
         forward_simulate(d);
         backward_pass(d);
