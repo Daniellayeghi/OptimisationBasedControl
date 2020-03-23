@@ -50,7 +50,7 @@ private:
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;
-    const double eps  = 0.01;
+    const double eps  = 0.0001;
 
     std::map<WithRespectTo, mjtNum *> _wrt;
     InternalTypes::Mat4x6 _full_jacobian;

@@ -176,10 +176,10 @@ int main(int argc, const char** argv)
     InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
     InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
     x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-    x_terminal_gain *= 40;
+    x_terminal_gain *= 1000;
     InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01; x_gain(3,3) = 0.01;
-    x_gain *= 100;
-    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 15;
+    x_gain *= 10;
+    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 2;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -189,7 +189,7 @@ int main(int argc, const char** argv)
 
     FiniteDifference fd(m_cp);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
-    ILQR ilqr(fd, cost_func, m_cp, 10);
+    ILQR ilqr(fd, cost_func, m_cp, 20);
     MyController control(m, d, fd, cost_func, ilqr);
     MyController::set_instance(&control);
 

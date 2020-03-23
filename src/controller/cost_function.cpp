@@ -86,7 +86,7 @@ inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols
                                         const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl)
 {
     _x_error = _x_desired - state;
-    _u_error = _u_desired - ctrl;
+    _u_error = _u_desired;
 }
 
 

@@ -148,6 +148,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
             result(j + row, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
         }
         // undo perturbation
+        Eigen::Matrix<double, 6, 6> id; id.setIdentity();
         target[i] = original[i];
     }
 
