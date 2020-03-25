@@ -112,13 +112,13 @@ Eigen::Matrix<mjtNum, 4, 4> ILQR::Q_xx(int time, InternalTypes::Mat4x4& _V_xx)
 
 Eigen::Matrix<mjtNum, 2, 4> ILQR::Q_ux(int time, InternalTypes::Mat4x4& _V_xx)
 {
-    return _L_ux[time] + _F_u[time].transpose() * _V_xx * _F_x[time];
+    return _L_ux[time] + _F_u[time].transpose() * (_V_xx) * _F_x[time];
 }
 
 
 Eigen::Matrix<mjtNum, 2, 2> ILQR::Q_uu(int time, InternalTypes::Mat4x4& _V_xx)
 {
-    return _L_uu[time] + _F_u[time].transpose() * _V_xx * _F_u[time];
+    return _L_uu[time] + _F_u[time].transpose() * (_V_xx) * _F_u[time];
 }
 
 
@@ -173,9 +173,9 @@ void ILQR::backward_pass(mjData* d)
 
 void ILQR::forward_pass()
 {
+
     _x_traj_new.front() = _x_traj.front();
-    for (auto time = 0; time < _simulation_time; ++ time)
-    {
+    for (auto time = 0; time < _simulation_time; ++time) {
         _u_traj[time] = _u_traj[time] + _fb_k[time] + _ff_K[time] * (_x_traj_new[time] - _x_traj[time]);
         clamp_control(_u_traj[time], max_bound, min_bound);
         set_control_data(_d_cp, _u_traj[time]);
@@ -183,15 +183,16 @@ void ILQR::forward_pass()
         fill_state_vector(_d_cp, _x_traj_new[time + 1]);
     }
 
-    auto new_total_cost  = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
+    auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
     auto prev_total_cost = std::accumulate(_L.begin(), _L.end(), 0.0);
 
     if (new_total_cost < prev_total_cost)
     {
-        converged = (std::abs(prev_total_cost - new_total_cost/prev_total_cost) < 1e-6);
+        converged = (std::abs(prev_total_cost - new_total_cost / prev_total_cost) < 1e-6);
         _x_traj = _x_traj_new;
         recalculate = true;
     }
+
 }
 
 

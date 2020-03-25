@@ -56,11 +56,11 @@ private:
     FiniteDifference& _fd;
     InternalTypes::Mat2x1 _cached_control;
 
-    mjtNum min_bound = -1;
-    mjtNum max_bound = 1;
-
     bool recalculate = true;
     bool converged   = false;
+
+    mjtNum min_bound = -1;
+    mjtNum max_bound = 1;
 };
 
 
