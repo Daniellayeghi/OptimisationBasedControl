@@ -17,7 +17,7 @@ namespace
     }
 
     template<typename T, int M, int N>
-    void set_control_data(mjData* data, const Eigen::Matrix<T, M, N> ctrl)
+    void set_control_data(mjData* data, const Eigen::Matrix<T, M, N>& ctrl)
     {
         for(auto row = 0; row < ctrl.rows(); ++row)
         {
@@ -26,7 +26,7 @@ namespace
     }
 
     template<typename T, int M, int N>
-    void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N> state)
+    void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N>& state)
     {
         state(0, 0) = data->qpos[0]; state(1, 0) = data->qpos[1];
         state(2, 0) = data->qvel[0]; state(3, 0) = data->qvel[1];

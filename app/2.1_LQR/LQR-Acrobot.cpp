@@ -15,6 +15,7 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
+#include "../../src/controller/MPPI.h"
 #include "../../src/controller/cost_function.h"
 // for sleep timers
 #include <chrono>
@@ -189,6 +190,7 @@ int main(int argc, const char** argv)
 
     FiniteDifference fd(m_cp);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
+    MPPI pi(m_cp);
     ILQR ilqr(fd, cost_func, m_cp, 10);
     MyController control(m, d, fd, cost_func, ilqr);
     MyController::set_instance(&control);
