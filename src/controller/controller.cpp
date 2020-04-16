@@ -8,12 +8,9 @@
 #include "cost_function.h"
 
 static MyController *my_ctrl;
-static std::default_random_engine generator;
-static std::uniform_real_distribution<double> distribution(-.01,.01);
 
-
-MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr) :
-_m(m), _d(d), _fd(fd), _cf(cf), _ilqr(ilqr)
+MyController::MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr, MPPI& pi) :
+_m(m), _fd(fd), _d(d), _cf(cf), _ilqr(ilqr), _pi(pi)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);
@@ -32,7 +29,7 @@ void MyController::controller()
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
 #endif
-    auto ctrl = _ilqr.get_control();
+    auto ctrl = _pi._cached_control;
     std::cout << "Ctrl: " << "\n" << ctrl << "\n";
     _d->ctrl[0] = ctrl(0,0);
     _d->ctrl[1] = ctrl(1,0);

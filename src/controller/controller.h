@@ -6,10 +6,12 @@
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 #include "ilqr.h"
+#include "MPPI.h"
+
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr);
+    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr, MPPI& pi);
 
     void controller();
 
@@ -19,12 +21,11 @@ public:
 
     static void dummy_controller(const mjModel* m, mjData* d);
 
-    int iteration = 0;
-
 private:
     FiniteDifference& _fd;
     CostFunction&     _cf;
     ILQR&             _ilqr;
+    MPPI&             _pi;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

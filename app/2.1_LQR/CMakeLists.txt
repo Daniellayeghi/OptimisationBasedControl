@@ -16,12 +16,13 @@
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
 find_package(PythonInterp 2.7 EXACT MODULE REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${MUJOCO_PY_MJPRO_PATH}/cmake/modules")
-
+include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
 set(BIN_NAME LQR-Acrobot)
 add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
 target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
 #Standard libraries for GL
-target_link_libraries(${BIN_NAME} GL GLU glut)
+target_link_libraries(${BIN_NAME} glut)
+target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
 # Additional libraries from mujoco package
 target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
 target_link_libraries(${BIN_NAME} control_lib)

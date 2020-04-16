@@ -15,7 +15,6 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/controller/MPPI.h"
 #include "../../src/controller/cost_function.h"
 // for sleep timers
 #include <chrono>
@@ -128,7 +127,7 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 int main(int argc, const char** argv)
 {
     // activate software
-    mj_activate(MUJ_KEY_PATH);
+    mj_activate("/opt/mujoco200_linux/bin/mjkey.txt");
 
     // load and compile model
     char error[1000] = "Could not load binary model";
@@ -192,7 +191,7 @@ int main(int argc, const char** argv)
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
     MPPI pi(m_cp);
     ILQR ilqr(fd, cost_func, m_cp, 10);
-    MyController control(m, d, fd, cost_func, ilqr);
+    MyController control(m, d, fd, cost_func, ilqr, pi);
     MyController::set_instance(&control);
 
     // install control callback
@@ -221,7 +220,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::callback_wrapper;
             mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
-            ilqr.control(d);
+            pi.control(d);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

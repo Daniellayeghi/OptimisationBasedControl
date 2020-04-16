@@ -37,6 +37,8 @@ set(CMAKE_CXX_STANDARD 17)
 #add_compile_options(-Wall -Wextra)
 find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
@@ -58,8 +60,6 @@ if(DEFINED MUJ_KEY_PATH)
 else()
     message(FATAL_ERROR "Mujoco key path NOT defined")
 endif()
-
-
 
 OPTION(DEFINE_DEBUG "Build the project using debugging code" OFF)
 IF(DEFINE_DEBUG)
