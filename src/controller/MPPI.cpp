@@ -50,54 +50,62 @@ MPPI::MPPI(const mjModel *m) : _m(m)
 {
     _d_cp = mj_makeData(_m);
 
-    _Q_state_cost << 6, 0, 0 ,0,
-                     0, 6, 0, 0,
-                     0, 0, 0.01, 0,
-                     0, 0, 0, 0.01;
+    _Q_state_cost << 12, 0, 0 ,0,
+                     0, 12, 0, 0,
+                     0, 0, 0.1, 0,
+                     0, 0, 0, 0.1;
 
-    _R_control_cost << 1, 0,
-                       0, 1;
-    _R_control_cost *= 10;
+    _R_control_cost << 500, 0,
+                       0, 500;
+    _R_control_cost *= 1;
 
     _cached_control << 0, 0;
 
     _state.assign(_sim_time,Eigen::Matrix<double, 4, 1>::Zero());
     _control.assign(_sim_time, Eigen::Matrix<double, 2, 1>::Zero());
-    _delta_cost_to_go.assign(_k_samples, 0);
 
     for (auto time = 0; time < _sim_time; ++time)
     {
         _delta_control[time].assign(_k_samples, Eigen::Matrix<double, 2, 1>::Zero());
+        _delta_cost_to_go[time].assign(_k_samples, 0);
     }
 }
 
 
-double MPPI::q_cost(Mat4x1& state)
-{
-    fill_state_vector(_d_cp, state);
+double MPPI::q_cost(Mat4x1 state)
+{;
+    state(0,0) =  1 - sin(state(0, 0));
+    state(1,0) =  1 - cos(state(1, 0));
+    std::cout << "state_0: " << 1 - sin(state(0, 0)) << std::endl;
+    std::cout << "state_1: " << 1 - cos(state(1, 0)) << std::endl;
     return state.transpose() * _Q_state_cost * state;
 }
 
 
 double MPPI::delta_q_cost(Mat4x1& state, Mat2x1& du, Mat2x1& u)
 {
-    fill_state_vector(_d_cp, state);
-    return q_cost(state) + du.transpose() * _R_control_cost * du + u.transpose() * _R_control_cost * du +
-           0.5 * u.transpose() * _R_control_cost *  u;
+    u(0,0) = 0;
+    std::cout << "cost: " << q_cost(state) << std::endl;
+    return q_cost(state);
 }
 
 
-Mat2x1 MPPI::total_entropy(const std::vector<Mat2x1>& delta_control_samples)
+Mat2x1 MPPI::total_entropy(const std::vector<Mat2x1>& delta_control_samples,
+                           const std::vector<double>& d_cost_to_go_samples) const
 {
     Mat2x1 numerator; numerator << 0, 0;
     double denomenator =  0;
-    for (unsigned long col = 0; col < _delta_cost_to_go.size(); ++col)
+    for (auto& sample: d_cost_to_go_samples)
     {
-        numerator += (std::exp(-(1/_lambda) * _delta_cost_to_go[col]) * delta_control_samples[col]);
-        denomenator += (std::exp(-(1/_lambda) * _delta_cost_to_go[col]));
+        denomenator += (std::exp(-(1/_lambda) * sample));
     }
 
-    return numerator/denomenator;
+    for (unsigned long col = 0; col < d_cost_to_go_samples.size(); ++col)
+    {
+        numerator += (std::exp(-(1/_lambda) * d_cost_to_go_samples[col]) * delta_control_samples[col]);
+    }
+    Mat2x1 result = numerator/denomenator; result(0,0) = 0;
+    return result;
 }
 
 
@@ -106,26 +114,29 @@ void MPPI::control(const mjData* d)
     using namespace InternalTypes;
     Eigen::Matrix<double, 2, 1> instant_control;
     fill_state_vector(_d_cp, _state[0]);
-    _delta_cost_to_go.assign(_k_samples, 0);
+    _delta_cost_to_go.front().assign(_k_samples, 0);
     for(auto sample = 0; sample < _k_samples; ++sample)
     {
         copy_data(_m, d, _d_cp);
         for (auto time = 0; time < _sim_time - 1; ++time)
         {
             _delta_control[time][sample] = _variance * Mat2x1::Random();
+            _delta_control[time][sample](0, 0) = 0;
             instant_control = _control[time] + _delta_control[time][sample];
+            clamp_control(instant_control, 2, -2);
             set_control_data(_d_cp, instant_control);
             mj_step(_m, _d_cp);
             fill_state_vector(_d_cp, _state[time+1]);
-            _delta_cost_to_go[sample] += delta_q_cost(_state[time+1], _delta_control[time][sample], _control[time]);
+            _delta_cost_to_go[time+1][sample] = _delta_cost_to_go[time][sample] +
+                    (delta_q_cost(_state[time+1], _delta_control[time][sample], _control[time]));
         }
         _delta_control.back()[sample] = _variance * Mat2x1::Random();
     }
 
-    for (auto time = 0; time < _sim_time; ++time)
+    for (auto time = 0; time < _sim_time - 1; ++time)
     {
-        _control[time] += (total_entropy(_delta_control[time]));
-        clamp_control(_control[time], 1, -1);
+        _control[time] += (total_entropy(_delta_control[time], _delta_cost_to_go[time]));
+        clamp_control(_control[time], 2, -2);
     }
 
     _cached_control = _control[0];

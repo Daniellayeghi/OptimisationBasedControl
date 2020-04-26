@@ -29,18 +29,15 @@ void MyController::controller()
     _d->ctrl[1] = _d->qfrc_bias[1] + _inertial_torque[1];
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
 #endif
+
     auto ctrl = _pi._cached_control;
     std::cout << "Ctrl: " << "\n" << ctrl << "\n";
     _d->ctrl[0] = ctrl(0,0);
     _d->ctrl[1] = ctrl(1,0);
 
 #ifdef DEFINE_DEBUG
-    for (auto joint = 0; joint < 3; ++joint)
-    {
-        std::cout << "Pos: " << joint << " " << _d->qpos[joint] << "\n";
-        std::cout << "Vel: " << joint << " " << _d->qvel[joint] << "\n";
-    }
-    std::cout << "LQR dynamics derivatives: " << result << "\n";
+    std::cout << "Vel__0: " << _d->qvel[0] << "\n";
+    std::cout << "Vel__1: " << _d->qvel[1] << "\n";
 #endif
 }
 

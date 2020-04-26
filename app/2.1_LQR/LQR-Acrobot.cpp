@@ -200,7 +200,7 @@ int main(int argc, const char** argv)
     // initial position
 //    d->qpos[0] = M_PI/10.0;
     d->qpos[0] = -M_PI_2;
-    d->qpos[1] = 0.0;
+    d->qpos[1] = 0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
 
@@ -217,9 +217,9 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            mjcb_control = MyController::callback_wrapper;
-            mj_step(m, d);
             mjcb_control = MyController::dummy_controller;
+            mj_step(m, d);
+            mjcb_control = MyController::callback_wrapper;
             pi.control(d);
         }
 
