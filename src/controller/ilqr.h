@@ -31,31 +31,29 @@ private:
 
     std::vector<double> _F;
     std::vector<InternalTypes::Mat4x4> _F_x;
-    std::vector<InternalTypes::Mat4x2> _F_u;
 
+    std::vector<InternalTypes::Mat4x2> _F_u;
     std::vector<mjtNum> _L;
     std::vector<InternalTypes::Mat4x1> _L_x;
     std::vector<InternalTypes::Mat2x1> _L_u;
     std::vector<InternalTypes::Mat4x4> _L_xx;
     std::vector<InternalTypes::Mat2x4> _L_ux;
     std::vector<InternalTypes::Mat2x2> _L_uu;
-
-//    std::vector<InternalTypes::Mat2x1> _u_traj;
     std::vector<InternalTypes::Mat2x4> _ff_K;
     std::vector<InternalTypes::Mat4x1> _x_traj;
     std::vector<InternalTypes::Mat2x1> _fb_k ;
+
     std::vector<InternalTypes::Mat4x1> _x_traj_new;
-
     InternalTypes::Mat6x1 desired_state;
+
     int  _simulation_time;
-
     const mjModel* _m;
-    mjData* _d_cp = nullptr;
 
+    mjData* _d_cp = nullptr;
     CostFunction& _cf;
     FiniteDifference& _fd;
-    InternalTypes::Mat2x1 _cached_control;
 
+    InternalTypes::Mat2x1 _cached_control;
     bool recalculate = true;
     bool converged   = false;
 

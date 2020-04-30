@@ -30,7 +30,7 @@ void MyController::controller()
     _d->ctrl[2] = _d->qfrc_bias[2] + _inertial_torque[2];
 #endif
 
-    auto ctrl = _pi._cached_control;
+    auto ctrl = _ilqr.get_control();
     std::cout << "Ctrl: " << "\n" << ctrl << "\n";
     _d->ctrl[0] = ctrl(0,0);
     _d->ctrl[1] = ctrl(1,0);

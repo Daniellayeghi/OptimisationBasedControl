@@ -6,3 +6,5 @@ cmake-build-debug
 libraries
 *build
 .ipynb_checkpoints
+*build-release
+

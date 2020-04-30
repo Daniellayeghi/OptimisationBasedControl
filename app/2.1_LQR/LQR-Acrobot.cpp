@@ -190,7 +190,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m_cp);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
     MPPI pi(m_cp);
-    ILQR ilqr(fd, cost_func, m_cp, 10);
+    ILQR ilqr(fd, cost_func, m_cp, 50);
     MyController control(m, d, fd, cost_func, ilqr, pi);
     MyController::set_instance(&control);
 
@@ -206,7 +206,6 @@ int main(int argc, const char** argv)
 
     std::cout << m->nv << "\n";
 
-
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -220,7 +219,7 @@ int main(int argc, const char** argv)
             mjcb_control = MyController::dummy_controller;
             mj_step(m, d);
             mjcb_control = MyController::callback_wrapper;
-            pi.control(d);
+            ilqr.control(d);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -238,7 +237,6 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
     }
-
     // free visualization storage
     mjv_freeScene(&scn);
     mjr_freeContext(&con);

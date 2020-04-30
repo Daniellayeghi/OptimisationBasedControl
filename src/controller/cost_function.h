@@ -34,8 +34,8 @@ public:
     mjtNum terminal_cost();
 
     template<int x_rows, int u_rows, int cols>
-    mjtNum trajectory_running_cost(const std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
-                                   const std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory);
+    mjtNum trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
+                                   std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory);
 
 private:
     void update_errors();
@@ -50,6 +50,8 @@ private:
     Eigen::Matrix<double, 2, 1> _u_error;
     Eigen::Matrix<double, 2, 1> _u_desired;
     Eigen::Matrix<double, 4, 1> _x_desired;
+    Eigen::Matrix<double, 4, 1> _u;
+    Eigen::Matrix<double, 4, 1> _x;
 
 public:
     const mjData* _d;

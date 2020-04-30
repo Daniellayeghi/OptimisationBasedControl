@@ -20,7 +20,21 @@ namespace
     }
 
 
-    void fill_data(Eigen::Matrix<double, 2, 1>& _u, Eigen::Matrix<double, 4, 1>& _x, const mjData* _state)
+    template<typename  T, int M, int N>
+    void PI_wrap_state(Eigen::Matrix<T, M, N>& state)
+    {
+        for (auto row = 0; row < state.rows(); ++row)
+        {
+            if (fabs(state(row, 0)) <= M_PI)
+            {
+                auto revolutions = std::floor((state(row, 0) + M_PI) * 1 /(2.0 * M_PI_2));
+                state(row, 0) -= revolutions * (2.0 * M_PI_2);
+            }
+        }
+    }
+
+
+    void fill_data(Eigen::Matrix<mjtNum , 4, 1>& _u, Eigen::Matrix<mjtNum, 4, 1>& _x, const mjData* _state)
     {
         _x(0, 0) = _state->qpos[0];
         _x(1, 0) = _state->qpos[1];
@@ -30,6 +44,8 @@ namespace
         _u(1, 0) = _state->ctrl[1];
         _u(2, 0) = 0;
         _u(3, 0) = 0;
+
+        PI_wrap_state(_x);
     }
 
 
@@ -72,12 +88,9 @@ CostFunction::CostFunction(const mjData* d,
 
 void CostFunction::update_errors()
 {
-    _x_error(0, 0) = _x_desired(0, 0) - _d->qpos[0];
-    _x_error(1, 0) = _x_desired(1, 0) - _d->qpos[1];
-    _x_error(2, 0) = _x_desired(2, 0) - _d->qvel[0];
-    _x_error(3, 0) = _x_desired(3, 0) - _d->qvel[1];
-    _u_error(0, 0) = _d->ctrl[0];
-    _u_error(1, 0) = _d->ctrl[1];
+    fill_data(_u, _x, _d);
+    _x_error = _x_desired - _x;
+    _u_error = _u.block<2, 1>(0, 0);
 }
 
 
@@ -86,29 +99,33 @@ inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols
                                         const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl)
 {
     _x_error = _x_desired - state;
-    _u_error = _u_desired;
+    _u_error = _u.block<2, 1>(0, 0);
 }
 
 
 mjtNum CostFunction::running_cost()
 {
     update_errors();
+
     return (_x_error.transpose() * _x_gain * _x_error + _u_error.transpose() * _u_gain * _u_error)(0, 0);
 }
 
 
 template<int x_rows, int u_rows, int cols>
-inline mjtNum CostFunction::trajectory_running_cost(const std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
-                                                    const std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory)
+inline mjtNum CostFunction::trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
+                                                    std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory)
 {
     auto cost = 0.0;
     for(auto row = 0; row < u_trajectory.size(); ++row)
     {
+        PI_wrap_state(x_trajectory[row]);
         update_errors(x_trajectory[row], u_trajectory[row]);
         cost += (_x_error.transpose() * _x_gain * _x_error + _u_error.transpose() * _u_gain * _u_error)(0, 0);
     }
     return cost;
 }
+
+
 
 
 mjtNum CostFunction::terminal_cost()
@@ -167,8 +184,8 @@ Eigen::Matrix<mjtNum, 2, 4> CostFunction::L_ux()
 }
 
 
-template mjtNum CostFunction::trajectory_running_cost<4, 2, 1>(const std::vector<Eigen::Matrix<mjtNum, 4, 1> > &x_trajectory,
-                                                               const std::vector<Eigen::Matrix<mjtNum, 2, 1> > &u_trajectory);
+template mjtNum CostFunction::trajectory_running_cost<4, 2, 1>(std::vector<Eigen::Matrix<mjtNum, 4, 1> > &x_trajectory,
+                                                               std::vector<Eigen::Matrix<mjtNum, 2, 1> > &u_trajectory);
 
 template void CostFunction::update_errors<4, 2, 1>(const Eigen::Matrix<mjtNum, 4, 1> &state,
                                                    const Eigen::Matrix<mjtNum, 2, 1> &ctrl);
