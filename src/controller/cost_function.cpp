@@ -20,20 +20,6 @@ namespace
     }
 
 
-    template<typename  T, int M, int N>
-    void PI_wrap_state(Eigen::Matrix<T, M, N>& state)
-    {
-        for (auto row = 0; row < state.rows(); ++row)
-        {
-            if (fabs(state(row, 0)) <= M_PI)
-            {
-                auto revolutions = std::floor((state(row, 0) + M_PI) * 1 /(2.0 * M_PI_2));
-                state(row, 0) -= revolutions * (2.0 * M_PI_2);
-            }
-        }
-    }
-
-
     void fill_data(Eigen::Matrix<mjtNum , 4, 1>& _u, Eigen::Matrix<mjtNum, 4, 1>& _x, const mjData* _state)
     {
         _x(0, 0) = _state->qpos[0];
@@ -44,8 +30,6 @@ namespace
         _u(1, 0) = _state->ctrl[1];
         _u(2, 0) = 0;
         _u(3, 0) = 0;
-
-        PI_wrap_state(_x);
     }
 
 
@@ -79,7 +63,6 @@ CostFunction::CostFunction(const mjData* d,
 {
     _u_desired = u_desired;
     _x_desired = x_desired;
-
     _x_gain = x_gain;
     _u_gain = u_gain;
     _x_terminal_gain = x_terminal_gain;
@@ -89,7 +72,8 @@ CostFunction::CostFunction(const mjData* d,
 void CostFunction::update_errors()
 {
     fill_data(_u, _x, _d);
-    _x_error = _x_desired - _x;
+    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - _x(0, 0));
+    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - _x.block<3, 1>(1, 0);
     _u_error = _u.block<2, 1>(0, 0);
 }
 
@@ -98,16 +82,31 @@ template<int x_rows, int u_rows, int cols>
 inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
                                         const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl)
 {
+
+    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - state(0, 0));
+    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - state.template block<3, 1>(1, 0);
     _x_error = _x_desired - state;
-    _u_error = _u.block<2, 1>(0, 0);
+    _u_error = ctrl;
+}
+
+
+template<int x_rows, int cols>
+inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
+                                        const double &ctrl)
+{
+
+    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - state(0, 0));
+    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - state.template block<3, 1>(1, 0);
+    _x_error = _x_desired - state;
+    _u_error(1, 0) = ctrl;
 }
 
 
 mjtNum CostFunction::running_cost()
 {
     update_errors();
-
-    return (_x_error.transpose() * _x_gain * _x_error + _u_error.transpose() * _u_gain * _u_error)(0, 0);
+    return (_x_error.transpose() * _x_gain * _x_error)(0,0) +
+           (_u_error.transpose() * _u_gain(0, 0) * _u_error);
 }
 
 
@@ -118,14 +117,27 @@ inline mjtNum CostFunction::trajectory_running_cost(std::vector<Eigen::Matrix<mj
     auto cost = 0.0;
     for(auto row = 0; row < u_trajectory.size(); ++row)
     {
-        PI_wrap_state(x_trajectory[row]);
         update_errors(x_trajectory[row], u_trajectory[row]);
-        cost += (_x_error.transpose() * _x_gain * _x_error + _u_error.transpose() * _u_gain * _u_error)(0, 0);
+        cost += (_x_error.transpose() * _x_gain * _x_error)(0,0) +
+                (_u_error.transpose() * _u_gain * _u_error);
     }
     return cost;
 }
 
 
+template<int x_rows, int cols>
+inline mjtNum CostFunction::trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
+                                                    std::vector<double> & u_trajectory)
+{
+    auto cost = 0.0;
+    for(auto row = 0; row < u_trajectory.size(); ++row)
+    {
+        update_errors(x_trajectory[row], u_trajectory[row]);
+        cost += (_x_error.transpose() * _x_gain * _x_error)(0,0) +
+                (_u_error.transpose() * _u_gain * _u_error);
+    }
+    return cost;
+}
 
 
 mjtNum CostFunction::terminal_cost()
@@ -186,6 +198,9 @@ Eigen::Matrix<mjtNum, 2, 4> CostFunction::L_ux()
 
 template mjtNum CostFunction::trajectory_running_cost<4, 2, 1>(std::vector<Eigen::Matrix<mjtNum, 4, 1> > &x_trajectory,
                                                                std::vector<Eigen::Matrix<mjtNum, 2, 1> > &u_trajectory);
+
+template mjtNum CostFunction::trajectory_running_cost<4, 1>(std::vector<Eigen::Matrix<mjtNum, 4, 1> > &x_trajectory,
+                                                            std::vector<double> &u_trajectory);
 
 template void CostFunction::update_errors<4, 2, 1>(const Eigen::Matrix<mjtNum, 4, 1> &state,
                                                    const Eigen::Matrix<mjtNum, 2, 1> &ctrl);

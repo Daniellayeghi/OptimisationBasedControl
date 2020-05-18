@@ -172,7 +172,7 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     //Setup cost params
-    InternalTypes::Mat4x1 x_desired; x_desired << +M_PI_2, 0, 0, 0;
+    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2, 0, 0, 0;
     InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
     InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
     x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;

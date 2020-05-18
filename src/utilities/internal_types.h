@@ -10,6 +10,7 @@ namespace InternalTypes
 {
     using Mat3x3 = Eigen::Matrix<mjtNum, 3, 3>;
     using Mat2x1 = Eigen::Matrix<mjtNum, 2, 1>;
+    using Mat1x2 = Eigen::Matrix<mjtNum, 2, 1>;
     using Mat2x2 = Eigen::Matrix<mjtNum, 2, 2>;
     using Mat2x4 = Eigen::Matrix<mjtNum, 2, 4>;
     using Mat3x6 = Eigen::Matrix<mjtNum, 3, 6>;

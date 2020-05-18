@@ -32,8 +32,7 @@ void MyController::controller()
 
     auto ctrl = _ilqr.get_control();
     std::cout << "Ctrl: " << "\n" << ctrl << "\n";
-    _d->ctrl[0] = ctrl(0,0);
-    _d->ctrl[1] = ctrl(1,0);
+    _d->ctrl[1] = ctrl;
 
 #ifdef DEFINE_DEBUG
     std::cout << "Vel__0: " << _d->qvel[0] << "\n";

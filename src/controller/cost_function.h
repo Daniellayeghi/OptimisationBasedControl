@@ -37,21 +37,29 @@ public:
     mjtNum trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
                                    std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory);
 
+    template<int x_rows, int cols>
+    mjtNum trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
+                                   std::vector<double> & u_trajectory);
+
 private:
     void update_errors();
+
     template<int x_rows, int u_rows, int cols>
     void update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
                        const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl);
 
+    template<int x_rows, int cols>
+    void update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state, const double &ctrl);
+
+    Eigen::Matrix<double, 4, 1> _u;
+    Eigen::Matrix<double, 4, 1> _x;
+    Eigen::Matrix<double, 2, 1> _u_error;
+    Eigen::Matrix<double, 4, 1> _x_error;
+    Eigen::Matrix<double, 2, 1> _u_desired;
+    Eigen::Matrix<double, 4, 1> _x_desired;
     Eigen::Matrix<double, 2, 2> _u_gain;
     Eigen::Matrix<double, 4, 4> _x_gain;
     Eigen::Matrix<double, 4, 4> _x_terminal_gain;
-    Eigen::Matrix<double, 4, 1> _x_error;
-    Eigen::Matrix<double, 2, 1> _u_error;
-    Eigen::Matrix<double, 2, 1> _u_desired;
-    Eigen::Matrix<double, 4, 1> _x_desired;
-    Eigen::Matrix<double, 4, 1> _u;
-    Eigen::Matrix<double, 4, 1> _x;
 
 public:
     const mjData* _d;
