@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcontrol_lib.a  CMakeFiles/control_lib.dir/controller.cpp.o CMakeFiles/control_lib.dir/cost_function.cpp.o CMakeFiles/control_lib.dir/ilqr.cpp.o
+/usr/bin/ranlib libcontrol_lib.a

@@ -15,15 +15,18 @@
 # The following 5 lines come from drake-shambhala
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
 find_package(PythonInterp 2.7 EXACT MODULE REQUIRED)
+find_package(glfw3 REQUIRED)
+find_package(GLEW REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${MUJOCO_PY_MJPRO_PATH}/cmake/modules")
 
 set(BIN_NAME LQR-Acrobot)
+include_directories(${GLEW_INCLUDE_DIRS})
 add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
 target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
 #Standard libraries for GL
 target_link_libraries(${BIN_NAME} GL GLU glut)
 # Additional libraries from mujoco package
-target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} libglfw.so libglew.so)
 target_link_libraries(${BIN_NAME} control_lib)
 target_link_libraries(${BIN_NAME} util_lib)
 target_link_libraries(${BIN_NAME} autodiff::autodiff)

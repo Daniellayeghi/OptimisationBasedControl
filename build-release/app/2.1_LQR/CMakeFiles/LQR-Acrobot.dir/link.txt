@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Wextra -O3   CMakeFiles/LQR-Acrobot.dir/LQR-Acrobot.cpp.o  -o LQR-Acrobot  -L/home/daniel/Repos/OptimisationBasedControl/libraries -Wl,-rpath,/home/daniel/Repos/OptimisationBasedControl/libraries -lmujoco200 -lGL -lGLU -lglut -lglfw -lglew ../../src/controller/libcontrol_lib.a ../../src/utilities/libutil_lib.a 
