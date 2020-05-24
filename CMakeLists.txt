@@ -29,7 +29,7 @@
 
 # Inspired by http://www.mujoco.org/forum/index.php?threads/cmake-request.3361/#post-3747
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 project(OptControl_MUJOCO)
 
 set(USE_GL 1)

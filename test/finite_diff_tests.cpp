@@ -10,7 +10,10 @@ public:
     {
         mj_activate(MUJ_KEY_PATH);
         char error[1000] = "Could not load binary model";
-        model = mj_loadXML("/home/daniel/Repos/OptimisationBasedControl/models/Acrobot.xml", 0, error, 1000);
+        model = mj_loadXML
+                (
+                "/home/daniel/Repos/OptimisationBasedControl/models/Acrobot.xml",0, error, 1000
+                );
 
         if (!model)
             mju_error_s("Load model error: %s", error);
@@ -38,6 +41,7 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Stable_Equilibrium)
     data->qvel[0] = 0.0;   data->qvel[1] = 0.0;
 
     FiniteDifference fd(model);
+    fd.f_x_f_u(data);
     auto result = fd.f_x(data);
 
     Eigen::Matrix<double, 4, 4> result_ref;
@@ -56,8 +60,8 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium)
     data->qvel[0] = 0.0;   data->qvel[1] = 0.0;
 
     FiniteDifference fd(model);
+    fd.f_x_f_u(data);
     auto result = fd.f_x(data);
-    std::cout << result << std::endl;
 
     Eigen::Matrix<double, 4, 4> result_ref;
 
@@ -76,8 +80,8 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium_With_Velocit
     data->qvel[0] = 1.0;   data->qvel[1] = 0.0;
 
     FiniteDifference fd(model);
+    fd.f_x_f_u(data);
     auto result = fd.f_x(data);
-    std::cout << result << std::endl;
 
     Eigen::Matrix<double, 4, 4> result_ref;
 
@@ -87,4 +91,69 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium_With_Velocit
                  -7.85676581e-01,  2.32209833e+00,  9.95909855e-03,  9.70447566e-01;
 
     ASSERT_TRUE(result_ref.isApprox(result, .05));
+}
+
+
+TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Unstable_Equilibrium)
+{
+    data->qpos[0] = -1.57; data->qpos[1] = 0;
+    data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
+    data->ctrl[0] = 0.1;  data->ctrl[1] = 0.3;
+
+    FiniteDifference fd(model);
+    fd.f_x_f_u(data);
+    auto result = fd.f_u(data);
+
+    Eigen::Matrix<double, 4, 2> result_ref;
+
+    result_ref << 0.00822762, -0.01926687,
+                 -0.01926687,  0.05722194,
+                  0.82276195, -1.92668744,
+                 -1.92668744,  5.72219396;
+
+    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+}
+
+
+TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium)
+{
+    // NOTE: the gradient df/du at pos(1.57, 0) and pos(-1.57) is the same as mass matrix is constant.
+    // This value is equal to M^-1 as the system is control affine.
+    data->qpos[0] = 1.57; data->qpos[1] = 0;
+    data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
+    data->ctrl[0] = 0;  data->ctrl[1] = 0.3;
+
+    FiniteDifference fd(model);
+    fd.f_x_f_u(data);
+    auto result = fd.f_u(data);
+    std::cout << result << std::endl;
+
+    Eigen::Matrix<double, 4, 2> result_ref;
+    result_ref << 0.00822762, -0.01926687,
+                 -0.01926687,  0.05722194,
+                  0.82276195, -1.92668744,
+                 -1.92668744,  5.72219396;
+
+    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+}
+
+
+TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian)
+{
+    // df/du is equal to M^-1 as the system is control affine.
+    data->qpos[0] = 1; data->qpos[1] = 1.3;
+    data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
+    data->ctrl[0] = 0.5;  data->ctrl[1] = 0.3;
+
+    FiniteDifference fd(model);
+    fd.f_x_f_u(data);
+    auto result = fd.f_u(data);
+
+    Eigen::Matrix<double, 4, 2> result_ref;
+    result_ref << 0.00384395, -0.00518951,
+                 -0.00518951,  0.01911017,
+                  0.38439548, -0.51895131,
+                 -0.51895131,  1.91101738;
+
+    ASSERT_TRUE(result_ref.isApprox(result, .00001));
 }
