@@ -53,19 +53,14 @@ FiniteDifference::~FiniteDifference()
 }
 
 
-Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> FiniteDifference::f_u(mjData *d)
+Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> FiniteDifference::f_u()
 {
     return _full_jacobian.block<4, 2>(0,4);
 }
 
 
-Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x(mjData *d)
+Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x()
 {
-//    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, true);
-//    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, true);
-//    Eigen::Matrix<double, 4, 4> f_x;
-//    f_x << f_pos, f_vel;
-//    _full_jacobian.block<4, 4>(0,0) = f_x;
     return _full_jacobian.block<4, 4>(0,0);
 }
 

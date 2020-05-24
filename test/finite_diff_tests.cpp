@@ -42,7 +42,7 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Stable_Equilibrium)
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_x(data);
+    auto result = fd.f_x();
 
     Eigen::Matrix<double, 4, 4> result_ref;
     result_ref <<  9.93514456e-01,  6.98680871e-03,  9.95772860e-03, 9.95909855e-05,
@@ -61,7 +61,7 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium)
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_x(data);
+    auto result = fd.f_x();
 
     Eigen::Matrix<double, 4, 4> result_ref;
 
@@ -81,7 +81,7 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium_With_Velocit
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_x(data);
+    auto result = fd.f_x();
 
     Eigen::Matrix<double, 4, 4> result_ref;
 
@@ -102,7 +102,7 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Unstable_Equilibrium)
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_u(data);
+    auto result = fd.f_u();
 
     Eigen::Matrix<double, 4, 2> result_ref;
 
@@ -125,7 +125,7 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium)
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_u(data);
+    auto result = fd.f_u();
     std::cout << result << std::endl;
 
     Eigen::Matrix<double, 4, 2> result_ref;
@@ -147,7 +147,7 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian)
 
     FiniteDifference fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_u(data);
+    auto result = fd.f_u();
 
     Eigen::Matrix<double, 4, 2> result_ref;
     result_ref << 0.00384395, -0.00518951,
