@@ -379,7 +379,7 @@
 //    int nefc = 0;
 //    double cputm[MAXEPOCH][2];
 //    mjtNum error[MAXEPOCH][8];
-//    InternalTypes::Mat6x3 result;
+//    InternalTypes::Mat4x2 result;
 //    FiniteDifference finite_diff(m);
 ////    InternalTypes::Mat9x1 result;
 //
@@ -423,13 +423,13 @@
 //        // check derivatives
 //        checkderiv(m,  d[0], error[epoch]);
 //    }
-////
+//
 //    std::cout << "---------------Result is--------------" << std::endl;
 //    std::cout << result << "\n";
 //    std::cout << "-----------------df/du----------------" << std::endl;
 //    std::cout << mj_result << std::endl;
 //    std::cout << "---------------Difference-------------" << std::endl;
-//    std::cout << (mj_result - result).cwiseAbs() << std::endl;
+////    std::cout << (mj_result - result).cwiseAbs() << std::endl;
 //
 //    // compute statistics
 //    double mcputm[2] = {0,0}, merror[8] = {0,0,0,0,0,0,0,0};

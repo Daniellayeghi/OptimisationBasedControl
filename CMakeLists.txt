@@ -31,14 +31,17 @@
 
 cmake_minimum_required(VERSION 3.5)
 project(OptControl_MUJOCO)
-set(USE_GL 1)
 
+set(USE_GL 1)
 set(CMAKE_CXX_STANDARD 17)
+include(FetchContent)
+
 #add_compile_options(-Wall -Wextra)
 find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
+
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
@@ -82,3 +85,4 @@ endif()
 #Showing mujoco library found
 add_subdirectory(src)
 add_subdirectory(app)
+add_subdirectory(test)

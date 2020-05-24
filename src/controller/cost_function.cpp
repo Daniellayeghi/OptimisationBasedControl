@@ -1,9 +1,11 @@
 #include <iostream>
 #include "cost_function.h"
-#include "../utilities/internal_types.h"
+#include "../utilities/basic_math.h"
 
 namespace
 {
+
+#if 0
     template <typename T>
     inline void init_twice_active_var(T &ad,int d_num, int idx)
     {
@@ -18,18 +20,19 @@ namespace
             ad.derivatives()(index).derivatives() = T::DerType::Scalar::DerType::Zero(d_num);
         }
     }
+#endif
 
 
-    void fill_data(Eigen::Matrix<mjtNum , 4, 1>& _u, Eigen::Matrix<mjtNum, 4, 1>& _x, const mjData* _state)
+    void fill_data(Eigen::Matrix<mjtNum , 4, 1>& u, Eigen::Matrix<mjtNum, 4, 1>&x, const mjData* state)
     {
-        _x(0, 0) = _state->qpos[0];
-        _x(1, 0) = _state->qpos[1];
-        _x(2, 0) = _state->qvel[0];
-        _x(3, 0) = _state->qvel[1];
-        _u(0, 0) = _state->ctrl[0];
-        _u(1, 0) = _state->ctrl[1];
-        _u(2, 0) = 0;
-        _u(3, 0) = 0;
+        x(0, 0) = BasicMath::wrap_to_min_max(state->qpos[0],-M_PI, M_PI);
+        x(1, 0) = BasicMath::wrap_to_min_max(state->qpos[1],-M_PI, M_PI);
+        x(2, 0) = state->qvel[0];
+        x(3, 0) = state->qvel[1];
+        u(0, 0) = state->ctrl[0];
+        u(1, 0) = state->ctrl[1];
+        u(2, 0) = 0;
+        u(3, 0) = 0;
     }
 
 
@@ -72,8 +75,7 @@ CostFunction::CostFunction(const mjData* d,
 void CostFunction::update_errors()
 {
     fill_data(_u, _x, _d);
-    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - _x(0, 0));
-    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - _x.block<3, 1>(1, 0);
+    _x_error = _x_desired - _x;
     _u_error = _u.block<2, 1>(0, 0);
 }
 
@@ -82,10 +84,9 @@ template<int x_rows, int u_rows, int cols>
 inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
                                         const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl)
 {
-
-    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - state(0, 0));
-    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - state.template block<3, 1>(1, 0);
-    _x_error = _x_desired - state;
+    _x_error(0, 0) = _x_desired(0, 0) - BasicMath::wrap_to_min_max(state(0, 0),-M_PI, M_PI);
+    _x_error(1, 0) = _x_desired(1, 0) - BasicMath::wrap_to_min_max(state(1, 0),-M_PI, M_PI);
+    _x_error.block<2, 1>(2, 0) = _x_desired.block<2, 1>(2, 0) - state.template block<2, 1>(12, 0);
     _u_error = ctrl;
 }
 
@@ -94,10 +95,9 @@ template<int x_rows, int cols>
 inline void CostFunction::update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
                                         const double &ctrl)
 {
-
-    _x_error(0, 0) = 1 - sin(_x_desired(0, 0) - state(0, 0));
-    _x_error.block<3, 1>(1, 0) = _x_desired.block<3, 1>(1, 0) - state.template block<3, 1>(1, 0);
-    _x_error = _x_desired - state;
+    _x_error(0, 0) = _x_desired(0, 0) - BasicMath::wrap_to_min_max(state(0, 0),-M_PI, M_PI);
+    _x_error(1, 0) = _x_desired(1, 0) - BasicMath::wrap_to_min_max(state(1, 0),-M_PI, M_PI);
+    _x_error.block<2, 1>(2, 0) = _x_desired.block<2, 1>(2, 0) - state.template block<2, 1>(2, 0);
     _u_error(1, 0) = ctrl;
 }
 

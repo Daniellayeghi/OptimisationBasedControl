@@ -61,6 +61,11 @@ Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> FiniteDifference::f_u(mjData *d)
 
 Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x(mjData *d)
 {
+    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, true);
+    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, true);
+    Eigen::Matrix<double, 4, 4> f_x;
+    f_x << f_pos, f_vel;
+    _full_jacobian.block<4, 4>(0,0) = f_x;
     return _full_jacobian.block<4, 4>(0,0);
 }
 
@@ -68,8 +73,8 @@ Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x(mjData *d
 void FiniteDifference::f_x_f_u(mjData *d)
 {
     Mat4x2 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, false);
-    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, false);
+    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS, true);
+    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL, true);
     _full_jacobian << f_pos, f_vel, ctrl_deriv;
 }
 
@@ -88,7 +93,7 @@ Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
 #ifdef NDEBUG
     std::cout << "FD addr " << _m << std::endl;
 #endif
-    mj_forward(_m, _d_cp);
+    mj_step(_m, _d_cp);
     auto skip = skip_stage(id);
 
     // extra solver iterations to improve warmstart (qacc) at center point
@@ -104,25 +109,27 @@ Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
 
     mjtNum * center_vel = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(center_vel, output_vel, _m->nv);
+
+    copy_state(d);
     // save output for center point and warmstart (needed in forward only)
-//    mju_copy(centers[1], output_vel, _m->nv);
+    // mju_copy(centers[1], output_vel, _m->nv);
 
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
     const mjtNum* original = select_original_ptr(id, d);
 
     if (id == WithRespectTo::POS)
-        return first_order_forward_diff_positional(target, original, output_pos, center_pos, center_vel, skip_stage(id));
+        return first_order_forward_diff_positional(target, original, center_pos, center_vel, d, skip_stage(id));
     else
-        return first_order_forward_diff_general(target, original, output_vel, center_pos, center_vel, skip_stage(id));
+        return first_order_forward_diff_general(target, original, center_pos, center_vel, d, skip_stage(id));
 }
 
 
 Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
                                                           const mjtNum *original,
-                                                          const mjtNum* output,
                                                           const mjtNum* center_pos,
                                                           const mjtNum* center_vel,
+                                                          const mjData* d,
                                                           const mjtStage skip)
 {
     Mat4x2 result;
@@ -149,9 +156,9 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
         }
         // undo perturbation
         Eigen::Matrix<double, 6, 6> id; id.setIdentity();
+        copy_state(d);
         target[i] = original[i];
     }
-
 #if NDEBUG
     std::cout << "Printing Jacobian Matrix" << "\n";
     std::cout << result << "\n";
@@ -163,9 +170,9 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
 
 Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
                                                              const mjtNum *original,
-                                                             const mjtNum* output,
                                                              const mjtNum* center_pos,
                                                              const mjtNum* center_vel,
+                                                             const mjData* d,
                                                              const mjtStage skip)
 {
     Mat4x2 result;
@@ -206,11 +213,13 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
         mj_step(_m, _d_cp);
 
         // compute column i of derivative 0
-        for(int j = 0; j < row; j++) {
+        for(int j = 0; j < row; j++)
+        {
             result(j, i) = (_d_cp->qpos[j] - center_pos[j])/eps;
             result(j + row, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
         }
         // undo perturbation
+        copy_state(d);
         mju_copy(target, original, _m->nq);
     }
 #if NDEBUG

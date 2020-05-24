@@ -7,15 +7,13 @@
 //------------------------------------------//
 
 
-#include <iostream>
-
 #include "mujoco.h"
 #include "cstdio"
 #include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/controller/cost_function.h"
+
 // for sleep timers
 #include <chrono>
 #include <thread>
@@ -26,7 +24,6 @@ using namespace std::chrono;
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
-mjModel* m_cp = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
@@ -127,7 +124,7 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 int main(int argc, const char** argv)
 {
     // activate software
-    mj_activate("/opt/mujoco200_linux/bin/mjkey.txt");
+    mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
     char error[1000] = "Could not load binary model";
@@ -135,19 +132,16 @@ int main(int argc, const char** argv)
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
-        m_cp = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
             m = mj_loadModel(argv[1], 0);
-            m_cp = mj_loadModel(argv[1], 0);
         }
         else {
             m = mj_loadXML(argv[1], 0, error, 1000);
-            m_cp = mj_loadXML(argv[1], 0, error, 1000);
         }
     }
-    if( !m or !m_cp) {
+    if( !m ) {
         mju_error_s("Load model error: %s", error);
     }
 
@@ -171,15 +165,21 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
-    //Setup cost params
-    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2, 0, 0, 0;
+    // setup cost params
+    InternalTypes::Mat4x1 x_desired; x_desired << M_PI_2, 0, 0, 0;
     InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
+
     InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
     x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-    x_terminal_gain *= 25;
-    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01; x_gain(3,3) = 0.01;
-    x_gain *= 10;
-    InternalTypes::Mat2x2 u_gain; u_gain.setIdentity(); u_gain *= 5;
+    x_terminal_gain *= 255;
+
+    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
+    x_gain(3,3) = 0.01;
+    x_gain *= 100;
+
+    InternalTypes::Mat2x2 u_gain;
+    u_gain.setIdentity();
+    u_gain *= 50000;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -187,24 +187,21 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    FiniteDifference fd(m_cp);
+    FiniteDifference fd(m);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
-    MPPI pi(m_cp);
-    ILQR ilqr(fd, cost_func, m_cp, 50);
-    MyController control(m, d, fd, cost_func, ilqr, pi);
-    MyController::set_instance(&control);
+    MPPI pi(m);
+    ILQR ilqr(fd, cost_func, m, 20);
 
     // install control callback
+    MyController control(m, d, fd, cost_func, ilqr, pi);
+    MyController::set_instance(&control);
     mjcb_control = MyController::callback_wrapper;
 
     // initial position
-//    d->qpos[0] = M_PI/10.0;
     d->qpos[0] = -M_PI_2;
     d->qpos[1] = 0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
-
-    std::cout << m->nv << "\n";
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))

@@ -48,6 +48,8 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 {
     _d_cp = mj_makeData(m);
 
+    _prev_total_cost = 0;
+
     _f.reserve(_simulation_time);
     _f_x.reserve(_simulation_time);
     _f_u.reserve(_simulation_time);
@@ -82,7 +84,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
         _x_traj_new.emplace_back(Eigen::Matrix<double, 4, 1>::Zero());
         _ff_k.emplace_back(0);
         _u_traj.emplace_back(0);
-    };
+    }
 }
 
 
@@ -133,15 +135,16 @@ void ILQR::forward_simulate(const mjData* d)
         for (auto time = 0; time < _simulation_time; ++time)
         {
             fill_state_vector(_d_cp, _x_traj[time]);
-            _fd.f_x_f_u(_d_cp);
-            _f_x[time] = (_fd.f_x(_d_cp));
-            _f_u[time] = (_fd.f_u(_d_cp));
+            _d_cp->qfrc_applied[1] = _u_traj[time];
             _l[time] = _cf.running_cost();
             _l_u[time] = (_cf.L_u());
             _l_x[time] = (_cf.L_x());
             _l_xx[time] = (_cf.L_xx());
             _l_ux[time] = (_cf.L_ux());
             _l_uu[time] = (_cf.L_uu());
+            _fd.f_x_f_u(_d_cp);
+            _f_x[time] = (_fd.f_x(_d_cp));
+            _f_u[time] = (_fd.f_u(_d_cp));
             mj_step(_m, _d_cp);
         }
         _l.back()    = _cf.terminal_cost();
@@ -149,8 +152,8 @@ void ILQR::forward_simulate(const mjData* d)
         _l_xx.back() = _cf.Lf_xx();
         //TODO: Calculate the terminal costs
         copy_data(_m, d, _d_cp);
-        recalculate = false;
     }
+    _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
 }
 
 
@@ -162,9 +165,10 @@ void ILQR::backward_pass()
 
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-//        _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
-//        _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
-
+#if 0
+        _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
+        _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
+#endif
         _ff_k[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_u(time, V_x));
         _fb_K[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_ux(time, V_xx));
 
@@ -183,22 +187,22 @@ void ILQR::forward_pass()
     _x_traj_new.front() = _x_traj.front();
     for (auto time = 0; time < _simulation_time; ++time) {
         _u_traj[time] = _u_traj[time] + _ff_k[time] + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
-        std::cout << "ctrl is: " << _u_traj[time] <<std::endl;
-//        clamp_control(_u_traj[time], max_bound, min_bound);
-//        _u_traj[time] = std::clamp(_u_traj[time], min_bound, max_bound);
-//        set_control_data(_d_cp, _u_traj[time]);
+        _u_traj[time] = std::clamp(_u_traj[time], min_bound, max_bound);
+#if 0
+        clamp_control(_u_traj[time], max_bound, min_bound);
+        set_control_data(_d_cp, _u_traj[time]);
+#endif
         _d_cp->qfrc_applied[1] = _u_traj[time];
         mj_step(_m, _d_cp);
         fill_state_vector(_d_cp, _x_traj_new[time + 1]);
     }
 
     auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
-    auto prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
 
-    if (new_total_cost < prev_total_cost)
+    if (new_total_cost < _prev_total_cost)
     {
-        converged = (std::abs(prev_total_cost - new_total_cost / prev_total_cost) < 1e-6);
-        _x_traj = _x_traj_new;
+        converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
+        _prev_total_cost = new_total_cost;
         recalculate = true;
     }
 }
@@ -206,8 +210,12 @@ void ILQR::forward_pass()
 
 void ILQR::control(mjData* d)
 {
-    for(auto iteration = 0; iteration < 5; ++iteration)
+    for(auto iteration = 0; iteration < 1; ++iteration)
     {
+//        std::cout << "MAX CTRL: " << *std::max_element(_u_traj.begin(), _u_traj.end()) <<"\n";
+//        if (*std::max_element(_u_traj.begin(), _u_traj.end()) > 1)
+//        {
+//        }
         forward_simulate(d);
         backward_pass();
         forward_pass();

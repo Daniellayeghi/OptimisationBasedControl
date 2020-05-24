@@ -46,6 +46,8 @@ private:
     std::vector<InternalTypes::Mat4x1> _x_traj_new;
     InternalTypes::Mat6x1 desired_state;
 
+    double _prev_total_cost;
+
     int  _simulation_time;
     const mjModel* _m;
 
