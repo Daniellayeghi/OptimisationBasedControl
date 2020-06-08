@@ -1,11 +1,3 @@
-//------------------------------------------//
-//  This file is a modified version of      //
-//  basics.cpp, which was distributed as    //
-//  part of MuJoCo,  Written by Emo Todorov //
-//  Copyright (C) 2017 Roboti LLC           //
-//  Modifications by Atabak Dehban          //
-//------------------------------------------//
-
 
 #include "mujoco.h"
 #include "cstdio"
@@ -13,6 +5,7 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
+#include "../../src/controller/simulation_params.h"
 
 // for sleep timers
 #include <chrono>
@@ -131,7 +124,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -165,21 +158,28 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
+
+    using namespace SimulationParameters;
+
     // setup cost params
-    InternalTypes::Mat4x1 x_desired; x_desired << M_PI_2, 0, 0, 0;
+    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2-0.005, 0, 0, 0;
     InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
 
     InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
     x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-    x_terminal_gain *= 255;
+    x_terminal_gain *= 2500;
 
     InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
     x_gain(3,3) = 0.01;
-    x_gain *= 100;
+    x_gain *= 5000;
 
     InternalTypes::Mat2x2 u_gain;
     u_gain.setIdentity();
-    u_gain *= 50000;
+    u_gain *= 5;
+
+    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -187,18 +187,23 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
+    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
+    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
+
     FiniteDifference fd(m);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
-    MPPI pi(m);
+
+    QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
+    MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, {0, 0, 0, 0});
     ILQR ilqr(fd, cost_func, m, 20);
 
     // install control callback
-    MyController control(m, d, fd, cost_func, ilqr, pi);
-    MyController::set_instance(&control);
-    mjcb_control = MyController::callback_wrapper;
+    MyController<n_jpos + n_jvel, n_ctrl> control(m, d, ilqr, pi);
+    MyController<n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
     // initial position
-    d->qpos[0] = -M_PI_2;
+    d->qpos[0] = M_PI_2;
     d->qpos[1] = 0;
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
@@ -213,10 +218,9 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            mjcb_control = MyController::dummy_controller;
+            mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
-            mjcb_control = MyController::callback_wrapper;
-            ilqr.control(d);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -44,6 +44,8 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Stable_Equilibrium)
     fd.f_x_f_u(data);
     auto result = fd.f_x();
 
+    std::cout << result << std::endl;
+
     Eigen::Matrix<double, 4, 4> result_ref;
     result_ref <<  9.93514456e-01,  6.98680871e-03,  9.95772860e-03, 9.95909855e-05,
                    7.85670324e-03,  9.76116416e-01,  9.95909855e-05, 9.70447566e-03,
@@ -140,8 +142,8 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium)
 
 TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian)
 {
-    // df/du is equal to M^-1 as the system is control affine.
-    data->qpos[0] = 1; data->qpos[1] = 1.3;
+    // df/du is equal to M^-1 as the system is control affine. i.e. xd = f(x) + g(x)u
+    data->qpos[0] = 1;    data->qpos[1] = 1.3;
     data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
     data->ctrl[0] = 0.5;  data->ctrl[1] = 0.3;
 

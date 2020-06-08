@@ -114,9 +114,9 @@ Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespect
     const mjtNum* original = select_original_ptr(id, d);
 
     if (id == WithRespectTo::POS)
-        return first_order_forward_diff_positional(target, original, center_pos, center_vel, d, skip_stage(id));
+        return first_order_forward_diff_positional(target, original, center_pos, center_vel, d, id);
     else
-        return first_order_forward_diff_general(target, original, center_pos, center_vel, d, skip_stage(id));
+        return first_order_forward_diff_general(target, original, center_pos, center_vel, d, id);
 }
 
 
@@ -125,10 +125,11 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
                                                           const mjtNum* center_pos,
                                                           const mjtNum* center_vel,
                                                           const mjData* d,
-                                                          const mjtStage skip)
+                                                          const WithRespectTo id)
 {
+    auto row = (id == WithRespectTo::CTRL or id == WithRespectTo::FRC) ? _m->nu : _m->nv;
     Mat4x2 result;
-    auto row = _m->nv;
+//    auto row = _m->nv;
     mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
@@ -150,7 +151,6 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
             result(j + row, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
         }
         // undo perturbation
-        Eigen::Matrix<double, 6, 6> id; id.setIdentity();
         copy_state(d);
         target[i] = original[i];
     }
@@ -168,7 +168,7 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
                                                              const mjtNum* center_pos,
                                                              const mjtNum* center_vel,
                                                              const mjData* d,
-                                                             const mjtStage skip)
+                                                             const WithRespectTo skip)
 {
     Mat4x2 result;
     auto row = _m->nv;

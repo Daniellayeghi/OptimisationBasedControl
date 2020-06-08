@@ -1,6 +1,9 @@
 #include <iostream>
 #include "MPPI.h"
+#include"simulation_params.h"
 #include "Eigen/Core"
+
+using namespace SimulationParameters;
 
 namespace
 {
@@ -17,16 +20,19 @@ namespace
     }
 
 
-    template<typename T, int M, int N>
-    void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N>& state)
+    template<int state_size>
+    inline void fill_state_vector(mjData* data, Eigen::Matrix<double, state_size, 1>& state)
     {
-        state(0, 0) = data->qpos[0]; state(1, 0) = data->qpos[1];
-        state(2, 0) = data->qvel[0]; state(3, 0) = data->qvel[1];
+        for(auto row = 0; row < state.rows()/2; ++row)
+        {
+            state(row, 0) = data->qpos[row];
+            state(row+state.rows()/2, 0) = data->qvel[row];
+        }
     }
 
 
-    template<typename T, int M, int N>
-    void set_control_data(mjData* data, const Eigen::Matrix<T, M, N>& ctrl)
+    template<int ctrl_size>
+    void set_control_data(mjData* data, const Eigen::Matrix<double, ctrl_size, 1>& ctrl)
     {
         for(auto row = 0; row < ctrl.rows(); ++row)
         {
@@ -35,8 +41,8 @@ namespace
     }
 
 
-    template<int rows, int cols>
-    void clamp_control(Eigen::Matrix<mjtNum, rows, cols>& control, mjtNum max_bound, mjtNum min_bound)
+    template<int ctrl_size>
+    void clamp_control(Eigen::Matrix<mjtNum, ctrl_size, 1>& control, mjtNum max_bound, mjtNum min_bound)
     {
         for (auto row = 0; row < control.rows(); ++row)
         {
@@ -45,106 +51,100 @@ namespace
     }
 }
 
-
-MPPI::MPPI(const mjModel *m) : _m(m)
+template<int state_size, int ctrl_size>
+MPPI<state_size, ctrl_size>::MPPI(const mjModel *m, const QRCost<state_size, ctrl_size>& cost_func, const MPPIParams& params)
+:
+m_params(params),
+m_cost_func(cost_func),
+m_m(m)
 {
-    _d_cp = mj_makeData(_m);
+    m_d_cp = mj_makeData(m_m);
 
-    _Q_state_cost << 12, 0, 0 ,0,
-                     0, 12, 0, 0,
-                     0, 0, 0.1, 0,
-                     0, 0, 0, 0.1;
+    _cached_control = MPPI<state_size, ctrl_size>::ctrl_vector::Zero();
 
-    _R_control_cost << 500, 0,
-                       0, 500;
-    _R_control_cost *= 1;
+    m_state.assign(m_params.m_sim_time, Eigen::Matrix<double, state_size, 1>::Zero());
+    m_control.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    m_delta_control.assign(m_params.m_sim_time,
+            std::vector<Eigen::Matrix<double, ctrl_size, 1>>(m_params.m_k_samples,Eigen::Matrix<double, ctrl_size, 1>::Zero()));
 
-    _cached_control << 0, 0;
-
-    _state.assign(_sim_time,Eigen::Matrix<double, 4, 1>::Zero());
-    _control.assign(_sim_time, Eigen::Matrix<double, 2, 1>::Zero());
-
-    for (auto time = 0; time < _sim_time; ++time)
-    {
-        _delta_control[time].assign(_k_samples, Eigen::Matrix<double, 2, 1>::Zero());
-        _delta_cost_to_go[time].assign(_k_samples, 0);
-    }
+    m_delta_cost_to_go.assign(m_params.m_k_samples,0);
 }
 
 
-double MPPI::q_cost(Mat4x1 state)
-{;
-    state(0,0) =  1 - sin(state(0, 0));
-    state(1,0) =  1 - cos(state(1, 0));
-    std::cout << "state_0: " << 1 - sin(state(0, 0)) << std::endl;
-    std::cout << "state_1: " << 1 - cos(state(1, 0)) << std::endl;
-    return state.transpose() * _Q_state_cost * state;
-}
-
-
-double MPPI::delta_q_cost(Mat4x1& state, Mat2x1& du, Mat2x1& u)
+template<int state_size, int ctrl_size>
+typename MPPI<state_size, ctrl_size>::ctrl_vector
+MPPI<state_size, ctrl_size>::total_entropy(const std::vector<MPPI<state_size, ctrl_size>::ctrl_vector>& delta_control_samples,
+                                           const std::vector<double>& d_cost_to_go_samples) const
 {
-    u(0,0) = 0;
-    std::cout << "cost: " << q_cost(state) << std::endl;
-    return q_cost(state);
-}
-
-
-Mat2x1 MPPI::total_entropy(const std::vector<Mat2x1>& delta_control_samples,
-                           const std::vector<double>& d_cost_to_go_samples) const
-{
-    Mat2x1 numerator; numerator << 0, 0;
+    MPPI<state_size, ctrl_size>::ctrl_vector numerator = MPPI<state_size, ctrl_size>::ctrl_vector::Zero();
     double denomenator =  0;
     for (auto& sample: d_cost_to_go_samples)
     {
-        denomenator += (std::exp(-(1/_lambda) * sample));
+        denomenator += (std::exp(-(1 / m_params.m_lambda) * sample));
     }
 
     for (unsigned long col = 0; col < d_cost_to_go_samples.size(); ++col)
     {
-        numerator += (std::exp(-(1/_lambda) * d_cost_to_go_samples[col]) * delta_control_samples[col]);
+        numerator += (std::exp(-(1 / m_params.m_lambda) * d_cost_to_go_samples[col]) * delta_control_samples[col]);
     }
-    Mat2x1 result = numerator/denomenator; result(0,0) = 0;
-    return result;
+    return numerator/denomenator;
 }
 
 
-void MPPI::control(const mjData* d)
+template <int state_size, int ctrl_size>
+void MPPI<state_size, ctrl_size>::MPPI::compute_control_trajectory()
 {
-    using namespace InternalTypes;
-    Eigen::Matrix<double, 2, 1> instant_control;
-    fill_state_vector(_d_cp, _state[0]);
-    _delta_cost_to_go.front().assign(_k_samples, 0);
-    for(auto sample = 0; sample < _k_samples; ++sample)
+    for (auto time = 0; time < m_params.m_sim_time; ++time)
     {
-        copy_data(_m, d, _d_cp);
-        for (auto time = 0; time < _sim_time - 1; ++time)
-        {
-            _delta_control[time][sample] = _variance * Mat2x1::Random();
-            _delta_control[time][sample](0, 0) = 0;
-            instant_control = _control[time] + _delta_control[time][sample];
-            clamp_control(instant_control, 2, -2);
-            set_control_data(_d_cp, instant_control);
-            mj_step(_m, _d_cp);
-            fill_state_vector(_d_cp, _state[time+1]);
-            _delta_cost_to_go[time+1][sample] = _delta_cost_to_go[time][sample] +
-                    (delta_q_cost(_state[time+1], _delta_control[time][sample], _control[time]));
-        }
-        _delta_control.back()[sample] = _variance * Mat2x1::Random();
+        m_control[time] += (total_entropy(m_delta_control[time], m_delta_cost_to_go));
     }
 
-    for (auto time = 0; time < _sim_time - 1; ++time)
-    {
-        _control[time] += (total_entropy(_delta_control[time], _delta_cost_to_go[time]));
-        clamp_control(_control[time], 2, -2);
-    }
+    _cached_control = m_control.front();
 
-    _cached_control = _control[0];
-
-    for (auto time = 0; time < _sim_time - 1; ++time)
-    {
-        _control[time] = _control[time + 1];
-    }
-    _control.back() = Mat2x1::Ones();
+    std::rotate(m_control.begin(), m_control.begin() + 1, m_control.end());
+    m_control.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
 }
 
+
+template<int state_size, int ctrl_size>
+void MPPI<state_size, ctrl_size>::control(const mjData* d)
+{
+    MPPI<state_size, ctrl_size>::ctrl_vector instant_control;
+
+    fill_state_vector(m_d_cp, m_state.front());
+    std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
+
+    for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
+    {
+        copy_data(m_m, d, m_d_cp);
+        for (auto time = 0; time < m_params.m_sim_time - 1; ++time)
+        {
+            // u += du -> du ~ N(0, variance)
+            m_delta_control[time][sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
+            instant_control = m_control[time] + m_delta_control[time][sample];
+
+            // Forward simulate controls
+            set_control_data(m_d_cp, instant_control);
+            mj_step(m_m, m_d_cp);
+            fill_state_vector(m_d_cp, m_state[time + 1]);
+
+            // Compute cost-to-go of the controls
+            m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func(m_state[time + 1],
+                                                                                  m_control[time],
+                                                                                  m_delta_control[time][sample],
+                                                                                   m_params.m_variance);
+        }
+        m_delta_control.back()[sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
+    }
+
+    compute_control_trajectory();
+}
+
+
+template<int state_size, int ctrl_size>
+MPPI<state_size, ctrl_size>::~MPPI()
+{
+    mj_deleteData(m_d_cp);
+}
+
+template class MPPI<n_jpos + n_jvel, n_ctrl>;

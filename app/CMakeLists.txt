@@ -1,2 +1,2 @@
-add_subdirectory(2.1_LQR)
+add_subdirectory(tasks)
 add_subdirectory(additional)

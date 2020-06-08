@@ -8,10 +8,12 @@
 #include "ilqr.h"
 #include "MPPI.h"
 
+
+template<int state_size, int ctrl_size>
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, FiniteDifference& fd, CostFunction& cf, ILQR& ilqr, MPPI& pi);
+    MyController(const mjModel *m, mjData *d, ILQR& ilqr, const MPPI<state_size, ctrl_size>& pi);
 
     void controller();
 
@@ -22,10 +24,9 @@ public:
     static void dummy_controller(const mjModel* m, mjData* d);
 
 private:
-    FiniteDifference& _fd;
-    CostFunction&     _cf;
+
+    const MPPI<state_size, ctrl_size>& _pi;
     ILQR&             _ilqr;
-    MPPI&             _pi;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

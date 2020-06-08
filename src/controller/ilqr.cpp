@@ -49,6 +49,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
     _d_cp = mj_makeData(m);
 
     _prev_total_cost = 0;
+    _regularizer.setIdentity();
 
     _f.reserve(_simulation_time);
     _f_x.reserve(_simulation_time);
@@ -85,6 +86,12 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
         _ff_k.emplace_back(0);
         _u_traj.emplace_back(0);
     }
+
+    _backtrackers =  {{1.00000000e+00, 9.09090909e-01,
+                       6.83013455e-01, 4.24097618e-01,
+                       2.17629136e-01, 9.22959982e-02,
+                       3.23491843e-02, 9.37040641e-03,
+                       2.24320079e-03, 4.43805318e-04}};
 }
 
 
@@ -114,14 +121,14 @@ Eigen::Matrix<mjtNum, 4, 4> ILQR::Q_xx(int time, InternalTypes::Mat4x4& _v_xx)
 
 Eigen::Matrix<mjtNum, 1, 4> ILQR::Q_ux(int time, InternalTypes::Mat4x4& _v_xx)
 {
-    return _l_ux[time].block<1, 4>(1, 0) +
-            _f_u[time].block<4, 1>(0, 1).transpose() * (_v_xx) * _f_x[time];
+    return _l_ux[time].block<1, 4>(1, 0) + _f_u[time].block<4, 1>(0, 1).transpose() *
+           (_v_xx + _regularizer) * _f_x[time];
 }
 
 
 double ILQR::Q_uu(int time, InternalTypes::Mat4x4& _v_xx)
 {
-    return _l_uu[time](1, 1) + _f_u[time].block<4, 1>(0, 1).transpose() * (_v_xx) *
+    return _l_uu[time](1, 1) + _f_u[time].block<4, 1>(0, 1).transpose() * (_v_xx + _regularizer) *
                                         _f_u[time].block<4, 1>(0, 1);
 }
 
@@ -143,8 +150,8 @@ void ILQR::forward_simulate(const mjData* d)
             _l_ux[time] = (_cf.L_ux());
             _l_uu[time] = (_cf.L_uu());
             _fd.f_x_f_u(_d_cp);
-            _f_x[time] = (_fd.f_x(_d_cp));
-            _f_u[time] = (_fd.f_u(_d_cp));
+            _f_x[time] = (_fd.f_x());
+            _f_u[time] = (_fd.f_u());
             mj_step(_m, _d_cp);
         }
         _l.back()    = _cf.terminal_cost();
@@ -172,50 +179,73 @@ void ILQR::backward_pass()
         _ff_k[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_u(time, V_x));
         _fb_K[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_ux(time, V_xx));
 
-        V_x = Q_x(time, V_x) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _ff_k[time];
-        V_x += _fb_K[time].transpose() * Q_u(time, V_x) + Q_ux(time, V_xx).transpose() * _ff_k[time];
-        V_xx = Q_xx(time, V_xx) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _fb_K[time];
+        V_x   = Q_x(time, V_x) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _ff_k[time];
+        V_x  += _fb_K[time].transpose() * Q_u(time, V_x) + Q_ux(time, V_xx).transpose() * _ff_k[time];
+
+        V_xx  = Q_xx(time, V_xx) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _fb_K[time];
         V_xx += _fb_K[time].transpose() * Q_ux(time, V_xx) + Q_ux(time, V_xx).transpose() * _fb_K[time];
-        V_xx = 0.5 * (V_xx + V_xx.transpose());
+
+        V_xx  = 0.5 * (V_xx + V_xx.transpose());
     }
 }
 
 
 void ILQR::forward_pass()
 {
-
-    _x_traj_new.front() = _x_traj.front();
-    for (auto time = 0; time < _simulation_time; ++time) {
-        _u_traj[time] = _u_traj[time] + _ff_k[time] + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
-        _u_traj[time] = std::clamp(_u_traj[time], min_bound, max_bound);
-#if 0
-        clamp_control(_u_traj[time], max_bound, min_bound);
-        set_control_data(_d_cp, _u_traj[time]);
-#endif
-        _d_cp->qfrc_applied[1] = _u_traj[time];
-        mj_step(_m, _d_cp);
-        fill_state_vector(_d_cp, _x_traj_new[time + 1]);
-    }
-
-    auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
-
-    if (new_total_cost < _prev_total_cost)
+    for (const auto& backtracker : _backtrackers)
     {
-        converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
-        _prev_total_cost = new_total_cost;
-        recalculate = true;
+        _x_traj_new.front() = _x_traj.front();
+        std::fill(_u_traj.begin(), _u_traj.end(), 0);
+        for (auto time = 0; time < _simulation_time; ++time) {
+            _u_traj[time] =
+                    _u_traj[time] + backtracker * _ff_k[time] + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
+            _u_traj[time] = std::clamp(_u_traj[time], min_bound, max_bound);
+#if 0
+            clamp_control(_u_traj[time], max_bound, min_bound);
+            set_control_data(_d_cp, _u_traj[time]);
+#endif
+            _d_cp->qfrc_applied[1] = _u_traj[time];
+            mj_step(_m, _d_cp);
+            fill_state_vector(_d_cp, _x_traj_new[time + 1]);
+        }
+
+        auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
+
+        if (new_total_cost < _prev_total_cost)
+        {
+            converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
+            _prev_total_cost = new_total_cost;
+            recalculate = true;
+            _delta = std::min(1.0, _delta) / _delta_init;
+            _regularizer *= _delta;
+            if (_regularizer.norm() < 1e-6)
+                _regularizer.setZero();
+            accepted = true;
+            break;
+        }
+        if (not accepted)
+        {
+            _delta = std::max(1.0, _delta) * _delta_init;
+            static const auto min = Matrix<double,4 ,4>::Identity(4, 4) * 1e-6;
+            if ((_regularizer * _delta).norm() > 1e-6)
+            {
+                _regularizer = _regularizer * _delta;
+            }
+            else{
+                _regularizer = min;
+            }
+        }
     }
 }
 
 
 void ILQR::control(mjData* d)
 {
+    _delta = _delta_init;
+    _regularizer.setIdentity();
+
     for(auto iteration = 0; iteration < 1; ++iteration)
     {
-//        std::cout << "MAX CTRL: " << *std::max_element(_u_traj.begin(), _u_traj.end()) <<"\n";
-//        if (*std::max_element(_u_traj.begin(), _u_traj.end()) > 1)
-//        {
-//        }
         forward_simulate(d);
         backward_pass();
         forward_pass();

@@ -39,14 +39,14 @@ private:
                                                            const mjtNum* center_pos,
                                                            const mjtNum* center_vel,
                                                            const mjData *d,
-                                                           const mjtStage skip);
+                                                           const WithRespectTo id);
 
     InternalTypes::Mat4x2 first_order_forward_diff_positional(mjtNum* target,
                                                              const mjtNum* original,
                                                              const mjtNum* center_pos,
                                                              const mjtNum* center_vel,
                                                              const mjData *d,
-                                                             const mjtStage skip);
+                                                             const WithRespectTo id);
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;

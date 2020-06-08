@@ -1,0 +1,55 @@
+<mujoco model="cartpole">
+
+    <visual>
+        <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
+        <map znear=".01"/>
+        <quality shadowsize="2048"/>
+    </visual>
+
+    <asset>
+        <texture name="skybox" type="skybox" builtin="gradient" rgb1=".4 .6 .8" rgb2="0 0 0"
+                 width="800" height="800" mark="random" markrgb="1 1 1"/>
+    </asset>
+
+    <asset>
+        <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+        <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+        <material name="self" rgba=".7 .5 .3 1"/>
+        <material name="self_default" rgba=".7 .5 .3 1"/>
+        <material name="self_highlight" rgba="0 .5 .3 1"/>
+        <material name="effector" rgba=".7 .4 .2 1"/>
+        <material name="effector_default" rgba=".7 .4 .2 1"/>
+        <material name="effector_highlight" rgba="0 .5 .3 1"/>
+        <material name="decoration" rgba=".3 .5 .7 1"/>
+        <material name="eye" rgba="0 .2 1 1"/>
+        <material name="target" rgba=".6 .3 .3 1"/>
+        <material name="target_default" rgba=".6 .3 .3 1"/>
+        <material name="target_highlight" rgba=".6 .3 .3 .4"/>
+    </asset>
+
+    <compiler coordinate="local" inertiafromgeom="true"/>
+    <custom>
+        <numeric data="2" name="frame_skip"/>
+    </custom>
+    <default>
+        <joint damping="0.05"/>
+        <geom contype="0" friction="1 0.1 0.1" rgba="0.7 0.7 0 1"/>
+    </default>
+    <option gravity="disable" integrator="RK4" timestep="0.01"/>
+    <size nstack="3000"/>
+    <worldbody>
+        <geom name="floor" pos="0 0 -3.0" rgba="0.8 0.9 0.8 1" size="2.5 2.5 2.5" type="plane"/>
+        <geom name="rail" pos="0 0 -2.0" quat="0.707 0 0.707 0" rgba="0.3 0.3 0.7 1" size="0.02 2.5" type="capsule"/>
+        <body name="cart" pos="0 0 0">
+            <joint axis="1 0 0" limited="false" margin="0.01" name="slider" pos="0 0 0" range="-1 1" type="slide"/>
+            <geom name="cart" pos="0 0 -2.0" quat="0.707 0 0.707 0" size="0.1 0.1" type="capsule"/>
+            <body name="pole" pos="0 0 -2.0">
+                <joint axis="0 1 0" name="hinge" pos="0 0 0" type="hinge"/>
+                <geom fromto="0 0 0 0 0 0.6" name="cpole" rgba="0 0.7 0.7 1" size="0.045 0.3" type="capsule"/>
+            </body>
+        </body>
+    </worldbody>
+    <actuator>
+        <motor ctrllimited="true" ctrlrange="-1 1" gear="500" joint="slider" name="slide"/>
+    </actuator>
+</mujoco>

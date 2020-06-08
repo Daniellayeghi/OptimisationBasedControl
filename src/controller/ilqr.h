@@ -29,35 +29,40 @@ private:
     Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time, InternalTypes::Mat4x4& _v_xx);
     Eigen::Matrix<mjtNum, 1, 4> Q_ux(int time, InternalTypes::Mat4x4& _v_xx);
 
+    InternalTypes::Mat4x4  _regularizer;
+    std::array<double, 10> _backtrackers;
+
     std::vector<double> _f;
     std::vector<InternalTypes::Mat4x4> _f_x;
-
     std::vector<InternalTypes::Mat4x2> _f_u;
+
     std::vector<mjtNum> _l;
     std::vector<InternalTypes::Mat4x1> _l_x;
     std::vector<InternalTypes::Mat2x1> _l_u;
     std::vector<InternalTypes::Mat4x4> _l_xx;
     std::vector<InternalTypes::Mat2x4> _l_ux;
     std::vector<InternalTypes::Mat2x2> _l_uu;
-    std::vector<Eigen::Matrix<mjtNum, 1, 4>> _fb_K;
-    std::vector<InternalTypes::Mat4x1> _x_traj;
+
     std::vector<double> _ff_k ;
+    std::vector<Eigen::Matrix<mjtNum, 1, 4>> _fb_K;
 
+    std::vector<InternalTypes::Mat4x1> _x_traj;
     std::vector<InternalTypes::Mat4x1> _x_traj_new;
-    InternalTypes::Mat6x1 desired_state;
-
-    double _prev_total_cost;
-
-    int  _simulation_time;
-    const mjModel* _m;
-
-    mjData* _d_cp = nullptr;
-    CostFunction& _cf;
-    FiniteDifference& _fd;
 
     double _cached_control;
+    double _prev_total_cost;
+    int    _simulation_time;
+    double _delta;
+    const double _delta_init = 0;
+
+    const mjModel*    _m;
+    mjData*           _d_cp = nullptr;
+    CostFunction&     _cf;
+    FiniteDifference& _fd;
+
     bool recalculate = true;
     bool converged   = false;
+    bool accepted    = false;
 
     mjtNum min_bound = -1;
     mjtNum max_bound = 1;
