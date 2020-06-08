@@ -1,11 +1,12 @@
 #ifndef OPTCONTROL_MUJOCO_MPPI_H
 #define OPTCONTROL_MUJOCO_MPPI_H
 
+#include"mujoco.h"
+#include "Eigen/Core"
 #include <vector>
 #include <iostream>
-#include"mujoco.h"
-#include "../utilities/internal_types.h"
 
+#if 1
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -49,6 +50,8 @@ private:
     q_matrix m_Q;
     r_matrix m_R;
 };
+#endif
+
 
 #if 0
 template<int state_size, int ctrl_size>

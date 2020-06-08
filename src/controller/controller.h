@@ -23,14 +23,16 @@ public:
 
     static void dummy_controller(const mjModel* m, mjData* d);
 
-private:
+    std::vector<Eigen::Matrix<double, ctrl_size, 1>> ctrl_buffer;
 
+private:
     const MPPI<state_size, ctrl_size>& _pi;
     ILQR&             _ilqr;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;
     mjtNum* _constant_acc;
+    int iteration = 0;
 };
 
 #endif //DRAKE_CMAKE_INSTALLED_CONTROLLER_H

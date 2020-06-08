@@ -14,14 +14,15 @@
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../../src/controller/simulation_params.h"
+#include "../../src/utilities/buffer_utils.h"
 
 // for sleep timers
 #include <chrono>
 #include <thread>
+#include <fstream>
 
 using namespace std;
 using namespace std::chrono;
-// local variables include
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
@@ -32,11 +33,15 @@ mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
 // mouse interaction
-bool button_left = false;
+bool button_left   = false;
 bool button_middle = false;
-bool button_right =  false;
+bool button_right  = false;
+bool end_sim       = false;
 double lastx = 0;
 double lasty = 0;
+
+//counter
+int iteration = 0;
 
 
 // keyboard callback
@@ -45,8 +50,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
     {
-        mj_resetData(m, d);
-        mj_forward(m, d);
+        end_sim = true;
     }
 }
 
@@ -201,11 +205,11 @@ int main(int argc, const char** argv)
 
     d->qpos[0] = 0;
     d->qpos[1] = M_PI;
-    d->qvel[0] = 0.0;
-    d->qvel[1] = 0.0;
+    d->qvel[0] = 0;
+    d->qvel[1] = 0;
 
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
+    while( !glfwWindowShouldClose(window) and not end_sim)
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -235,6 +239,13 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
     }
+
+
+    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/ctrl_cartpole.csv",
+                            std::fstream::out | std::fstream::trunc);
+
+    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
+
     // free visualization storage
     mjv_freeScene(&scn);
     mjr_freeContext(&con);

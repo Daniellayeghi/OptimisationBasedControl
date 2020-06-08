@@ -2,6 +2,7 @@
 #ifndef OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H
 #define OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H
 
+
 namespace SimulationParameters
 {
     constexpr const int n_ctrl = 2;

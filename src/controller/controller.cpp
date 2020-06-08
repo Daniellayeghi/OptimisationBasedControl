@@ -18,6 +18,9 @@ _pi(pi), _ilqr(ilqr), _m(m), _d(d)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
     _constant_acc = mj_stackAlloc(d, m->nv);
+
+    ctrl_buffer.assign(10, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+
     for (std::size_t row = 0; row < 3; ++row)
     {
         _constant_acc[row] = 0;
@@ -46,6 +49,13 @@ void MyController<state_size, ctrl_size>::controller()
     for (auto row = 0; row < ctrl_size; ++row)
     {
         _d->ctrl[row] = _pi._cached_control(row, 0);
+    }
+
+    ctrl_buffer.emplace_back(_pi._cached_control);
+    ++iteration;
+    if (iteration % 25 == 0)
+    {
+        std::cout << iteration <<"\n";
     }
 
 #endif

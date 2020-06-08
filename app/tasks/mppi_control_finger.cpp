@@ -14,6 +14,8 @@
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../../src/controller/simulation_params.h"
+#include "../../src/utilities/buffer_utils.h"
+
 
 // for sleep timers
 #include <chrono>
@@ -32,9 +34,10 @@ mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
 // mouse interaction
-bool button_left = false;
+bool button_left   = false;
 bool button_middle = false;
-bool button_right =  false;
+bool button_right  = false;
+bool end_sim       = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -45,8 +48,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
     {
-        mj_resetData(m, d);
-        mj_forward(m, d);
+        end_sim = true;
     }
 }
 
@@ -118,7 +120,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/finger.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -151,7 +153,6 @@ int main(int argc, const char** argv)
     mjr_defaultContext(&con);
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
-
 
     using namespace SimulationParameters;
 
@@ -187,7 +188,7 @@ int main(int argc, const char** argv)
     FiniteDifference fd(m);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
 
-    MPPIParams params {200, 200, 0.9, 25000};
+    MPPIParams params {500, 700, 0.9, 25000};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -208,7 +209,7 @@ int main(int argc, const char** argv)
 
 
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
+    while( !glfwWindowShouldClose(window) and not end_sim)
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -238,6 +239,13 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
     }
+
+
+    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/ctrl_finger.csv",
+                           std::fstream::out | std::fstream::trunc);
+
+    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
+
     // free visualization storage
     mjv_freeScene(&scn);
     mjr_freeContext(&con);

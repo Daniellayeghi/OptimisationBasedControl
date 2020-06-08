@@ -1,7 +1,6 @@
 #include <iostream>
 #include "MPPI.h"
 #include"simulation_params.h"
-#include "Eigen/Core"
 
 using namespace SimulationParameters;
 
@@ -50,6 +49,7 @@ namespace
         }
     }
 }
+
 
 template<int state_size, int ctrl_size>
 MPPI<state_size, ctrl_size>::MPPI(const mjModel *m, const QRCost<state_size, ctrl_size>& cost_func, const MPPIParams& params)
