@@ -10,8 +10,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-#####set(BIN_NAME LQR-Acrobot)
-
+#TODO: for loop through the binaries
 # The following 5 lines come from drake-shambhala
 option(RUN_X11_TESTS "Run tests that require X11" OFF)
 find_package(PythonInterp 2.7 EXACT MODULE REQUIRED)

@@ -13,7 +13,7 @@ template<int state_size, int ctrl_size>
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, ILQR& ilqr, const MPPI<state_size, ctrl_size>& pi);
+    MyController(const mjModel *m, mjData *d, ILQR<state_size, ctrl_size>& ilqr, const MPPI<state_size, ctrl_size>& pi);
 
     void controller();
 
@@ -27,7 +27,7 @@ public:
 
 private:
     const MPPI<state_size, ctrl_size>& _pi;
-    ILQR&             _ilqr;
+    ILQR<state_size, ctrl_size>&             _ilqr;
     const mjModel*    _m;
     mjData* _d;
     mjtNum* _inertial_torque;

@@ -7,4 +7,4 @@ libraries
 *build
 .ipynb_checkpoints
 *build-release
-
+*.csv

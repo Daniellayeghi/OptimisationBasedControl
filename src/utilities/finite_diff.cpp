@@ -1,42 +1,58 @@
 #include <iostream>
 #include "finite_diff.h"
 #include "internal_types.h"
-
-using namespace InternalTypes;
+#include "../src/controller/simulation_params.h"
 
 static int _mark = 0;
 #define myFREESTACK   _d_cp->pstack = _mark;
 
 namespace
 {
-    mjtNum* select_original_ptr(const FiniteDifference::WithRespectTo wrt, mjData* d)
+    template<int state_size, int ctrl_size>
+    mjtNum* select_original_ptr(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt, mjData* d)
     {
         switch (wrt)
         {
-            case FiniteDifference::WithRespectTo::CTRL: return d->ctrl;
-            case FiniteDifference::WithRespectTo::FRC:  return d->qfrc_applied;
-            case FiniteDifference::WithRespectTo::ACC:  return d->qacc;
-            case FiniteDifference::WithRespectTo::VEL:  return d->qvel;
-            case FiniteDifference::WithRespectTo::POS:  return d->qpos;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::CTRL: return d->ctrl;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::FRC:  return d->qfrc_applied;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::ACC:  return d->qacc;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::VEL:  return d->qvel;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::POS:  return d->qpos;
         }
     }
 
 
-    mjtStage skip_stage(const FiniteDifference::WithRespectTo wrt)
+    template<int state_size, int ctrl_size>
+    inline mjtStage skip_stage(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt)
     {
         switch (wrt)
         {
-            case FiniteDifference::WithRespectTo::CTRL:
-            case FiniteDifference::WithRespectTo::FRC:
-            case FiniteDifference::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
-            case FiniteDifference::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
-            case FiniteDifference::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::CTRL:
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::FRC:
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
+            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
         }
+    }
+
+    template<typename T>
+    inline void copy_state(const mjModel * model, const mjData *d, T* _d_cp)
+    {
+        _d_cp->time = d->time;
+        mju_copy(_d_cp->qpos, d->qpos, model->nq);
+        mju_copy(_d_cp->qvel, d->qvel, model->nv);
+        mju_copy(_d_cp->qacc, d->qacc, model->nv);
+        mju_copy(_d_cp->qacc_warmstart, d->qacc_warmstart, model->nv);
+        mju_copy(_d_cp->qfrc_applied, d->qfrc_applied, model->nv);
+        mju_copy(_d_cp->xfrc_applied, d->xfrc_applied, 6*model->nbody);
+        mju_copy(_d_cp->ctrl, d->ctrl, model->nu);
     }
 }
 
 
-FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
+
+template<int state_size, int ctrl_size>
+FiniteDifference<state_size, ctrl_size>::FiniteDifference(const mjModel* m) : _m(m)
 {
     _d_cp = mj_makeData(m);
     _wrt[WithRespectTo::ACC] = _d_cp->qacc;
@@ -46,92 +62,115 @@ FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
     _wrt[WithRespectTo::FRC]  = _d_cp->qfrc_applied;
 }
 
-
-FiniteDifference::~FiniteDifference()
+template<int state_size, int ctrl_size>
+FiniteDifference<state_size, ctrl_size>::~FiniteDifference()
 {
     mj_deleteData(_d_cp);
 }
 
 
-Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 2> FiniteDifference::f_u()
+template<int state_size, int ctrl_size>
+Eigen::Block<typename FiniteDifference<state_size, ctrl_size>::complete_jacobian, state_size/2, ctrl_size>
+FiniteDifference<state_size, ctrl_size>::f_u()
 {
-    return _full_jacobian.block<4, 2>(0,4);
+    return _full_jacobian.template block<state_size/2, ctrl_size>(0,state_size);
+}
+
+template<int state_size, int ctrl_size>
+Eigen::Block<typename FiniteDifference<state_size, ctrl_size>::complete_jacobian, state_size/2, state_size>
+FiniteDifference<state_size, ctrl_size>::f_x()
+{
+    return _full_jacobian.template block<state_size/2, state_size>(0, 0);
 }
 
 
-Eigen::Block<Eigen::Matrix<double, 4, 6>, 4, 4>  FiniteDifference::f_x()
+template<int state_size, int ctrl_size>
+void FiniteDifference<state_size, ctrl_size>::f_x_f_u(mjData *d)
 {
-    return _full_jacobian.block<4, 4>(0,0);
-}
-
-
-void FiniteDifference::f_x_f_u(mjData *d)
-{
-    Mat4x2 ctrl_deriv  = differentiate(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    Mat4x2 f_pos = differentiate(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    Mat4x2 f_vel = differentiate(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
+    ctrl_jacobian ctrl_deriv     = diff_wrt_ctrl(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+    partial_state_jacobian f_pos = diff_wrt_state(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
+    partial_state_jacobian f_vel = diff_wrt_state(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
     _full_jacobian << f_pos, f_vel, ctrl_deriv;
 }
 
 
-Mat4x6& FiniteDifference::get_full_derivatives()
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
+FiniteDifference<state_size, ctrl_size>::diff_wrt_ctrl(mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
-    return _full_jacobian;
-}
 
-
-Mat4x2 FiniteDifference::differentiate(mjData *d, mjtNum *wrt, const WithRespectTo id, bool do_copy)
-{
     if (do_copy)
-        copy_state(d);
+        copy_state(_m, d, _d_cp);
 
 #ifdef NDEBUG
     std::cout << "FD addr " << _m << std::endl;
 #endif
-    mj_step(_m, _d_cp);
-    auto skip = skip_stage(id);
+
+    mj_forward(_m, _d_cp);
+    auto skip = skip_stage<state_size, ctrl_size>(id);
 
     // extra solver iterations to improve warmstart (qacc) at center point
     for(int rep = 1; rep < 3; ++rep)
         mj_forwardSkip(_m, _d_cp, skip, 1);
 
-    mjtNum* output_vel = _d_cp->qvel;
-    mjtNum* output_pos = _d_cp->qpos;
+    const mjtNum* output_acc = _d_cp->qacc;
 
     _mark = _d_cp->pstack;
-    mjtNum * center_pos = mj_stackAlloc(_d_cp, _m->nq);
-    mju_copy(center_pos, output_pos, _m->nv);
+    mjtNum * centre_acc = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(centre_acc, output_acc, _m->nv);
 
-    mjtNum * center_vel = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(center_vel, output_vel, _m->nv);
+    mjtNum * warmstart = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
-    copy_state(d);
-    // save output for center point and warmstart (needed in forward only)
-    // mju_copy(centers[1], output_vel, _m->nv);
+    mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
 
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
-    const mjtNum* original = select_original_ptr(id, d);
-
-    if (id == WithRespectTo::POS)
-        return first_order_forward_diff_positional(target, original, center_pos, center_vel, d, id);
-    else
-        return first_order_forward_diff_general(target, original, center_pos, center_vel, d, id);
+    const mjtNum* original = select_original_ptr<state_size, ctrl_size>(id, d);
+    return finite_diff_wrt_ctrl(target, original, centre_acc, d, id);
 }
 
 
-Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
-                                                          const mjtNum *original,
-                                                          const mjtNum* center_pos,
-                                                          const mjtNum* center_vel,
-                                                          const mjData* d,
-                                                          const WithRespectTo id)
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::partial_state_jacobian
+FiniteDifference<state_size, ctrl_size>::diff_wrt_state(mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
-    auto row = (id == WithRespectTo::CTRL or id == WithRespectTo::FRC) ? _m->nu : _m->nv;
-    Mat4x2 result;
-//    auto row = _m->nv;
-    mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
+    mj_forward(_m, _d_cp);
+    auto skip = skip_stage<state_size, ctrl_size>(id);
+
+    // extra solver iterations to improve warmstart (qacc) at center point
+    for(int rep = 1; rep < 3; ++rep)
+        mj_forwardSkip(_m, _d_cp, skip, 1);
+
+    const mjtNum* output_acc = _d_cp->qacc;
+
+    _mark = _d_cp->pstack;
+    mjtNum * centre_acc = mj_stackAlloc(_d_cp, _m->nv);
+    mju_copy(centre_acc, output_acc, _m->nv);
+
+    mjtNum * warmstart = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
+
+    mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
+
+    // select target vector and original vector for force or acceleration derivative
+    mjtNum* target = wrt;
+    const mjtNum* original = select_original_ptr<state_size, ctrl_size>(id, d);
+    return finite_diff_wrt_state(target, original, centre_acc, d, id);
+}
+
+
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
+FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(mjtNum *target,
+                                                              const mjtNum *original,
+                                                              const mjtNum *centre_acc,
+                                                              const mjData *d,
+                                                              const WithRespectTo id)
+{
+
+    auto row = (id == WithRespectTo::CTRL or id == WithRespectTo::FRC) ? _m->nu : _m->nv;
+    ctrl_jacobian result;
 
     for(int i = 0; i < row; ++i)
     {
@@ -139,19 +178,17 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
         target[i] += eps;
 
         // evaluate dynamics, with center warmstart
-        mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_step(_m, _d_cp);
+        mj_forwardSkip(_m, _d_cp, skip_stage<state_size, ctrl_size>(id), 1);
 
         // compute column i of derivative 2
-        for(int j = 0; j < row; ++j)
+        for(int j = 0; j < ctrl_size; ++j)
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            result(j, i) = (_d_cp->qpos[j] - center_pos[j])/eps;
-            result(j + row, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
+            result(j, i) = (_d_cp->qacc[j] - centre_acc[j])/eps;
         }
         // undo perturbation
-        copy_state(d);
+        copy_state(_m, d, _d_cp);
         target[i] = original[i];
     }
 #if NDEBUG
@@ -163,17 +200,16 @@ Mat4x2 FiniteDifference::first_order_forward_diff_general(mjtNum *target,
 }
 
 
-Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
-                                                             const mjtNum *original,
-                                                             const mjtNum* center_pos,
-                                                             const mjtNum* center_vel,
-                                                             const mjData* d,
-                                                             const WithRespectTo skip)
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::partial_state_jacobian
+FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
+                                                               const mjtNum *original,
+                                                               const mjtNum *centre_acc,
+                                                               const mjData *d,
+                                                               const WithRespectTo id)
 {
-    Mat4x2 result;
+    partial_state_jacobian result;
     auto row = _m->nv;
-    mjtNum* warmstart = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
 
     for(int i = 0; i < row; i++)
     {
@@ -182,19 +218,19 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
 
         // get quaternion address and dof position within quaternion (-1: not in quaternion)
         int quatadr = -1, dofpos = 0;
-        if(_m->jnt_type[jid] == mjJNT_BALL )
+        if(_m->jnt_type[jid] == mjJNT_BALL and id == WithRespectTo::POS)
         {
             quatadr = _m->jnt_qposadr[jid];
             dofpos = i - _m->jnt_dofadr[jid];
         }
-        else if(_m->jnt_type[jid] == mjJNT_FREE && i >= _m->jnt_dofadr[jid]+3)
+        else if(_m->jnt_type[jid] == mjJNT_FREE && i >= _m->jnt_dofadr[jid]+3 and id == WithRespectTo::POS)
         {
             quatadr = _m->jnt_qposadr[jid] + 3;
             dofpos = i - _m->jnt_dofadr[jid] - 3;
         }
 
         // apply quaternion or simple perturbation
-        if( quatadr>=0 )
+        if(quatadr>=0 and id == WithRespectTo::POS)
         {
             mjtNum angvel[3] = {0,0,0};
             angvel[dofpos] = eps;
@@ -204,17 +240,14 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
             target[_m->jnt_qposadr[jid] + i - _m->jnt_dofadr[jid]] += eps;
 
         // evaluate dynamics, with center warmstart
-        mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-        mj_step(_m, _d_cp);
-
+        mj_forwardSkip(_m, _d_cp, skip_stage<state_size, ctrl_size>(id), 1);
         // compute column i of derivative 0
         for(int j = 0; j < row; j++)
         {
-            result(j, i) = (_d_cp->qpos[j] - center_pos[j])/eps;
-            result(j + row, i) = (_d_cp->qvel[j] - center_vel[j])/eps;
+            result(j, i) = (_d_cp->qacc[j] - centre_acc[j])/eps;
         }
         // undo perturbation
-        copy_state(d);
+        copy_state(_m, d, _d_cp);
         mju_copy(target, original, _m->nq);
     }
 #if NDEBUG
@@ -223,23 +256,10 @@ Mat4x2 FiniteDifference::first_order_forward_diff_positional(mjtNum *target,
 #endif
     myFREESTACK
     return result;
+
 }
 
 
-void FiniteDifference::copy_state(const mjData *d)
-{
-    _d_cp->time = d->time;
-    mju_copy(_d_cp->qpos, d->qpos, _m->nq);
-    mju_copy(_d_cp->qvel, d->qvel, _m->nv);
-    mju_copy(_d_cp->qacc, d->qacc, _m->nv);
-    mju_copy(_d_cp->qacc_warmstart, d->qacc_warmstart, _m->nv);
-    mju_copy(_d_cp->qfrc_applied, d->qfrc_applied, _m->nv);
-    mju_copy(_d_cp->xfrc_applied, d->xfrc_applied, 6*_m->nbody);
-    mju_copy(_d_cp->ctrl, d->ctrl, _m->nu);
-}
-
-
-mjtNum * FiniteDifference::get_wrt(const WithRespectTo wrt)
-{
-    return _wrt[wrt];
-}
+using namespace SimulationParameters;
+template class FiniteDifference<n_jpos + n_jvel, n_ctrl>;
+template class FiniteDifference<2 + 2, 2>;

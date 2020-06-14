@@ -8,57 +8,60 @@
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 
-
+template<int state_size, int ctrl_size>
 class ILQR
 {
 public:
-    ILQR(FiniteDifference& fd, CostFunction& cf, const mjModel * m, int simulation_time);
+
+    ILQR(FiniteDifference<state_size, ctrl_size>& fd, CostFunction& cf, const mjModel * m, int simulation_time);
     ~ILQR();
 
     void control(mjData* d);
     void backward_pass();
     void forward_pass();
-    double get_control();
-    std::vector<double> _u_traj;
+    Eigen::Matrix<double, ctrl_size, 1> get_control();
+    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _u_traj;
 
 private:
     void forward_simulate(const mjData* d);
-    double Q_u(int time, InternalTypes::Mat4x1& _v_x);
-    double Q_uu(int time, InternalTypes::Mat4x4& _v_xx);
-    Eigen::Matrix<mjtNum, 4, 1> Q_x(int time, InternalTypes::Mat4x1& _v_x);
-    Eigen::Matrix<mjtNum, 4, 4> Q_xx(int time, InternalTypes::Mat4x4& _v_xx);
-    Eigen::Matrix<mjtNum, 1, 4> Q_ux(int time, InternalTypes::Mat4x4& _v_xx);
 
-    InternalTypes::Mat4x4  _regularizer;
-    std::array<double, 10> _backtrackers;
+    double Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    double Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
 
-    std::vector<double> _f;
-    std::vector<InternalTypes::Mat4x4> _f_x;
-    std::vector<InternalTypes::Mat4x2> _f_u;
 
-    std::vector<mjtNum> _l;
-    std::vector<InternalTypes::Mat4x1> _l_x;
-    std::vector<InternalTypes::Mat2x1> _l_u;
-    std::vector<InternalTypes::Mat4x4> _l_xx;
-    std::vector<InternalTypes::Mat2x4> _l_ux;
-    std::vector<InternalTypes::Mat2x2> _l_uu;
+    Eigen::Matrix<double, state_size, 1> Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    Eigen::Matrix<double, state_size, state_size> Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    Eigen::Matrix<double, 1, state_size> Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+
+    Eigen::Matrix<double, state_size, state_size> _regularizer;
+    std::array<double, 10> _backtrackers{};
+
+    std::vector<Eigen::Matrix<double, state_size, state_size>> _f_x;
+    std::vector<Eigen::Matrix<double, state_size, ctrl_size>> _f_u;
+
+    std::vector<double> _l;
+    std::vector<Eigen::Matrix<double, state_size, 1>> _l_x;
+    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _l_u;
+    std::vector<Eigen::Matrix<double, state_size, state_size>> _l_xx;
+    std::vector<Eigen::Matrix<double, ctrl_size, state_size>> _l_ux;
+    std::vector<Eigen::Matrix<double, ctrl_size, ctrl_size>> _l_uu;
 
     std::vector<double> _ff_k ;
-    std::vector<Eigen::Matrix<mjtNum, 1, 4>> _fb_K;
+    std::vector<Eigen::Matrix<mjtNum, 1, state_size>> _fb_K;
 
-    std::vector<InternalTypes::Mat4x1> _x_traj;
-    std::vector<InternalTypes::Mat4x1> _x_traj_new;
+    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj;
+    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj_new;
 
-    double _cached_control;
+    Eigen::Matrix<double, ctrl_size, 1> _cached_control;
     double _prev_total_cost;
     int    _simulation_time;
-    double _delta;
+    double _delta{};
     const double _delta_init = 0;
 
     const mjModel*    _m;
     mjData*           _d_cp = nullptr;
     CostFunction&     _cf;
-    FiniteDifference& _fd;
+    FiniteDifference<state_size, ctrl_size>& _fd;
 
     bool recalculate = true;
     bool converged   = false;

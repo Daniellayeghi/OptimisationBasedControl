@@ -13,7 +13,7 @@ static MyController<n_jvel + n_jpos, n_ctrl> *my_ctrl;
 
 
 template<int state_size, int ctrl_size>
-MyController<state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, ILQR& ilqr, const MPPI<state_size, ctrl_size>& pi) :
+MyController<state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, ILQR<state_size, ctrl_size>& ilqr, const MPPI<state_size, ctrl_size>& pi) :
 _pi(pi), _ilqr(ilqr), _m(m), _d(d)
 {
     _inertial_torque = mj_stackAlloc(_d, _m->nv);
@@ -52,12 +52,6 @@ void MyController<state_size, ctrl_size>::controller()
     }
 
     ctrl_buffer.emplace_back(_pi._cached_control);
-    ++iteration;
-    if (iteration % 25 == 0)
-    {
-        std::cout << iteration <<"\n";
-    }
-
 #endif
 
 

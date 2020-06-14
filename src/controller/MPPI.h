@@ -6,7 +6,9 @@
 #include <vector>
 #include <iostream>
 
-#if 1
+
+
+#if 0
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -53,7 +55,7 @@ private:
 #endif
 
 
-#if 0
+#if 1
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -129,8 +131,8 @@ public:
 
 private:
 
-    MPPI<state_size, ctrl_size>::ctrl_vector  total_entropy(const std::vector<ctrl_vector>& delta_control_samples,
-                                                            const std::vector<double>& d_cost_to_go_samples) const;
+    MPPI<state_size, ctrl_size>::ctrl_vector total_entropy(const std::vector<ctrl_vector>& delta_control_samples,
+                                                           const std::vector<double>& d_cost_to_go_samples) const;
 
     void compute_control_trajectory();
 

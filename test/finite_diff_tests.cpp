@@ -3,10 +3,17 @@
 #include "Eigen/Core"
 #include "mujoco.h"
 
-class SolverTests : public testing::Test {
+namespace
+{
+    constexpr const int num_jctrl = 2;
+    constexpr const int num_jvel  = 2;
+    constexpr const int num_jpos  = 2;
+}
 
+
+class SolverTests : public testing::Test {
 public:
-    void SetUp()
+    void SetUp() override
     {
         mj_activate(MUJ_KEY_PATH);
         char error[1000] = "Could not load binary model";
@@ -20,9 +27,13 @@ public:
 
         model->opt.timestep = 0.01;
         data = mj_makeData(model);
+
+        assert(model->nv == num_jvel);
+        assert(model->nq == num_jpos);
+        assert(model->nu == num_jctrl);
     }
 
-    void TearDown()
+    void TearDown() override
     {
         mj_deleteData(data);
         mj_deleteModel(model);
@@ -31,6 +42,7 @@ public:
 
     mjModel* model = nullptr;
     mjData* data   = nullptr;
+    float tolerance = 1e-6;
 };
 
 
@@ -40,19 +52,16 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Stable_Equilibrium)
     data->qpos[0] = -1.57; data->qpos[1] = 0;
     data->qvel[0] = 0.0;   data->qvel[1] = 0.0;
 
-    FiniteDifference fd(model);
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
-    auto result = fd.f_x();
+    auto result = fd.f_u();
 
-    std::cout << result << std::endl;
+    Eigen::Matrix<double, num_jpos, num_jctrl> result_ref;
 
-    Eigen::Matrix<double, 4, 4> result_ref;
-    result_ref <<  9.93514456e-01,  6.98680871e-03,  9.95772860e-03, 9.95909855e-05,
-                   7.85670324e-03,  9.76116416e-01,  9.95909855e-05, 9.70447566e-03,
-                  -6.48554438e-01,  6.98680871e-01,  9.95772860e-01, 9.95909855e-03,
-                   7.85670324e-01, -2.38835840e+00,  9.95909855e-03, 9.70447566e-01;
+    result_ref << 86.96336955, -206.13998602,
+                 -206.1399860,  611.16300185;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .05));
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }
 
 
@@ -61,18 +70,16 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium)
     data->qpos[0] = 1.57; data->qpos[1] = 0;
     data->qvel[0] = 0.0;   data->qvel[1] = 0.0;
 
-    FiniteDifference fd(model);
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_x();
 
-    Eigen::Matrix<double, 4, 4> result_ref;
+    Eigen::Matrix<double, num_jpos, num_jpos + num_jvel> result_ref;
 
-     result_ref << 1.00648560e+00, -6.98678782e-03,  9.95772860e-03,  9.95909855e-05,
-                  -7.85676581e-03,  1.02388352e+00,  9.95909855e-05,  9.70447566e-03,
-                   6.48559603e-01, -6.98678782e-01,  9.95772860e-01,  9.95909855e-03,
-                  -7.85676581e-01,  2.38835235e+00,  9.95909855e-03,  9.70447566e-01;
+     result_ref << 65.94859829, -72.647543,   -0.8696337,  2.06139986,
+                  -81.6380463,   246.89345808, 2.06139986, -6.11163002;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .05));
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }
 
 
@@ -81,18 +88,16 @@ TEST_F(SolverTests, Finite_Difference_Jacobian_Unstable_Equilibrium_With_Velocit
     data->qpos[0] = 1.57; data->qpos[1] = 0;
     data->qvel[0] = 1.0;   data->qvel[1] = 0.0;
 
-    FiniteDifference fd(model);
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_x();
 
-    Eigen::Matrix<double, 4, 4> result_ref;
+    Eigen::Matrix<double, num_jpos, num_jpos + num_jvel> result_ref;
 
-    result_ref << 1.00648560e+00, -6.76350083e-03,  9.95772860e-03,  9.95909855e-05,
-                 -7.85676581e-03,  1.02322098e+00,  9.95909855e-05,  9.70447566e-03,
-                  6.48559603e-01, -6.76350083e-01,  9.95772860e-01,  9.95909855e-03,
-                 -7.85676581e-01,  2.32209833e+00,  9.95909855e-03,  9.70447566e-01;
+    result_ref << 65.9485982, -70.34187923,  -0.8696337,   2.06139986,
+                 -81.6380463,  240.05763549,  2.0613998,  -6.11163002;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .05));
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }
 
 
@@ -102,18 +107,16 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Unstable_Equilibrium)
     data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
     data->ctrl[0] = 0.1;  data->ctrl[1] = 0.3;
 
-    FiniteDifference fd(model);
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_u();
 
-    Eigen::Matrix<double, 4, 2> result_ref;
+    Eigen::Matrix<double, num_jpos, num_jctrl> result_ref;
 
-    result_ref << 0.00822762, -0.01926687,
-                 -0.01926687,  0.05722194,
-                  0.82276195, -1.92668744,
-                 -1.92668744,  5.72219396;
+    result_ref << 86.96336956, -206.13998601,
+                 -206.13998603, 611.16300182;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }
 
 
@@ -125,18 +128,17 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium)
     data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
     data->ctrl[0] = 0;  data->ctrl[1] = 0.3;
 
-    FiniteDifference fd(model);
+
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_u();
-    std::cout << result << std::endl;
 
-    Eigen::Matrix<double, 4, 2> result_ref;
-    result_ref << 0.00822762, -0.01926687,
-                 -0.01926687,  0.05722194,
-                  0.82276195, -1.92668744,
-                 -1.92668744,  5.72219396;
+    Eigen::Matrix<double, num_jpos, num_jctrl> result_ref;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+    result_ref << 86.96336955, -206.13998601,
+                 -206.13998601, 611.16300185;
+
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }
 
 
@@ -147,15 +149,14 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian)
     data->qvel[0] = 0.0;  data->qvel[1] = 0.0;
     data->ctrl[0] = 0.5;  data->ctrl[1] = 0.3;
 
-    FiniteDifference fd(model);
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_u();
 
-    Eigen::Matrix<double, 4, 2> result_ref;
-    result_ref << 0.00384395, -0.00518951,
-                 -0.00518951,  0.01911017,
-                  0.38439548, -0.51895131,
-                 -0.51895131,  1.91101738;
+    Eigen::Matrix<double, num_jpos, num_jctrl> result_ref;
 
-    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+    result_ref <<38.86456575, -53.11179446,
+                 -53.11179447, 195.10586921;
+
+    ASSERT_TRUE(result_ref.isApprox(result, tolerance));
 }

@@ -185,14 +185,14 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 500;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
-    FiniteDifference fd(m);
+    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
 
     MPPIParams params {500, 700, 0.9, 25000};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
-    ILQR ilqr(fd, cost_func, m, 20);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 20);
 
     // install control callback
     MyController<n_jpos + n_jvel, n_ctrl> control(m, d, ilqr, pi);
