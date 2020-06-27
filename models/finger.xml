@@ -28,7 +28,7 @@
     </asset>
 
     <option timestep="0.01" cone="elliptic" iterations="200">
-        <flag gravity="disable"/>
+        <flag gravity="enable"/>
     </option>
 
     <default>

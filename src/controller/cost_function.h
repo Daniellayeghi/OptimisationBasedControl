@@ -10,56 +10,50 @@ using namespace Eigen;
 
 using namespace InternalTypes;
 
+template<int state_size, int ctrl_size>
 class CostFunction
 {
+    using state_vec = Eigen::Matrix<double, state_size, 1>;
+    using ctrl_vec  = Eigen::Matrix<double, ctrl_size, 1>;
+    using state_mat = Eigen::Matrix<double, state_size, state_size>;
+    using ctrl_mat  = Eigen::Matrix<double, ctrl_size, ctrl_size>;
+    using state_ctrl_mat = Eigen::Matrix<double, ctrl_size, state_size>;
+
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // TODO: Pass cost as functor
     CostFunction(const mjData* d,
-                 const Mat4x1& x_desired,
-                 const Mat2x1& u_desired,
-                 const Mat4x4& x_gain,
-                 const Mat2x2& u_gain,
-                 const Mat4x4& x_terminal_gain);
+                 const state_vec& x_desired,
+                 const ctrl_vec& u_desired,
+                 const state_mat& x_gain,
+                 const ctrl_mat& u_gain,
+                 const state_mat& x_terminal_gain);
 
-    Eigen::Matrix<mjtNum, 4, 1> L_x();
-    Eigen::Matrix<mjtNum, 2, 1> L_u();
-    Eigen::Matrix<mjtNum, 4, 4> L_xx();
-    Eigen::Matrix<mjtNum, 2, 2> L_uu();
-    Eigen::Matrix<mjtNum, 2, 4> L_ux();
-    Eigen::Matrix<mjtNum, 4, 1> Lf_x();
-    Eigen::Matrix<mjtNum, 4, 4> Lf_xx();
+    state_vec L_x();
+    ctrl_vec  L_u();
+    state_mat L_xx();
+    ctrl_mat L_uu();
+    state_ctrl_mat L_ux();
+    state_vec Lf_x();
+    state_mat Lf_xx();
 
     mjtNum running_cost();
     mjtNum terminal_cost();
-
-    template<int x_rows, int u_rows, int cols>
-    mjtNum trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
-                                   std::vector<Eigen::Matrix<mjtNum, u_rows, cols>> & u_trajectory);
-
-    template<int x_rows, int cols>
-    mjtNum trajectory_running_cost(std::vector<Eigen::Matrix<mjtNum, x_rows, cols>> & x_trajectory,
-                                   std::vector<double> & u_trajectory);
+    mjtNum trajectory_running_cost(std::vector<state_vec> & x_trajectory, std::vector<ctrl_vec> & u_trajectory);
 
 private:
     void update_errors();
+    void update_errors(state_vec &state, ctrl_vec &ctrl);
 
-    template<int x_rows, int u_rows, int cols>
-    void update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state,
-                       const Eigen::Matrix<mjtNum, u_rows, cols> &ctrl);
-
-    template<int x_rows, int cols>
-    void update_errors(const Eigen::Matrix<mjtNum, x_rows, cols> &state, const double &ctrl);
-
-    Eigen::Matrix<double, 4, 1> _u;
-    Eigen::Matrix<double, 4, 1> _x;
-    Eigen::Matrix<double, 2, 1> _u_error;
-    Eigen::Matrix<double, 4, 1> _x_error;
-    Eigen::Matrix<double, 2, 1> _u_desired;
-    Eigen::Matrix<double, 4, 1> _x_desired;
-    Eigen::Matrix<double, 2, 2> _u_gain;
-    Eigen::Matrix<double, 4, 4> _x_gain;
-    Eigen::Matrix<double, 4, 4> _x_terminal_gain;
+    ctrl_vec  _u;
+    state_vec _x;
+    ctrl_vec  _u_error;
+    state_vec _x_error;
+    ctrl_vec  _u_desired;
+    state_vec _x_desired;
+    ctrl_mat  _u_gain;
+    state_mat _x_gain;
+    state_mat _x_terminal_gain;
 
 public:
     const mjData* _d;

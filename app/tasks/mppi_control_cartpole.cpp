@@ -174,20 +174,6 @@ int main(int argc, const char** argv)
     assert(m->nu == n_ctrl);
 
     // setup cost params
-    InternalTypes::Mat4x1 x_desired; x_desired << -M_PI_2-0.005, 0, 0, 0;
-    InternalTypes::Mat2x1 u_desired; u_desired << 0, 0;
-
-    InternalTypes::Mat4x4 x_terminal_gain; x_terminal_gain.setIdentity();
-    x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-    x_terminal_gain *= 2500;
-
-    InternalTypes::Mat4x4 x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
-    x_gain(3,3) = 0.01;
-    x_gain *= 5000;
-
-    InternalTypes::Mat2x2 u_gain;
-    u_gain.setIdentity();
-    u_gain *= 5;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -202,19 +188,15 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 500;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
-
     MPPIParams params {50, 100, 0.999, 2000};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 20);
 
     // install control callback
-    MyController<n_jpos + n_jvel, n_ctrl> control(m, d, ilqr, pi);
-    MyController<n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+    MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
 
     d->qpos[0] = 0;
@@ -232,9 +214,9 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             pi.control(d);
-            mjcb_control = MyController<n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

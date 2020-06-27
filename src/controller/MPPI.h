@@ -8,7 +8,7 @@
 
 
 
-#if 0
+#if 1
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -42,8 +42,8 @@ private:
     double bounded_state_error(Eigen::Matrix<double, state_size, 1>& state) const
     {
         double result = 0;
-        result += 800 * std::pow(1 - std::cos(state(2, 0)), 2);
-        result += 50 * std::pow(state(5, 0), 2) * 0.01;
+        result += 40000 * std::pow(1 - std::cos(state(2, 0)), 2);
+        result += 5000 * std::pow(state(5, 0), 2) * 0.01;
         return result;
     }
 
@@ -55,7 +55,7 @@ private:
 #endif
 
 
-#if 1
+#if 0
 template<int state_size, int ctrl_size>
 class QRCost
 {

@@ -2,6 +2,8 @@
 #include <numeric>
 #include "mujoco.h"
 #include "ilqr.h"
+#include "../src/controller/simulation_params.h"
+
 namespace
 {
     template <typename T>
@@ -16,6 +18,7 @@ namespace
         mju_copy(data_cp->ctrl, data->ctrl, model->nu);
     }
 
+
     template<typename T, int M, int N>
     void set_control_data(mjData* data, const Eigen::Matrix<T, M, N>& ctrl)
     {
@@ -24,6 +27,7 @@ namespace
             data->qfrc_applied[row] = ctrl(row, 0);
         }
     }
+
 
     template<typename T, int M, int N>
     void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N>& state)
@@ -43,8 +47,13 @@ namespace
     }
 }
 
+using namespace SimulationParameters;
+
 template<int state_size, int ctrl_size>
-ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd, CostFunction& cf, const mjModel * m, int simulation_time) :
+ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
+                                  CostFunction<state_size, ctrl_size>& cf,
+                                  const mjModel * m,
+                                  const int simulation_time) :
 _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
 {
     _d_cp = mj_makeData(m);
@@ -55,12 +64,12 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
     _l.assign(_simulation_time + 1, 0);
     _l_x.assign(simulation_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
     _l_xx.assign(simulation_time + 1, Eigen::Matrix<double, state_size, state_size>::Zero());
-    _l_u.assign(simulation_time, Eigen::Matrix<double, state_size, 1>::Zero());
+    _l_u.assign(simulation_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     _l_ux.assign(simulation_time, Eigen::Matrix<double, ctrl_size, state_size>::Zero());
     _l_uu.assign(simulation_time, Eigen::Matrix<double, ctrl_size, ctrl_size>::Zero());
 
     _f_x.assign(simulation_time, Eigen::Matrix<double, state_size, state_size>::Zero());
-    _f_u.assign(simulation_time, Eigen::Matrix<double, state_size, state_size>::Zero());
+    _f_u.assign(simulation_time, Eigen::Matrix<double, state_size, ctrl_size>::Zero());
 
     _fb_K.assign(_simulation_time, Eigen::Matrix<double, ctrl_size, state_size>::Zero());
     _ff_k.assign(_simulation_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
@@ -75,6 +84,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
                        3.23491843e-02, 9.37040641e-03,
                        2.24320079e-03, 4.43805318e-04}};
 }
+
 
 template<int state_size, int ctrl_size>
 ILQR<state_size, ctrl_size>::~ILQR()
@@ -92,10 +102,10 @@ ILQR<state_size, ctrl_size>::Q_x(int time, Eigen::Matrix<double, state_size, 1>&
 
 
 template<int state_size, int ctrl_size>
-double
+Eigen::Matrix<double, ctrl_size, 1>
 ILQR<state_size, ctrl_size>::Q_u(int time,  Eigen::Matrix<double, state_size, 1>& _v_x)
 {
-    return _l_u[time](1, 0) + _f_u[time].template block<state_size, 1>(0, 1).transpose() * _v_x ;
+    return _l_u[time] + _f_u[time].transpose() * _v_x ;
 }
 
 
@@ -103,26 +113,25 @@ template<int state_size, int ctrl_size>
 Eigen::Matrix<mjtNum, state_size, state_size>
 ILQR<state_size, ctrl_size>::Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx)
 {
-    return _l_xx[time] + _f_x[time].transpose() * _v_xx * _f_x[time];
+    return _l_xx[time] + (_f_x[time].transpose() * _v_xx) * _f_x[time];
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<double, 1, state_size>
+Eigen::Matrix<double, ctrl_size, state_size>
 ILQR<state_size, ctrl_size>::Q_ux(int time,Eigen::Matrix<double, state_size, state_size>& _v_xx)
 {
-    return _l_ux[time].template block<1, state_size>(1, 0) +
-            _f_u[time].template block<state_size, 1>(0, 1).transpose() *
-           (_v_xx + _regularizer) * _f_x[time];
+    return _l_ux[time] + (_f_u[time].transpose() * (_v_xx + _regularizer)) * _f_x[time];
 }
 
+
 template<int state_size, int ctrl_size>
-double
+Eigen::Matrix<double, ctrl_size, ctrl_size>
 ILQR<state_size, ctrl_size>::Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx)
 {
-    return _l_uu[time](1, 1) +_f_u[time].template block<4, 1>(0, 1).transpose() * (_v_xx + _regularizer) *
-            _f_u[time].template block<4, 1>(0, 1);
+    return _l_uu[time] + (_f_u[time].transpose() * (_v_xx + _regularizer)) * (_f_u[time]);
 }
+
 
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
@@ -160,8 +169,8 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::backward_pass()
 {
-    InternalTypes::Mat4x1 V_x = _l_x.back();
-    InternalTypes::Mat4x4 V_xx = _l_xx.back();
+    Eigen::Matrix<double, state_size, 1> V_x = _l_x.back();
+    Eigen::Matrix<double, state_size, state_size> V_xx = _l_xx.back();
 
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
@@ -169,10 +178,9 @@ void ILQR<state_size, ctrl_size>::backward_pass()
         _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
         _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
 #endif
-        _ff_k[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_u(time, V_x));
-        _fb_K[time] = -1 * 1 / Q_uu(time, V_xx) * (Q_ux(time, V_xx));
-
-        V_x   = Q_x(time, V_x) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _ff_k[time];
+        _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
+        _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
+        V_x   = Q_x(time, V_x) + (_fb_K[time].transpose() * Q_uu(time, V_xx)) * (_ff_k[time]);
         V_x  += _fb_K[time].transpose() * Q_u(time, V_x) + Q_ux(time, V_xx).transpose() * _ff_k[time];
 
         V_xx  = Q_xx(time, V_xx) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _fb_K[time];
@@ -186,13 +194,13 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_pass()
 {
+
     for (const auto& backtracker : _backtrackers)
     {
         _x_traj_new.front() = _x_traj.front();
         std::fill(_u_traj.begin(), _u_traj.end(), Eigen::Matrix<double, ctrl_size, 1>::Zero());
         for (auto time = 0; time < _simulation_time; ++time) {
-            _u_traj[time] = _u_traj[time] * _ff_k[time] + _fb_K[time].dot((_x_traj_new[time] - _x_traj[time]));
-//            _u_traj[time] = std::clamp(_u_traj[time], min_bound, max_bound);
+            _u_traj[time] = _u_traj[time] + (backtracker * _ff_k[time]) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
 #if 0
             clamp_control(_u_traj[time], max_bound, min_bound);
             set_control_data(_d_cp, _u_traj[time]);
@@ -219,8 +227,9 @@ void ILQR<state_size, ctrl_size>::forward_pass()
         if (not accepted)
         {
             _delta = std::max(1.0, _delta) * _delta_init;
-            static const auto min = Matrix<double,4 ,4>::Identity(4, 4) * 1e-6;
-            if ((_regularizer * _delta).norm() > 1e-6)
+            static const auto min = Matrix<double,state_size , state_size>::Identity() * 1e-6;
+            // All elements are equal hence the (0, 0) comparison
+            if ((_regularizer * _delta)(0, 0) > 1e-6)
             {
                 _regularizer = _regularizer * _delta;
             }
@@ -251,12 +260,4 @@ void ILQR<state_size, ctrl_size>::control(mjData* d)
     }
 }
 
-
-template<int state_size, int ctrl_size>
-Eigen::Matrix<double, ctrl_size, 1>
-ILQR<state_size, ctrl_size>::get_control()
-{
-    return _cached_control;
-}
-
-template class ILQR<4, 2>;
+template class ILQR<n_jpos + n_jvel, n_ctrl>;

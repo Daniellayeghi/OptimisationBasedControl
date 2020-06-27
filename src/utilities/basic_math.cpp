@@ -8,6 +8,7 @@ namespace BasicMath
         return fmod(max + fmod(x, max), max);
     }
 
+
     double wrap_to_min_max(double x, double min, double max)
     {
         if (x == max) return max;

@@ -13,10 +13,10 @@
 template<int state_size, int ctrl_size>
 class FiniteDifference
 {
-    using ctrl_jacobian          = Eigen::Matrix<double, state_size/2, ctrl_size>;
-    using full_state_jacobian    = Eigen::Matrix<double, state_size/2, state_size>;
-    using partial_state_jacobian = Eigen::Matrix<double, state_size/2, state_size/2>;
-    using complete_jacobian      = Eigen::Matrix<double, state_size/2, state_size + ctrl_size>;
+    using ctrl_jacobian          = Eigen::Matrix<double, state_size, ctrl_size>;
+    using full_state_jacobian    = Eigen::Matrix<double, state_size, state_size>;
+    using partial_state_jacobian = Eigen::Matrix<double, state_size, state_size/2>;
+    using complete_jacobian      = Eigen::Matrix<double, state_size, state_size + ctrl_size>;
 public:
 
     enum class WithRespectTo{ACC, VEL, POS, CTRL, FRC};
@@ -25,9 +25,9 @@ public:
 
     ~FiniteDifference();
 
-    Eigen::Block<complete_jacobian, state_size/2, state_size> f_x();
+    Eigen::Block<complete_jacobian, state_size, state_size> f_x();
 
-    Eigen::Block<complete_jacobian, state_size/2, ctrl_size> f_u();
+    Eigen::Block<complete_jacobian, state_size, ctrl_size> f_u();
 
     void f_x_f_u(mjData *d);
 
@@ -47,14 +47,16 @@ private:
 
     ctrl_jacobian finite_diff_wrt_ctrl(mjtNum* target,
                                        const mjtNum* original,
-                                       const mjtNum* centre_acc,
+                                       const mjtNum* centre_pos,
+                                       const mjtNum* centre_vel,
                                        const mjData *d,
                                        const WithRespectTo id);
 
 
     partial_state_jacobian finite_diff_wrt_state(mjtNum* target,
                                                  const mjtNum* original,
-                                                 const mjtNum* centre_acc,
+                                                 const mjtNum* centre_pos,
+                                                 const mjtNum* centre_vel,
                                                  const mjData *d,
                                                  const WithRespectTo id);
 

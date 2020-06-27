@@ -13,54 +13,53 @@ class ILQR
 {
 public:
 
-    ILQR(FiniteDifference<state_size, ctrl_size>& fd, CostFunction& cf, const mjModel * m, int simulation_time);
+    ILQR(FiniteDifference<state_size, ctrl_size>& fd, CostFunction<state_size, ctrl_size>& cf, const mjModel * m, const int simulation_time);
+
     ~ILQR();
 
     void control(mjData* d);
     void backward_pass();
     void forward_pass();
-    Eigen::Matrix<double, ctrl_size, 1> get_control();
+    Eigen::Matrix<double, ctrl_size, 1> _cached_control;
     std::vector<Eigen::Matrix<double, ctrl_size, 1>> _u_traj;
-
 private:
+
     void forward_simulate(const mjData* d);
-
-    double Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
-    double Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    Eigen::Matrix<double, ctrl_size, 1> Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
 
 
+    Eigen::Matrix<double, ctrl_size, ctrl_size> Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     Eigen::Matrix<double, state_size, 1> Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
     Eigen::Matrix<double, state_size, state_size> Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
-    Eigen::Matrix<double, 1, state_size> Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
 
+    Eigen::Matrix<double, ctrl_size, state_size> Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     Eigen::Matrix<double, state_size, state_size> _regularizer;
+
     std::array<double, 10> _backtrackers{};
-
     std::vector<Eigen::Matrix<double, state_size, state_size>> _f_x;
-    std::vector<Eigen::Matrix<double, state_size, ctrl_size>> _f_u;
 
+    std::vector<Eigen::Matrix<double, state_size, ctrl_size>> _f_u;
     std::vector<double> _l;
     std::vector<Eigen::Matrix<double, state_size, 1>> _l_x;
     std::vector<Eigen::Matrix<double, ctrl_size, 1>> _l_u;
     std::vector<Eigen::Matrix<double, state_size, state_size>> _l_xx;
     std::vector<Eigen::Matrix<double, ctrl_size, state_size>> _l_ux;
+
     std::vector<Eigen::Matrix<double, ctrl_size, ctrl_size>> _l_uu;
+    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _ff_k ;
 
-    std::vector<double> _ff_k ;
-    std::vector<Eigen::Matrix<mjtNum, 1, state_size>> _fb_K;
-
+    std::vector<Eigen::Matrix<mjtNum, ctrl_size, state_size>> _fb_K;
     std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj;
-    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj_new;
 
-    Eigen::Matrix<double, ctrl_size, 1> _cached_control;
+    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj_new;
     double _prev_total_cost;
     int    _simulation_time;
-    double _delta{};
-    const double _delta_init = 0;
+    const double _delta_init = 2.0;
+    double _delta = _delta_init;
 
     const mjModel*    _m;
-    mjData*           _d_cp = nullptr;
-    CostFunction&     _cf;
+    mjData* _d_cp = nullptr;
+    CostFunction<state_size, ctrl_size>& _cf;
     FiniteDifference<state_size, ctrl_size>& _fd;
 
     bool recalculate = true;
