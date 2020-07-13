@@ -239,6 +239,8 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 {
     for (const auto &backtracker : _backtrackers)
     {
+        _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+
         copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
         for (auto time = 0; time < _simulation_time; ++time)
@@ -265,7 +267,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             accepted = true;
             _x_traj = _x_traj_new;
             _u_traj = _u_traj_new;
-            //            break;
+            break;
         }
     }
     if (not accepted)
@@ -289,7 +291,7 @@ template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::control(const mjData* d)
 {
     _delta = _delta_init;
-    _regularizer.setZero();
+    _regularizer.setIdentity();
     recalculate = true; converged = false;
     for(auto iteration = 0; iteration < _iteration; ++iteration)
     {
