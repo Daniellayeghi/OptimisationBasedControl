@@ -83,10 +83,12 @@ template<int state_size, int ctrl_size>
 inline void CostFunction<state_size, ctrl_size>::update_errors(state_vec& state,
                                                                ctrl_vec& ctrl)
 {
-//    for(unsigned int row = 0; row < state_size/2; ++row)
-//    {
-//        state(row, 0) = BasicMath::wrap_to_2pi(state(row, 0));
-//    }
+    for(unsigned int row = 0; row < state_size/2; ++row)
+    {
+        int jid = _m->dof_jntid[row];
+        if(_m->jnt_type[jid] == mjJNT_HINGE)
+            state(row, 0) = BasicMath::wrap_to_2pi(state(row, 0));
+    }
     _x_error = state - _x_desired;
 //    _x_error(0, 0) =  -1 - cos(_x(0,0));
 //    _x_error(1, 0) =  1 - cos(_x(1,0));
