@@ -71,10 +71,10 @@ template<int state_size, int ctrl_size>
 void CostFunction<state_size, ctrl_size>::update_errors(const mjData *d)
 {
     fill_data(_u, _x, d, _m);
-    _x_error =  _x_desired - _x;
+    _x_error = _x - _x_desired;
 //    _x_error(0, 0) =  -1 - cos(_x(0,0));
 //    _x_error(1, 0) =  1 - cos(_x(1,0));
-    _u_error = -_u;
+    _u_error = _u;
 //    std::cout << _x_error << std::endl;
 }
 
@@ -87,10 +87,10 @@ inline void CostFunction<state_size, ctrl_size>::update_errors(state_vec& state,
 //    {
 //        state(row, 0) = BasicMath::wrap_to_2pi(state(row, 0));
 //    }
-    _x_error =  _x_desired - state;
+    _x_error = state - _x_desired;
 //    _x_error(0, 0) =  -1 - cos(_x(0,0));
 //    _x_error(1, 0) =  1 - cos(_x(1,0));
-    _u_error = -ctrl;
+    _u_error = ctrl;
 }
 
 

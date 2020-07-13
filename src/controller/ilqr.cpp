@@ -104,7 +104,6 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
     _x_traj.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
     _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
 
-
     if(init_u == nullptr)
     {
         _u_traj.assign(_simulation_time,ilqr_t::ctrl_vec::Random() * 0);
@@ -238,20 +237,20 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 {
-//    for (const auto &backtracker : _backtrackers)
-//    {
+    for (const auto &backtracker : _backtrackers)
+    {
         copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
         for (auto time = 0; time < _simulation_time; ++time)
         {
-            _u_traj[time] = _u_traj[time] + (_ff_k[time]) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
-            clamp_control(_u_traj[time], max_bound, min_bound);
-            set_control_data(_d_cp, _u_traj[time]);
+            _u_traj_new[time] = _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
+            clamp_control(_u_traj_new[time], max_bound, min_bound);
+            set_control_data(_d_cp, _u_traj_new[time]);
             mj_step(_m, _d_cp);
             fill_state_vector(_d_cp, _x_traj_new[time + 1], _m);
         }
 #if 1
-        auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
+        auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj_new);
 
         if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8)
         {
@@ -265,9 +264,10 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 
             accepted = true;
             _x_traj = _x_traj_new;
-//            break;
+            _u_traj = _u_traj_new;
+            //            break;
         }
-//    }
+    }
     if (not accepted)
     {
         _delta = std::max(1.0, _delta) * _delta_init;
@@ -289,7 +289,7 @@ template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::control(const mjData* d)
 {
     _delta = _delta_init;
-    _regularizer.setIdentity();
+    _regularizer.setZero();
     recalculate = true; converged = false;
     for(auto iteration = 0; iteration < _iteration; ++iteration)
     {

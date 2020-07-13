@@ -11,6 +11,7 @@
 template<int state_size, int ctrl_size>
 class ILQR
 {
+    using ilqr_t    = ILQR<state_size, ctrl_size>;
     using ctrl_vec  = Eigen::Matrix<double, ctrl_size, 1>;
     using state_vec = Eigen::Matrix<double, state_size, 1>;
     using state_mat = Eigen::Matrix<double, state_size, state_size>;
