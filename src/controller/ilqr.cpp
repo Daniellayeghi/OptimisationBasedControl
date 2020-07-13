@@ -3,6 +3,8 @@
 #include "mujoco.h"
 #include "ilqr.h"
 #include "../src/controller/simulation_params.h"
+#include "../utilities/basic_math.h"
+
 
 namespace
 {
@@ -19,21 +21,39 @@ namespace
     }
 
 
-    template<typename T, int M, int N>
-    void set_control_data(mjData* data, const Eigen::Matrix<T, M, N>& ctrl)
+    template<typename T, int ctrl_size >
+    void set_control_data(mjData* data, const Eigen::Matrix<T, ctrl_size, 1>& ctrl)
     {
         for(auto row = 0; row < ctrl.rows(); ++row)
         {
-            data->qfrc_applied[row] = ctrl(row, 0);
+            data->ctrl[row] = ctrl(row, 0);
         }
     }
 
 
-    template<typename T, int M, int N>
-    void fill_state_vector(mjData* data, Eigen::Matrix<T, M, N>& state)
-    {
-        state(0, 0) = data->qpos[0]; state(1, 0) = data->qpos[1];
-        state(2, 0) = data->qvel[0]; state(3, 0) = data->qvel[1];
+    template<typename T, int state_size>
+    void set_state_data(mjData* data, Eigen::Matrix<T, state_size, 1>& state) {
+        for (unsigned int row = 0; row < state_size / 2; ++row)
+        {
+            data->qpos[row] = state(row, 0);
+            data->qvel[row] = state(row+state_size/2, 0);
+        }
+    }
+
+
+    template<typename T, int state_size>
+    void fill_state_vector(const mjData* data, Eigen::Matrix<T, state_size, 1>& state, const mjModel* m) {
+        for (unsigned int row = 0; row < state_size / 2; ++row) {
+            state(row + state_size / 2, 0) = data->qvel[row];
+        }
+
+        for (unsigned int row = 0; row < state_size / 2; ++row) {
+            state(row, 0) = data->qpos[row];
+
+            int jid = m->dof_jntid[row];
+            if (m->jnt_type[jid] == mjJNT_HINGE)
+                state(row, 0) = BasicMath::wrap_to_2pi(data->qpos[row]);
+        }
     }
 
 
@@ -47,36 +67,61 @@ namespace
     }
 }
 
+
 using namespace SimulationParameters;
+
 
 template<int state_size, int ctrl_size>
 ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   CostFunction<state_size, ctrl_size>& cf,
                                   const mjModel * m,
-                                  const int simulation_time) :
-_fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time)
+                                  const int simulation_time,
+                                  const int iteration,
+                                  const mjData* d,
+                                  const std::vector<ILQR<state_size, ctrl_size>::ctrl_vec>* init_u) :
+_fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration)
 {
-    _d_cp = mj_makeData(m);
+    using ilqr_t = ILQR<state_size, ctrl_size>;
 
+    _d_cp = mj_makeData(m);
     _prev_total_cost = 0;
     _regularizer.setIdentity();
 
     _l.assign(_simulation_time + 1, 0);
-    _l_x.assign(simulation_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
-    _l_xx.assign(simulation_time + 1, Eigen::Matrix<double, state_size, state_size>::Zero());
-    _l_u.assign(simulation_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
-    _l_ux.assign(simulation_time, Eigen::Matrix<double, ctrl_size, state_size>::Zero());
-    _l_uu.assign(simulation_time, Eigen::Matrix<double, ctrl_size, ctrl_size>::Zero());
+    _l_x.assign(simulation_time + 1, ilqr_t::state_vec::Zero());
+    _l_xx.assign(simulation_time + 1, ilqr_t::state_mat::Zero());
+    _l_u.assign(simulation_time, ilqr_t::ctrl_vec::Zero());
+    _l_ux.assign(simulation_time, ilqr_t::ctrl_state_mat::Zero());
+    _l_uu.assign(simulation_time, ilqr_t::ctrl_mat::Zero());
 
-    _f_x.assign(simulation_time, Eigen::Matrix<double, state_size, state_size>::Zero());
-    _f_u.assign(simulation_time, Eigen::Matrix<double, state_size, ctrl_size>::Zero());
+    _f_x.assign(simulation_time, ilqr_t::state_mat::Zero());
+    _f_u.assign(simulation_time, ilqr_t::state_ctrl_mat::Zero());
 
-    _fb_K.assign(_simulation_time, Eigen::Matrix<double, ctrl_size, state_size>::Zero());
-    _ff_k.assign(_simulation_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    _fb_K.assign(_simulation_time, ilqr_t::ctrl_state_mat ::Zero());
+    _ff_k.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
 
-    _x_traj_new.assign(_simulation_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
-    _x_traj.assign(_simulation_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
-    _u_traj.assign(_simulation_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    _x_traj_new.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
+    _x_traj.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
+    _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+
+
+    if(init_u == nullptr)
+    {
+        _u_traj.assign(_simulation_time,ilqr_t::ctrl_vec::Random() * 0);
+    }else
+    {
+        _u_traj = *init_u;
+    }
+
+    copy_data(m, d, _d_cp);
+    fill_state_vector(d, _x_traj.front(), _m);
+    for (unsigned int time = 0; time < simulation_time; ++time)
+    {
+        set_control_data(_d_cp, _u_traj[time]);
+        mj_step(m, _d_cp);
+        fill_state_vector(_d_cp, _x_traj[time+1], _m);
+    }
+    copy_data(m, d, _d_cp);
 
     _backtrackers =  {{1.00000000e+00, 9.09090909e-01,
                        6.83013455e-01, 4.24097618e-01,
@@ -129,7 +174,7 @@ template<int state_size, int ctrl_size>
 Eigen::Matrix<double, ctrl_size, ctrl_size>
 ILQR<state_size, ctrl_size>::Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx)
 {
-    return _l_uu[time] + (_f_u[time].transpose() * (_v_xx + _regularizer)) * (_f_u[time]);
+    return _l_uu[time] + (_f_u[time].transpose() * (_v_xx+_regularizer)) * (_f_u[time]);
 }
 
 
@@ -138,30 +183,30 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
 {
     if (recalculate)
     {
+//        std::cout <<"Calc"<<std::endl;
         copy_data(_m, d, _d_cp);
-        _cf._d = _d_cp;
         for (auto time = 0; time < _simulation_time; ++time)
         {
-            fill_state_vector(_d_cp, _x_traj[time]);
             set_control_data(_d_cp, _u_traj[time]);
-            _l[time] = _cf.running_cost();
-            _l_u[time] = (_cf.L_u());
-            _l_x[time] = (_cf.L_x());
-            _l_xx[time] = (_cf.L_xx());
-            _l_ux[time] = (_cf.L_ux());
-            _l_uu[time] = (_cf.L_uu());
+            _l[time] = _cf.running_cost(_d_cp);
+            _l_u[time] = (_cf.L_u(_d_cp));
+            _l_x[time] = (_cf.L_x(_d_cp));
+            _l_xx[time] = (_cf.L_xx(_d_cp));
+            _l_ux[time] = (_cf.L_ux(_d_cp));
+            _l_uu[time] = (_cf.L_uu(_d_cp));
             _fd.f_x_f_u(_d_cp);
             _f_x[time] = (_fd.f_x());
             _f_u[time] = (_fd.f_u());
             mj_step(_m, _d_cp);
         }
-        _l.back()    = _cf.terminal_cost();
-        _l_x.back()  = _cf.Lf_x();
-        _l_xx.back() = _cf.Lf_xx();
-        //TODO: Calculate the terminal costs
+        _l.back()    = _cf.terminal_cost(_d_cp);
+        _l_x.back()  = _cf.Lf_x(_d_cp);
+        _l_xx.back() = _cf.Lf_xx(_d_cp);
         copy_data(_m, d, _d_cp);
+        _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
+//        std::cout << "TOTAL: " << _prev_total_cost << std::endl;
+        recalculate = false;
     }
-    _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
 }
 
 
@@ -174,17 +219,16 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-#if 0
-        _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
-        _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
-#endif
-        _ff_k[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_u(time, V_x));
-        _fb_K[time] = -1 * Q_uu(time, V_xx).colPivHouseholderQr().solve(Q_ux(time, V_xx));
-        V_x   = Q_x(time, V_x) + (_fb_K[time].transpose() * Q_uu(time, V_xx)) * (_ff_k[time]);
-        V_x  += _fb_K[time].transpose() * Q_u(time, V_x) + Q_ux(time, V_xx).transpose() * _ff_k[time];
 
-        V_xx  = Q_xx(time, V_xx) + _fb_K[time].transpose() * Q_uu(time, V_xx) * _fb_K[time];
-        V_xx += _fb_K[time].transpose() * Q_ux(time, V_xx) + Q_ux(time, V_xx).transpose() * _fb_K[time];
+        auto Qx = Q_x(time, V_x);    auto Qu  = Q_u(time, V_x);
+        auto Quu = Q_uu(time, V_xx); auto Qux = Q_ux(time, V_xx); auto Qxx = Q_xx(time, V_xx);
+        _ff_k[time] = -1 * Quu.colPivHouseholderQr().solve(Qu);
+        _fb_K[time] = -1 * Quu.colPivHouseholderQr().solve(Qux);
+        V_x   = Qx + (_fb_K[time].transpose() * Quu * (_ff_k[time]));
+        V_x  += _fb_K[time].transpose() * Qu + Qux.transpose() * _ff_k[time];
+
+        V_xx  = Qxx + _fb_K[time].transpose() * Quu * _fb_K[time];
+        V_xx += _fb_K[time].transpose() * Qux + Qux.transpose() * _fb_K[time];
 
         V_xx  = 0.5 * (V_xx + V_xx.transpose());
     }
@@ -192,27 +236,24 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 
 
 template<int state_size, int ctrl_size>
-void ILQR<state_size, ctrl_size>::forward_pass()
+void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 {
-
-    for (const auto& backtracker : _backtrackers)
-    {
+//    for (const auto &backtracker : _backtrackers)
+//    {
+        copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
-        std::fill(_u_traj.begin(), _u_traj.end(), Eigen::Matrix<double, ctrl_size, 1>::Zero());
-        for (auto time = 0; time < _simulation_time; ++time) {
-            _u_traj[time] = _u_traj[time] + (backtracker * _ff_k[time]) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
-#if 0
+        for (auto time = 0; time < _simulation_time; ++time)
+        {
+            _u_traj[time] = _u_traj[time] + (_ff_k[time]) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
             clamp_control(_u_traj[time], max_bound, min_bound);
             set_control_data(_d_cp, _u_traj[time]);
-#endif
-            set_control_data(_d_cp,_u_traj[time]);
             mj_step(_m, _d_cp);
-            fill_state_vector(_d_cp, _x_traj_new[time + 1]);
+            fill_state_vector(_d_cp, _x_traj_new[time + 1], _m);
         }
-
+#if 1
         auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj);
 
-        if (new_total_cost < _prev_total_cost)
+        if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8)
         {
             converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
             _prev_total_cost = new_total_cost;
@@ -220,38 +261,42 @@ void ILQR<state_size, ctrl_size>::forward_pass()
             _delta = std::min(1.0, _delta) / _delta_init;
             _regularizer *= _delta;
             if (_regularizer.norm() < 1e-6)
-                _regularizer.setZero();
+                _regularizer.setIdentity() * 1e-6;
+
             accepted = true;
-            break;
+            _x_traj = _x_traj_new;
+//            break;
         }
-        if (not accepted)
+//    }
+    if (not accepted)
+    {
+        _delta = std::max(1.0, _delta) * _delta_init;
+        static const auto min = ILQR::state_mat::Identity() * 1e-6;
+        // All elements are equal hence the (0, 0) comparison
+        if ((_regularizer * _delta)(0, 0) > 1e-6)
         {
-            _delta = std::max(1.0, _delta) * _delta_init;
-            static const auto min = Matrix<double,state_size , state_size>::Identity() * 1e-6;
-            // All elements are equal hence the (0, 0) comparison
-            if ((_regularizer * _delta)(0, 0) > 1e-6)
-            {
-                _regularizer = _regularizer * _delta;
-            }
-            else{
-                _regularizer = min;
-            }
+            _regularizer = _regularizer * _delta;
+        }
+        else{
+            _regularizer = min;
         }
     }
+#endif
 }
 
 
 template<int state_size, int ctrl_size>
-void ILQR<state_size, ctrl_size>::control(mjData* d)
+void ILQR<state_size, ctrl_size>::control(const mjData* d)
 {
     _delta = _delta_init;
     _regularizer.setIdentity();
-
-    for(auto iteration = 0; iteration < 1; ++iteration)
+    recalculate = true; converged = false;
+    for(auto iteration = 0; iteration < _iteration; ++iteration)
     {
+        fill_state_vector(d, _x_traj.front(), _m);
         forward_simulate(d);
         backward_pass();
-        forward_pass();
+        forward_pass(d);
         _cached_control = _u_traj.front();
         std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
         _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
@@ -259,5 +304,6 @@ void ILQR<state_size, ctrl_size>::control(mjData* d)
             break;
     }
 }
+
 
 template class ILQR<n_jpos + n_jvel, n_ctrl>;

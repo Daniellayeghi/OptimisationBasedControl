@@ -2,6 +2,7 @@
 #include "finite_diff.h"
 #include "internal_types.h"
 #include "../src/controller/simulation_params.h"
+#include "../src/utilities/basic_math.h"
 
 static int _mark = 0;
 #define myFREESTACK   _d_cp->pstack = _mark;
@@ -180,11 +181,13 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(mjtNum *target,
                                                               const mjData *d,
                                                               const WithRespectTo id)
 {
-
-    auto row = (id == WithRespectTo::CTRL or id == WithRespectTo::FRC) ? _m->nu : _m->nv;
+    static const auto row_ctrl = _m->nu;
+    static const auto row_partial_state = _m->nv;
     ctrl_jacobian result;
+    auto pos_diff = 0.0;
+    int jid = 0;
 
-    for(int i = 0; i < row; ++i)
+    for(int i = 0; i < row_ctrl; ++i)
     {
         // perturb selected target
         target[i] += eps;
@@ -193,12 +196,17 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(mjtNum *target,
         mj_step(_m, _d_cp);
 
         // compute column i of derivative 2
-        for(int j = 0; j < ctrl_size; ++j)
+        for(int j = 0; j < row_partial_state; ++j)
         {
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            result(j, i) = (_d_cp->qpos[j] - centre_pos[j])/eps;
-            result(j+row, i) = (_d_cp->qvel[j] - centre_vel[j])/eps;
+            pos_diff = _d_cp->qpos[j] - centre_pos[j];
+            jid = _m->dof_jntid[j];
+            if(_m->jnt_type[jid] == mjJNT_HINGE)
+                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
+
+            result(j, i) = (pos_diff)/eps;
+            result(j + row_partial_state, i) = (_d_cp->qvel[j] - centre_vel[j]) / eps;
         }
         // undo perturbation
         copy_state(_m, d, _d_cp);
@@ -224,12 +232,12 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
 {
     partial_state_jacobian result;
     auto row = _m->nv;
+    auto pos_diff = 0.0;
+    int jid = 0;
 
     for(int i = 0; i < row; i++)
     {
         // get joint id for this dof
-        int jid = _m->dof_jntid[i];
-
         // get quaternion address and dof position within quaternion (-1: not in quaternion)
         int quatadr = -1, dofpos = 0;
         if(_m->jnt_type[jid] == mjJNT_BALL and id == WithRespectTo::POS)
@@ -258,7 +266,13 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
         // compute column i of derivative 0
         for(int j = 0; j < row; j++)
         {
-            result(j, i) = (_d_cp->qpos[j] - centre_pos[j])/eps;
+            pos_diff = _d_cp->qpos[j] - centre_pos[j];
+            jid = _m->dof_jntid[j];
+
+            if(_m->jnt_type[jid] == mjJNT_HINGE)
+                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
+
+            result(j, i) = pos_diff/eps;
             result(j+row, i) = (_d_cp->qvel[j] - centre_vel[j])/eps;
         }
         // undo perturbation

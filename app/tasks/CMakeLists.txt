@@ -27,6 +27,18 @@ target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosm
 target_link_libraries(${BIN_NAME} control_lib)
 target_link_libraries(${BIN_NAME} util_lib)
 
+set(BIN_NAME ilqr_cartpole)
+add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
+target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#Standard libraries for GL
+target_link_libraries(${BIN_NAME} glut)
+target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+# Additional libraries from mujoco package
+target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} util_lib)
+target_link_libraries(${BIN_NAME} autodiff::autodiff)
+
 
 set(BIN_NAME mppi_control_finger)
 add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
@@ -42,6 +54,32 @@ target_link_libraries(${BIN_NAME} autodiff::autodiff)
 
 
 set(BIN_NAME mppi_control_cartpole)
+add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
+target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#Standard libraries for GL
+target_link_libraries(${BIN_NAME} glut)
+target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+# Additional libraries from mujoco package
+target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} util_lib)
+target_link_libraries(${BIN_NAME} autodiff::autodiff)
+
+
+set(BIN_NAME ilqr_pendulum)
+add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
+target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#Standard libraries for GL
+target_link_libraries(${BIN_NAME} glut)
+target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+# Additional libraries from mujoco package
+target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} util_lib)
+target_link_libraries(${BIN_NAME} autodiff::autodiff)
+
+
+set(BIN_NAME ilqr_double_integrator)
 add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
 target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
 #Standard libraries for GL

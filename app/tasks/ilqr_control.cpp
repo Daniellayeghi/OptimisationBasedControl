@@ -4,6 +4,8 @@
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../src/controller/simulation_params.h"
+#include "../../src/utilities/basic_math.h"
+#include "../../src/utilities/buffer_utils.h"
 
 // for sleep timers
 #include <chrono>
@@ -96,6 +98,17 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
+//Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
+//x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
+//x_terminal_gain *= 4000;
+//
+//Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
+//x_gain(3,3) = 0.01;
+//x_gain *= 0.02;
+//
+//Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+//u_gain.setIdentity();
+//u_gain *= 50;
 
 // main function
 int main(int argc, const char** argv)
@@ -150,20 +163,26 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI_2, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0;
+    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
-    x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-    x_terminal_gain *= 2500;
+    for(auto element = 0; element < n_jpos; ++element)
+    {
+        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
+    }
+    x_terminal_gain *= 10;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
-    x_gain(3,3) = 0.01;
-    x_gain *= 5000;
+    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
+    for(auto element = 0; element < n_jpos; ++element)
+    {
+        x_gain(element + n_jpos,element + n_jpos) = 0.01;
+    }
+    x_gain *= 0;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 0;
+    u_gain *= 1;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -174,29 +193,45 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
+    // initial position
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
+
+//    std::vector<Eigen::Matrix<double, n_ctrl, 1>> init_u;
+//    Eigen::VectorXd pos_interp = Eigen::VectorXd::LinSpaced(200, 0, M_PI);
+//
+//    for(auto pos = 0; pos < pos_interp.rows(); ++pos)
+//    {
+//        d->qpos[0] = pos_interp(pos, 0);
+//        mj_inverse(m, d);
+//        init_u.emplace_back(d->qfrc_inverse[0]);
+//    }
+//
+//    mj_resetData(m, d);
+//
+//    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
+
     Eigen::Matrix<double, n_ctrl, n_ctrl> R;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(d, x_desired, u_desired, x_gain, u_gain, x_terminal_gain);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
 
-    MPPIParams params {50, 100, 0.999, 2000};
-
-    MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 50);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 200, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    // initial position
-    d->qpos[0] = M_PI_2;
-    d->qpos[1] = 0;
-    d->qvel[0] = 0.0;
-    d->qvel[1] = 0.0;
+//    ilqr.control(d);
+//    control.fill_control_buffer(ilqr._u_traj);
+//
+//    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/Acrobot_offline.csv",
+//                            std::fstream::out | std::fstream::trunc);
+//
+//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
@@ -205,6 +240,9 @@ int main(int argc, const char** argv)
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
+        auto angle_1 = BasicMath::wrap_to_2pi(x_desired(0,0));
+        auto angle_2 = BasicMath::wrap_to_2pi(d->qpos[0]);
+        std::cout << angle_1 - angle_2 << std::endl;
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {

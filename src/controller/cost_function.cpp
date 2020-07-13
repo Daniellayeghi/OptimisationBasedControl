@@ -24,13 +24,21 @@ namespace
 #endif
 
     template<int state_size, int ctrl_size>
-    void fill_data(Eigen::Matrix<mjtNum , state_size, 1>& u, Eigen::Matrix<mjtNum, ctrl_size, 1>&x, const mjData* state)
+    void fill_data(Eigen::Matrix<mjtNum , ctrl_size, 1>& u, Eigen::Matrix<mjtNum, state_size, 1>&x, const mjData* state, const mjModel* m)
     {
 
         for(unsigned int row = 0; row < state_size/2; ++row)
         {
-            x(row, 0) = BasicMath::wrap_to_min_max(state->qpos[row],-M_PI, M_PI);
             x(row + state_size/2, 0) = state->qvel[row];
+        }
+
+        for(unsigned int row = 0; row < state_size/2; ++row)
+        {
+            x(row, 0) = state->qpos[row];
+
+            int jid = m->dof_jntid[row];
+            if(m->jnt_type[jid] == mjJNT_HINGE)
+                x(row, 0) = BasicMath::wrap_to_2pi(state->qpos[row]);
         }
 
         for(unsigned int row = 0; row < ctrl_size; ++row)
@@ -44,12 +52,12 @@ namespace
 using namespace InternalTypes;
 
 template<int state_size, int ctrl_size>
-CostFunction<state_size, ctrl_size>::CostFunction(const mjData* d,
-                           const state_vec& x_desired,
-                           const ctrl_vec& u_desired,
-                           const state_mat& x_gain,
-                           const ctrl_mat& u_gain,
-                           const state_mat& x_terminal_gain) : _d(d)
+CostFunction<state_size, ctrl_size>::CostFunction(const state_vec& x_desired,
+                                                  const ctrl_vec& u_desired,
+                                                  const state_mat& x_gain,
+                                                  const ctrl_mat& u_gain,
+                                                  const state_mat& x_terminal_gain,
+                                                  const mjModel* m) : _m(m)
 {
     _u_desired = u_desired;
     _x_desired = x_desired;
@@ -60,11 +68,14 @@ CostFunction<state_size, ctrl_size>::CostFunction(const mjData* d,
 
 
 template<int state_size, int ctrl_size>
-void CostFunction<state_size, ctrl_size>::update_errors()
+void CostFunction<state_size, ctrl_size>::update_errors(const mjData *d)
 {
-    fill_data(_u, _x, _d);
-    _x_error = _x_desired - _x;
-    _u_error = _u;
+    fill_data(_u, _x, d, _m);
+    _x_error =  _x_desired - _x;
+//    _x_error(0, 0) =  -1 - cos(_x(0,0));
+//    _x_error(1, 0) =  1 - cos(_x(1,0));
+    _u_error = -_u;
+//    std::cout << _x_error << std::endl;
 }
 
 
@@ -72,19 +83,21 @@ template<int state_size, int ctrl_size>
 inline void CostFunction<state_size, ctrl_size>::update_errors(state_vec& state,
                                                                ctrl_vec& ctrl)
 {
-    for(unsigned int row = 0; row < state_size/2; ++row)
-    {
-        state(row, 0) = BasicMath::wrap_to_min_max(state(row, 0),-M_PI, M_PI);
-    }
-    _x_error = _x_desired - state;
-    _u_error = ctrl;
+//    for(unsigned int row = 0; row < state_size/2; ++row)
+//    {
+//        state(row, 0) = BasicMath::wrap_to_2pi(state(row, 0));
+//    }
+    _x_error =  _x_desired - state;
+//    _x_error(0, 0) =  -1 - cos(_x(0,0));
+//    _x_error(1, 0) =  1 - cos(_x(1,0));
+    _u_error = -ctrl;
 }
 
 
 template<int state_size, int ctrl_size>
-mjtNum CostFunction<state_size, ctrl_size>::running_cost()
+mjtNum CostFunction<state_size, ctrl_size>::running_cost(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return (_x_error.transpose() * _x_gain * _x_error)(0,0) +
            (_u_error.transpose() * _u_gain * _u_error)(0, 0);
 }
@@ -101,69 +114,76 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
         cost += (_x_error.transpose() * _x_gain * _x_error)(0,0) +
                 (_u_error.transpose() * _u_gain * _u_error)(0,0);
     }
-    return cost;
+
+    for(unsigned int row = 0; row < state_size/2; ++row)
+    {
+        x_trajectory.back()(row, 0) = BasicMath::wrap_to_2pi(x_trajectory.back()(row, 0));
+    }
+    _x_error =  _x_desired - x_trajectory.back();
+
+    return cost + (_x_error.transpose() * _x_terminal_gain * _x_error)(0, 0);
 }
 
 
 template<int state_size, int ctrl_size>
-mjtNum CostFunction<state_size, ctrl_size>::terminal_cost()
+mjtNum CostFunction<state_size, ctrl_size>::terminal_cost(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return (_x_error.transpose() * _x_terminal_gain * _x_error)(0, 0);
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::Lf_x()
+Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::Lf_x(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return  _x_error.transpose() * (2 *_x_terminal_gain);
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx()
+Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx(const mjData *d)
 {
     return  2 *_x_terminal_gain;
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::L_x()
+Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::L_x(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return _x_error.transpose() * (2 * _x_gain);
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::L_xx()
+Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::L_xx(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return 2 * _x_gain;
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, ctrl_size, 1> CostFunction<state_size, ctrl_size>::L_u()
+Eigen::Matrix<mjtNum, ctrl_size, 1> CostFunction<state_size, ctrl_size>::L_u(const mjData *d)
 {
-    update_errors();
-    return (_u_error.transpose() * (2 * _u_gain)).transpose();
+    update_errors(d);
+    return (_u_error.transpose() * (2 * _u_gain));
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, ctrl_size, ctrl_size> CostFunction<state_size, ctrl_size>::L_uu()
+Eigen::Matrix<mjtNum, ctrl_size, ctrl_size> CostFunction<state_size, ctrl_size>::L_uu(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return 2 * _u_gain;
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, ctrl_size, state_size> CostFunction<state_size, ctrl_size>::L_ux()
+Eigen::Matrix<mjtNum, ctrl_size, state_size> CostFunction<state_size, ctrl_size>::L_ux(const mjData *d)
 {
-    update_errors();
+    update_errors(d);
     return Eigen::Matrix<mjtNum, ctrl_size, state_size>::Zero();
 }
 

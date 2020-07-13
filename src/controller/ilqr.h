@@ -11,60 +11,77 @@
 template<int state_size, int ctrl_size>
 class ILQR
 {
+    using ctrl_vec  = Eigen::Matrix<double, ctrl_size, 1>;
+    using state_vec = Eigen::Matrix<double, state_size, 1>;
+    using state_mat = Eigen::Matrix<double, state_size, state_size>;
+    using ctrl_mat  = Eigen::Matrix<double, ctrl_size, ctrl_size>;
+    using state_ctrl_mat = Eigen::Matrix<double, state_size, ctrl_size>;
+    using ctrl_state_mat = Eigen::Matrix<double, ctrl_size, state_size>;
+
 public:
 
-    ILQR(FiniteDifference<state_size, ctrl_size>& fd, CostFunction<state_size, ctrl_size>& cf, const mjModel * m, const int simulation_time);
+    ILQR(FiniteDifference<state_size, ctrl_size>& fd,
+         CostFunction<state_size, ctrl_size>& cf,
+         const mjModel * m,
+         const int simulation_time,
+         const int iteration,
+         const mjData* d,
+         const std::vector<ctrl_vec>* init_u = nullptr);
 
     ~ILQR();
 
-    void control(mjData* d);
+    void control(const mjData* d);
     void backward_pass();
-    void forward_pass();
-    Eigen::Matrix<double, ctrl_size, 1> _cached_control;
-    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _u_traj;
+    void forward_pass(const mjData* d);
+
+    ctrl_vec _cached_control;
+
+    std::vector<ctrl_vec> _u_traj;
 private:
 
     void forward_simulate(const mjData* d);
-    Eigen::Matrix<double, ctrl_size, 1> Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
 
-
-    Eigen::Matrix<double, ctrl_size, ctrl_size> Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
-    Eigen::Matrix<double, state_size, 1> Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
-    Eigen::Matrix<double, state_size, state_size> Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
-
-    Eigen::Matrix<double, ctrl_size, state_size> Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
-    Eigen::Matrix<double, state_size, state_size> _regularizer;
+    ctrl_vec Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    ctrl_mat Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    state_vec Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    state_mat Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    ctrl_state_mat Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
 
     std::array<double, 10> _backtrackers{};
-    std::vector<Eigen::Matrix<double, state_size, state_size>> _f_x;
+    state_mat _regularizer;
 
-    std::vector<Eigen::Matrix<double, state_size, ctrl_size>> _f_u;
+    std::vector<state_mat> _f_x;
+    std::vector<state_ctrl_mat> _f_u;
+
     std::vector<double> _l;
-    std::vector<Eigen::Matrix<double, state_size, 1>> _l_x;
-    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _l_u;
-    std::vector<Eigen::Matrix<double, state_size, state_size>> _l_xx;
-    std::vector<Eigen::Matrix<double, ctrl_size, state_size>> _l_ux;
+    std::vector<state_vec> _l_x;
+    std::vector<ctrl_vec> _l_u;
+    std::vector<state_mat> _l_xx;
+    std::vector<ctrl_state_mat> _l_ux;
+    std::vector<ctrl_mat> _l_uu;
 
-    std::vector<Eigen::Matrix<double, ctrl_size, ctrl_size>> _l_uu;
-    std::vector<Eigen::Matrix<double, ctrl_size, 1>> _ff_k ;
+    std::vector<ctrl_vec> _ff_k ;
+    std::vector<ctrl_state_mat> _fb_K;
 
-    std::vector<Eigen::Matrix<mjtNum, ctrl_size, state_size>> _fb_K;
-    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj;
+    std::vector<state_vec> _x_traj;
+    std::vector<state_vec> _x_traj_new;
+    std::vector<ctrl_vec>  _u_traj_new;
 
-    std::vector<Eigen::Matrix<double, state_size, 1>> _x_traj_new;
-    double _prev_total_cost;
-    int    _simulation_time;
-    const double _delta_init = 2.0;
-    double _delta = _delta_init;
-
-    const mjModel*    _m;
-    mjData* _d_cp = nullptr;
-    CostFunction<state_size, ctrl_size>& _cf;
     FiniteDifference<state_size, ctrl_size>& _fd;
+    CostFunction<state_size, ctrl_size>& _cf;
 
-    bool recalculate = true;
+    const mjModel* _m;
+    mjData* _d_cp = nullptr;
+
+    double _prev_total_cost  = 0;
+    int _simulation_time     = 0;
+    int _iteration           = 0;
+    const double _delta_init = 2.0;
+    double _delta            = _delta_init;
+
     bool converged   = false;
     bool accepted    = false;
+    bool recalculate = true;
 
     mjtNum min_bound = -1;
     mjtNum max_bound = 1;

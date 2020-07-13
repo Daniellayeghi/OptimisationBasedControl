@@ -134,9 +134,9 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium)
     FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
     fd.f_x_f_u(data);
     auto result = fd.f_u();
-    std::cout << result << std::endl;
 
     Eigen::Matrix<double, 4, 2> result_ref;
+
     result_ref << 0.00822762, -0.01926687,
             -0.01926687,  0.05722194,
             0.82276195, -1.92668744,
@@ -158,10 +158,58 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian)
     auto result = fd.f_u();
 
     Eigen::Matrix<double, 4, 2> result_ref;
+
     result_ref << 0.00384395, -0.00518951,
                     -0.00518951,  0.01911017,
                     0.38439548, -0.51895131,
                     -0.51895131,  1.91101738;
+
+    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+}
+
+
+
+TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium_NULL)
+{
+    // df/du is equal to M^-1 as the system is control affine.
+    data->qpos[0] = M_PI_2; data->qpos[1] = 0;
+    data->qvel[0] = 0.0;    data->qvel[1] = 0;
+    data->ctrl[0] = 0.5;    data->ctrl[1] = 0;
+
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
+    fd.f_x_f_u(data);
+    auto result = fd.f_u();
+
+    std::cout << result << std::endl;
+
+    Eigen::Matrix<double, 4, 2> result_ref;
+
+    result_ref << 0.00384395, -0.00518951,
+            -0.00518951,  0.01911017,
+            0.38439548, -0.51895131,
+            -0.51895131,  1.91101738;
+
+    ASSERT_TRUE(result_ref.isApprox(result, .00001));
+}
+
+
+TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Random)
+{
+    // df/du is equal to M^-1 as the system is control affine.
+    data->qpos[0] = -M_PI_2;   data->qpos[1] = 0;
+    data->qvel[0] = 0.0;       data->qvel[1] = 0.0;
+    data->ctrl[0] = -0.90672;  data->ctrl[1] = 0.3419;
+
+    FiniteDifference<num_jpos+num_jvel, num_jctrl> fd(model);
+    fd.f_x_f_u(data);
+    auto result = fd.f_u();
+
+    Eigen::Matrix<double, 4, 2> result_ref;
+
+    result_ref <<   0.204829, -0.228752,
+                   -0.457504,  0.684114,
+                    20.4829,  -22.8752,
+                    -45.7504,   68.4114;
 
     ASSERT_TRUE(result_ref.isApprox(result, .00001));
 }

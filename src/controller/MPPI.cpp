@@ -1,6 +1,7 @@
 #include <iostream>
 #include "MPPI.h"
 #include"simulation_params.h"
+#include "../utilities/basic_math.h"
 
 using namespace SimulationParameters;
 
@@ -24,7 +25,7 @@ namespace
     {
         for(auto row = 0; row < state.rows()/2; ++row)
         {
-            state(row, 0) = data->qpos[row];
+            state(row, 0) = BasicMath::wrap_to_min_max(data->qpos[row],-M_PI, M_PI);;
             state(row+state.rows()/2, 0) = data->qvel[row];
         }
     }
