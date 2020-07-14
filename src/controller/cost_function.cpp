@@ -110,6 +110,7 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
                                                                            std::vector<ctrl_vec>& u_trajectory)
 {
     auto cost = 0.0;
+    //Compute running cost
     for(unsigned int row = 0; row < u_trajectory.size(); ++row)
     {
         update_errors(x_trajectory[row], u_trajectory[row]);
@@ -117,12 +118,18 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
                 (_u_error.transpose() * _u_gain * _u_error)(0,0);
     }
 
+    //Compute terminal cost
     for(unsigned int row = 0; row < state_size/2; ++row)
     {
-        x_trajectory.back()(row, 0) = BasicMath::wrap_to_2pi(x_trajectory.back()(row, 0));
+        int jid = _m->dof_jntid[row];
+        if(_m->jnt_type[jid] == mjJNT_HINGE)
+            x_trajectory.back()(row, 0) = BasicMath::wrap_to_2pi(x_trajectory.back()(row, 0));
     }
     _x_error =  _x_desired - x_trajectory.back();
+//    _x_error(0, 0) =  -1 - cos(_x(0,0));
+//    _x_error(1, 0) =  1 - cos(_x(1,0));
 
+    //Running cost + terminal cost
     return cost + (_x_error.transpose() * _x_terminal_gain * _x_error)(0, 0);
 }
 

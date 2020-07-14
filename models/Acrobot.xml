@@ -48,12 +48,12 @@
 
 		<body name="proximal" pos="-.2 0 0.05" childclass="finger">
 			<geom name="proximal_decoration" type="cylinder" fromto="0 -.033 0 0 .033 0" size=".034" material="decoration"/>
-			<joint name="proximal" range="-130 -60" damping="0.0075" limited="false"/>
+			<joint name="proximal" range="-130 -60" damping="0.015" limited="false"/>
 			<geom name="proximal" type="capsule" material="self" size=".03" fromto="0 0 0 0 0 -.15"/>
 			<body name="distal" pos="0 0 -.16" childclass="finger">
 				<joint name="distal" range="-45 45" damping="0.095" limited="false"/>
-				<geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.24" contype="0" conaffinity="0"/>
-				<geom name="fingertip" type="capsule" size=".03" material="effector" fromto="0 0 -.23 0 0 -.241"/>
+				<geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.15" contype="0" conaffinity="0"/>
+				<geom name="fingertip" type="capsule" size=".03" material="effector" fromto="0 0 -.15 0 0 -.151"/>
 				<site name="touchtop" pos=".01 0 -.17"/>
 				<site name="touchbottom" pos="-.01 0 -.17"/>
 			</body>

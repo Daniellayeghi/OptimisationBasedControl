@@ -201,9 +201,9 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(mjtNum *target,
             // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
             // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
             pos_diff = _d_cp->qpos[j] - centre_pos[j];
-            jid = _m->dof_jntid[j];
-            if(_m->jnt_type[jid] == mjJNT_HINGE)
-                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
+//            jid = _m->dof_jntid[j];
+//            if(_m->jnt_type[jid] == mjJNT_HINGE)
+//                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
 
             result(j, i) = (pos_diff)/eps;
             result(j + row_partial_state, i) = (_d_cp->qvel[j] - centre_vel[j]) / eps;
@@ -267,10 +267,10 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
         for(int j = 0; j < row; j++)
         {
             pos_diff = _d_cp->qpos[j] - centre_pos[j];
-            jid = _m->dof_jntid[j];
-
-            if(_m->jnt_type[jid] == mjJNT_HINGE)
-                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
+//            jid = _m->dof_jntid[j];
+//
+//            if(_m->jnt_type[jid] == mjJNT_HINGE)
+//                pos_diff = BasicMath::wrap_to_2pi(_d_cp->qpos[j]) - BasicMath::wrap_to_2pi(centre_pos[j]);
 
             result(j, i) = pos_diff/eps;
             result(j+row, i) = (_d_cp->qvel[j] - centre_vel[j])/eps;

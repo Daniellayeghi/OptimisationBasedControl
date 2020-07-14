@@ -8,7 +8,7 @@
 
 
 
-#if 1
+#if 0
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -55,7 +55,7 @@ private:
 #endif
 
 
-#if 0
+#if 1
 template<int state_size, int ctrl_size>
 class QRCost
 {

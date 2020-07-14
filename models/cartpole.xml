@@ -42,8 +42,8 @@
         <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
         <camera name="lookatcart" mode="targetbody" target="cart" pos="0 -2 2"/>
         <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/>
-        <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 2" material="decoration" />
-        <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 2" material="decoration" />
+        <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
+        <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
         <body name="cart" pos="0 0 1">
             <joint name="slider" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>
             <geom name="cart" type="box" size="0.2 0.15 0.1" material="self"  mass="1"/>
