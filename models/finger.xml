@@ -48,10 +48,10 @@
 
         <body name="proximal" pos="-.2 0 0.05" childclass="finger">
             <geom name="proximal_decoration" type="cylinder" fromto="0 -.033 0 0 .033 0" size=".034" material="decoration"/>
-            <joint name="proximal" range="-130 -60" ref="-90" damping="0.05" limited="true"/>
+            <joint name="proximal" range="-140 -70" ref="-90" damping="0.05" limited="true"/>
             <geom name="proximal" type="capsule" material="self" size=".03" fromto="0 0 0 0 0 -.17"/>
             <body name="distal" pos="0 0 -.18" childclass="finger">
-                <joint name="distal" range="-45 45" damping="0.05" limited="true"/>
+                <joint name="distal" range="-30 30" damping="0.05" limited="true"/>
                 <geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.16" contype="0" conaffinity="0"/>
                 <geom name="fingertip" type="capsule" size=".03" material="effector" fromto="0 0 -.13 0 0 -.161"/>
                 <site name="touchtop" pos=".01 0 -.17"/>
@@ -60,7 +60,7 @@
         </body>
 
         <body name="spinner" pos="-.2 0 -.4">
-            <joint name="hinge" range="-10 10" frictionloss=".01" damping=".15" limited="true"/>
+            <joint name="hinge" range="-10 10" frictionloss=".01" damping=".35" limited="true"/>
             <geom name="cap1" type="capsule" size=".04 .09" material="self" pos=".02 0 0"/>
             <geom name="cap2" type="capsule" size=".04 .09" material="self" pos="-.02 0 0"/>
             <site name="tip" type="sphere"  size=".02" pos="0 0 .13" material="target"/>

@@ -90,3 +90,16 @@ target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosm
 target_link_libraries(${BIN_NAME} control_lib)
 target_link_libraries(${BIN_NAME} util_lib)
 target_link_libraries(${BIN_NAME} autodiff::autodiff)
+
+
+set(BIN_NAME ilqr_finger)
+add_executable(${BIN_NAME} ${BIN_NAME}.cpp)
+target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
+#Standard libraries for GL
+target_link_libraries(${BIN_NAME} glut)
+target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+# Additional libraries from mujoco package
+target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+target_link_libraries(${BIN_NAME} control_lib)
+target_link_libraries(${BIN_NAME} util_lib)
+target_link_libraries(${BIN_NAME} autodiff::autodiff)
