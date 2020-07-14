@@ -53,6 +53,6 @@
   </worldbody>
 
    <actuator>
-    <motor name="elbow" joint="elbow" gear="4" ctrllimited="true" ctrlrange="-1 1"/>
+    <motor name="elbow" joint="elbow" gear="2" ctrllimited="true" ctrlrange="-1 1"/>
   </actuator>
 </mujoco>

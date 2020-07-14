@@ -98,18 +98,6 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-//Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
-//x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-//x_terminal_gain *= 4000;
-//
-//Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
-//x_gain(3,3) = 0.01;
-//x_gain *= 0.02;
-//
-//Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
-//u_gain.setIdentity();
-//u_gain *= 50;
-
 // main function
 int main(int argc, const char** argv)
 {
@@ -171,14 +159,14 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 10;
+    x_terminal_gain *= 400000;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_gain *= 0;
+    x_gain *= 0.0005;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
@@ -196,20 +184,6 @@ int main(int argc, const char** argv)
     // initial position
     d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
 
-//    std::vector<Eigen::Matrix<double, n_ctrl, 1>> init_u;
-//    Eigen::VectorXd pos_interp = Eigen::VectorXd::LinSpaced(200, 0, M_PI);
-//
-//    for(auto pos = 0; pos < pos_interp.rows(); ++pos)
-//    {
-//        d->qpos[0] = pos_interp(pos, 0);
-//        mj_inverse(m, d);
-//        init_u.emplace_back(d->qfrc_inverse[0]);
-//    }
-//
-//    mj_resetData(m, d);
-//
-//    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
-
     Eigen::Matrix<double, n_ctrl, n_ctrl> R;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
@@ -218,7 +192,7 @@ int main(int argc, const char** argv)
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
 
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 200, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 50, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);

@@ -37,9 +37,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
     {
-//        mj_resetData(m, d);
-//        mj_forward(m, d);
-        std::cout << "run" << std::endl;
+
     }
 }
 
@@ -155,18 +153,6 @@ int main(int argc, const char** argv)
     // setup cost params
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0;
     Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
-
-//    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
-//    x_terminal_gain(2,2) = 0.01; x_terminal_gain(3,3) = 0.01;
-//    x_terminal_gain *= 500000;
-//
-//    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity(); x_gain(2,2) = 0.01;
-//    x_gain(3,3) = 0.01;
-//    x_gain *= 5000;
-//
-//    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
-//    u_gain.setIdentity();
-//    u_gain *= .00005;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
