@@ -8,7 +8,6 @@ set(BINARIES
         mppi_control_cartpole.cpp
         )
 
-#TODO: for loop through the binaries
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
 
 foreach(bin_file ${BINARIES})
