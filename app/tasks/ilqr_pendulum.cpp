@@ -184,20 +184,6 @@ int main(int argc, const char** argv)
     // initial position
     d->qpos[0] = M_PI; d->qvel[0] = 0;
 
-//    std::vector<Eigen::Matrix<double, n_ctrl, 1>> init_u;
-//    Eigen::VectorXd pos_interp = Eigen::VectorXd::LinSpaced(100, M_PI, 0);
-//
-//    for(auto pos = 0; pos < pos_interp.rows(); ++pos)
-//    {
-//        mj_inverse(m, d);
-//        init_u.emplace_back(d->qfrc_inverse[0]);
-//        d->ctrl[0] = d->qfrc_inverse[0];
-//        mj_step(m, d);
-//    }
-//
-//    mj_resetData(m, d);
-//    d->qpos[0] = 0; d->qvel[0] = 0;
-
     Eigen::Matrix<double, n_ctrl, n_ctrl> R;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
@@ -210,14 +196,6 @@ int main(int argc, const char** argv)
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-
-//    ilqr.control(d);
-//    control.fill_control_buffer(ilqr._u_traj);
-//
-//    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/Cartpole_offline.csv",
-//                           std::fstream::out | std::fstream::trunc);
-//
-//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
