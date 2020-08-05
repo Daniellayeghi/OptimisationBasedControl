@@ -81,8 +81,6 @@ ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   const std::vector<ILQR<state_size, ctrl_size>::ctrl_vec>* init_u) :
 _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration)
 {
-    using ilqr_t = ILQR<state_size, ctrl_size>;
-
     _d_cp = mj_makeData(m);
     _prev_total_cost = 0;
     _regularizer.setIdentity();
@@ -182,7 +180,6 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
 {
     if (recalculate)
     {
-//        std::cout <<"Calc"<<std::endl;
         copy_data(_m, d, _d_cp);
         for (auto time = 0; time < _simulation_time; ++time)
         {
@@ -203,7 +200,6 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         _l_xx.back() = _cf.Lf_xx(_d_cp);
         copy_data(_m, d, _d_cp);
         _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
-        std::cout << "TOTAL: " << _prev_total_cost << std::endl;
         recalculate = false;
     }
 }
@@ -218,7 +214,6 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-
         auto Qx = Q_x(time, V_x);    auto Qu  = Q_u(time, V_x);
         auto Quu = Q_uu(time, V_xx); auto Qux = Q_ux(time, V_xx); auto Qxx = Q_xx(time, V_xx);
         _ff_k[time] = -1 * Quu.colPivHouseholderQr().solve(Qu);

@@ -69,7 +69,7 @@ void MyController<T, state_size, ctrl_size>::controller()
     if (first) {
         first = not first;
     }
-    ctrl_buffer.emplace_back(controls._cached_control);
+//    ctrl_buffer.emplace_back(controls._cached_control);
 #endif
 }
 

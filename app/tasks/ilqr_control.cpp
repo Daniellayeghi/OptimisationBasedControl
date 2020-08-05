@@ -166,7 +166,7 @@ int main(int argc, const char** argv)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_gain *= 80;
+    x_gain *= 20;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();

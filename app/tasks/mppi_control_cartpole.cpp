@@ -1,11 +1,3 @@
-//------------------------------------------//
-//  This file is a modified version of      //
-//  basics.cpp, which was distributed as    //
-//  part of MuJoCo,  Written by Emo Todorov //
-//  Copyright (C) 2017 Roboti LLC           //
-//  Modifications by Atabak Dehban          //
-//------------------------------------------//
-
 
 #include "mujoco.h"
 #include "cstdio"

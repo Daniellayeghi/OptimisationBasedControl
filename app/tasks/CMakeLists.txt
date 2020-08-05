@@ -19,6 +19,7 @@ foreach(bin_file ${BINARIES})
     target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
     # Additional libraries from mujoco package
     target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+    # General implementation packages
     target_link_libraries(${BIN_NAME} control_lib)
     target_link_libraries(${BIN_NAME} util_lib)
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
