@@ -64,12 +64,7 @@ void MyController<T, state_size, ctrl_size>::controller()
         _d->ctrl[row] = controls._cached_control(row, 0);
     }
 
-    std::cout << "CTRL: " << "\n" << controls._cached_control << std::endl;
-
-    if (first) {
-        first = not first;
-    }
-//    ctrl_buffer.emplace_back(controls._cached_control);
+//    std::cout << "CTRL: " << "\n" << controls._cached_control << std::endl;
 #endif
 }
 

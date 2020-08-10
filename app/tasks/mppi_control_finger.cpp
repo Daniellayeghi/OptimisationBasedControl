@@ -221,7 +221,7 @@ int main(int argc, const char** argv)
     std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/ctrl_finger.csv",
                            std::fstream::out | std::fstream::trunc);
 
-    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
+//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
     // free visualization storage
     mjv_freeScene(&scn);

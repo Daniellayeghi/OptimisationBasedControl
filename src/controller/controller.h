@@ -25,9 +25,8 @@ public:
 
     void fill_control_buffer(const std::vector<Eigen::Matrix<double, ctrl_size, 1>> buffer);
 
-    std::vector<Eigen::Matrix<double, ctrl_size, 1>> ctrl_buffer;
-
 private:
+    std::vector<Eigen::Matrix<double, ctrl_size, 1>> ctrl_buffer;
     const T& controls;
     const mjModel* _m;
     mjData* _d;

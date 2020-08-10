@@ -24,8 +24,8 @@ public:
     ILQR(FiniteDifference<state_size, ctrl_size>& fd,
          CostFunction<state_size, ctrl_size>& cf,
          const mjModel * m,
-         const int simulation_time,
-         const int iteration,
+         int simulation_time,
+         int iteration,
          const mjData* d,
          const std::vector<ctrl_vec>* init_u = nullptr);
 
@@ -38,13 +38,16 @@ public:
     ctrl_vec _cached_control;
 
     std::vector<ctrl_vec> _u_traj;
+    std::vector<double>   cost;
+    int _iteration           = 0;
+    int _simulation_time     = 0;
+
 private:
-
     void forward_simulate(const mjData* d);
-
     ctrl_vec Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
     ctrl_mat Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     state_vec Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+
     state_mat Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_state_mat Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
 
@@ -53,18 +56,18 @@ private:
 
     std::vector<state_mat> _f_x;
     std::vector<state_ctrl_mat> _f_u;
-
     std::vector<double> _l;
     std::vector<state_vec> _l_x;
     std::vector<ctrl_vec> _l_u;
     std::vector<state_mat> _l_xx;
+
     std::vector<ctrl_state_mat> _l_ux;
     std::vector<ctrl_mat> _l_uu;
 
     std::vector<ctrl_vec> _ff_k ;
     std::vector<ctrl_state_mat> _fb_K;
-
     std::vector<state_vec> _x_traj;
+
     std::vector<state_vec> _x_traj_new;
     std::vector<ctrl_vec>  _u_traj_new;
 
@@ -73,10 +76,7 @@ private:
 
     const mjModel* _m;
     mjData* _d_cp = nullptr;
-
     double _prev_total_cost  = 0;
-    int _simulation_time     = 0;
-    int _iteration           = 0;
     const double _delta_init = 2.0;
     double _delta            = _delta_init;
 

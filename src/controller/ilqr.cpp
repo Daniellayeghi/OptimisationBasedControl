@@ -301,6 +301,8 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
         if (converged)
             break;
     }
+    cost.emplace_back(_prev_total_cost);
+    std::cout << _prev_total_cost << std::endl;
 }
 
 

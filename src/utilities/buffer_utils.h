@@ -22,6 +22,18 @@ namespace BufferUtilities
             file.close();
         }
     }
+
+    template<typename T>
+    inline void save_to_file(std::fstream &file, std::vector<T> &buffer)
+    {
+        if (file.is_open())
+        {
+            for (auto const &element : buffer)
+            {
+                file << std::to_string(element) << std::endl;
+            }
+        }
+    }
 }
 
 #endif //OPTCONTROL_MUJOCO_BUFFER_UTILS_H
