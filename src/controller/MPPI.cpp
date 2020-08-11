@@ -1,4 +1,5 @@
 #include <iostream>
+#include <numeric>
 #include "MPPI.h"
 #include"simulation_params.h"
 #include "../utilities/basic_math.h"
@@ -135,9 +136,10 @@ void MPPI<state_size, ctrl_size>::control(const mjData* d)
                                                                                   m_delta_control[time][sample],
                                                                                    m_params.m_variance);
         }
+        traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0)/m_delta_cost_to_go.size();
         m_delta_control.back()[sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
     }
-
+    traj_cost /= m_params.m_k_samples;
     compute_control_trajectory();
 }
 

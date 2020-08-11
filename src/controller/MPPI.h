@@ -128,7 +128,7 @@ public:
     void control(const mjData* d);
 
     ctrl_vector _cached_control;
-
+    double traj_cost;
 private:
 
     MPPI<state_size, ctrl_size>::ctrl_vector total_entropy(const std::vector<ctrl_vector>& delta_control_samples,

@@ -203,7 +203,7 @@ int main(int argc, const char** argv)
 //    control.fill_control_buffer(ilqr._u_traj);
 
 /* ============================================CSV Output Files=======================================================*/
-    std::string path = "/home/daniel/Repos/OptimisationBasedControl/";
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
     std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);

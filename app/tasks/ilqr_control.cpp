@@ -204,7 +204,7 @@ int main(int argc, const char** argv)
 //    ilqr.control(d);
 //    control.fill_control_buffer(ilqr._u_traj);
 /* ============================================CSV Output Files=======================================================*/
-    std::string path = "/home/daniel/Repos/OptimisationBasedControl/";
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
     std::fstream cost_mpc(path + ("acrobot_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("acrobot_ctrl.csv"), std::fstream::out | std::fstream::trunc);
@@ -220,8 +220,6 @@ int main(int argc, const char** argv)
     std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
 
 /* ==================================================Simulation=======================================================*/
-
-
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
