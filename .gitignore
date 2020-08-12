@@ -8,5 +8,7 @@ libraries
 .ipynb_checkpoints
 *build-release
 *.csv
+*.mat
+*.m~
 data/
 figures/

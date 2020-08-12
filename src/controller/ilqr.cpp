@@ -232,15 +232,15 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 {
-    for (const auto &backtracker : _backtrackers)
-    {
+    //TODO Regularize the Quu inversion instead and split out the adaption from the forward pass functions
+    for (const auto &backtracker : _backtrackers) {
         _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
 
         copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
-        for (auto time = 0; time < _simulation_time; ++time)
-        {
-            _u_traj_new[time] = _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
+        for (auto time = 0; time < _simulation_time; ++time) {
+            _u_traj_new[time] =
+                    _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
             clamp_control(_u_traj_new[time], max_bound, min_bound);
             set_control_data(_d_cp, _u_traj_new[time]);
             mj_step(_m, _d_cp);
@@ -249,8 +249,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 #if 1
         auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj_new);
 
-        if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8)
-        {
+        if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8) {
             converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
             _prev_total_cost = new_total_cost;
             recalculate = true;
@@ -264,18 +263,21 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             _u_traj = _u_traj_new;
             break;
         }
-    }
-    if (not accepted)
-    {
-        _delta = std::max(1.0, _delta) * _delta_init;
-        static const auto min = ILQR::state_mat::Identity() * 1e-6;
-        // All elements are equal hence the (0, 0) comparison
-        if ((_regularizer * _delta)(0, 0) > 1e-6)
-        {
-            _regularizer = _regularizer * _delta;
-        }
-        else{
-            _regularizer = min;
+
+        if (not accepted) {
+            _delta = std::max(1.0, _delta) * _delta_init;
+            static const auto min = ILQR::state_mat::Identity() * 1e-6;
+            // All elements are equal hence the (0, 0) comparison
+            if ((_regularizer * _delta)(0, 0) > 1e-6) {
+                _regularizer = _regularizer * _delta;
+            } else {
+                _regularizer = min;
+            }
+            if (_regularizer(0, 0) > 1e10) {
+                std::cout << "Exceed" "\n";
+                break;
+            }
+
         }
     }
 #endif
@@ -295,12 +297,12 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
         forward_simulate(d);
         backward_pass();
         forward_pass(d);
-        _cached_control = _u_traj.front();
-        std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
-        _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
         if (converged)
             break;
     }
+    _cached_control = _u_traj.front();
+    std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
+    _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
     cost.emplace_back(_prev_total_cost);
     std::cout << _prev_total_cost << std::endl;
 }
