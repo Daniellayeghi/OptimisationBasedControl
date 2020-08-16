@@ -204,10 +204,6 @@ int main(int argc, const char** argv)
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
-
-        auto angle_1 = BasicMath::wrap_to_2pi(x_desired(1,0));
-        auto angle_2 = BasicMath::wrap_to_2pi(d->qpos[1]);
-        std::cout << angle_1 - angle_2 << std::endl;
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {

@@ -31,6 +31,7 @@ bool button_left   = false;
 bool button_middle = false;
 bool button_right  = false;
 bool end_sim       = false;
+bool save_data     = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -39,7 +40,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
+    if(act==GLFW_PRESS && key==GLFW_KEY_END)
     {
         end_sim = true;
     }
@@ -183,8 +184,24 @@ int main(int argc, const char** argv)
     d->qvel[0] = 0.0;
     d->qvel[1] = 0.0;
     d->qvel[2] = 0.0;
+/* ============================================CSV Output Files=======================================================*/
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
+    std::fstream cost_mpc(path + ("finer_cost_mpc_mppi.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("finger_ctrl_mppi.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("finger_pos_mppi.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("finger_vel_mppi.csv"), std::fstream::out | std::fstream::trunc);
 
+    Eigen::Matrix<double, n_jpos, 1> pos;
+    Eigen::Matrix<double, n_jvel, 1> vel;
+    Eigen::Matrix<double, n_ctrl, 1> ctrl;
+
+    std::vector<double> cost_buffer;
+    std::vector<Eigen::Matrix<double, n_jpos, 1>> pos_buffer;
+    std::vector<Eigen::Matrix<double, n_jvel, 1>> vel_buffer;
+    std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
+
+/* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window) and not end_sim)
     {
@@ -195,6 +212,11 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
+            cost_buffer.emplace_back(pi.traj_cost);
+            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
+            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
+            ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
+
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             pi.control(d);
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
@@ -215,13 +237,19 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
+
+        if(save_data)
+        {
+            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
+            BufferUtilities::save_to_file(pos_data, pos_buffer);
+            BufferUtilities::save_to_file(vel_data, vel_buffer);
+            BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
+
+            std::cout << "Saved!" << std::endl;
+            save_data = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
-
-
-    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/ctrl_finger.csv",
-                           std::fstream::out | std::fstream::trunc);
-
-//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
     // free visualization storage
     mjv_freeScene(&scn);

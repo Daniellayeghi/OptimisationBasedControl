@@ -24,9 +24,10 @@ mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
 // mouse interaction
-bool button_left = false;
+bool button_left   = false;
 bool button_middle = false;
-bool button_right =  false;
+bool button_right  = false;
+bool save_data     = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -35,10 +36,11 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
+    if( act==GLFW_PRESS && key==GLFW_KEY_END )
     {
-        mj_resetData(m, d);
-        mj_forward(m, d);
+//        mj_resetData(m, d);
+//        mj_forward(m, d);
+        save_data = true;
     }
 }
 
@@ -210,13 +212,24 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
 //    ilqr.control(d);
-//    control.fill_control_buffer(ilqr._u_traj);
-//
-//    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/Acrobot_offline.csv",
-//                            std::fstream::out | std::fstream::trunc);
-//
-//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
+/* ============================================CSV Output Files=======================================================*/
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+
+    std::fstream cost_mpc(path + ("finger_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("finger_vel.csv"), std::fstream::out | std::fstream::trunc);
+
+    Eigen::Matrix<double, n_jpos, 1> pos;
+    Eigen::Matrix<double, n_jvel, 1> vel;
+    Eigen::Matrix<double, n_ctrl, 1> ctrl;
+
+    std::vector<Eigen::Matrix<double, n_jpos, 1>> pos_buffer;
+    std::vector<Eigen::Matrix<double, n_jvel, 1>> vel_buffer;
+    std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
+
+/* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -224,12 +237,13 @@ int main(int argc, const char** argv)
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
-        auto angle_1 = BasicMath::wrap_to_2pi(x_desired(2,0));
-        auto angle_2 = BasicMath::wrap_to_2pi(d->qpos[2]);
-        std::cout << "Diff: " << angle_1 - angle_2 << std::endl;
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
+            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
+            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
+            ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
+
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
@@ -250,6 +264,18 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
+
+        if(save_data)
+        {
+            BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
+            BufferUtilities::save_to_file(pos_data, pos_buffer);
+            BufferUtilities::save_to_file(vel_data, vel_buffer);
+            BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
+
+            std::cout << "Saved!" << std::endl;
+            save_data = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
     // free visualization storage
     mjv_freeScene(&scn);
