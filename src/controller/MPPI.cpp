@@ -137,6 +137,7 @@ void MPPI<state_size, ctrl_size>::control(const mjData* d)
                                                                                   m_delta_control[time][sample],
                                                                                    m_params.m_variance);
         }
+        m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
         traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0)/m_delta_cost_to_go.size();
         m_delta_control.back()[sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
     }

@@ -39,13 +39,26 @@ public:
         return (1- 1/variance)/2 + qr_cost + bounded_state_error(state);
     }
 
+
+    double terminal_cost(Eigen::Matrix<double, state_size, 1>& state) const
+    {
+        double result = 0;
+        result += 10000 * std::pow(1 - std::cos(state(2, 0)), 2);
+        result += 500 * std::pow(state(5, 0), 2) * 0.01;
+        result += 0 * std::pow(state(3, 0), 2) * 0.01;
+        result += 0 * std::pow(state(4, 0), 2) * 0.01;
+        return result;
+    }
+
 private:
 
     double bounded_state_error(Eigen::Matrix<double, state_size, 1>& state) const
     {
         double result = 0;
-        result += 130000 * std::pow(1 - std::cos(state(2, 0)), 2);
-        result += 500 * std::pow(state(5, 0), 2) * 0.01;
+        result += 0 * std::pow(1 - std::cos(state(2, 0)), 2);
+        result += 0 * std::pow(state(5, 0), 2) * 0.01;
+        result += 10 * std::pow(state(3, 0), 2) * 0.01;
+        result += 10 * std::pow(state(4, 0), 2) * 0.01;
         return result;
     }
 
