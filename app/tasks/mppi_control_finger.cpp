@@ -162,12 +162,12 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 10;
+    Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 100;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
 
-    MPPIParams params {700, 100, 0.99, 500};
+    MPPIParams params {400, 50, 0.99, 500};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -178,7 +178,7 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -1.57;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -0.8;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -198,6 +198,10 @@ int main(int argc, const char** argv)
     std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
 
 /* ==================================================Simulation=======================================================*/
+    auto start = high_resolution_clock::now();
+    auto end   = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(end - start).count();
+    int iteration = 1;
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -209,15 +213,20 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             cost_buffer.emplace_back(pi.traj_cost);
-            std::cout << pi.traj_cost << "\n";
+//            std::cout << pi.traj_cost << "\n";
             pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1], d->qpos[2]).finished());
             vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1], d->qvel[2]).finished());
             ctrl_buffer.emplace_back((ctrl << d->ctrl[0], d->ctrl[1]).finished());
 
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            start = high_resolution_clock::now();
             pi.control(d);
+            end = high_resolution_clock::now();
+            duration += duration_cast<milliseconds>(end - start).count();
+            std::cout << duration/iteration << std::endl;
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -243,6 +252,7 @@ int main(int argc, const char** argv)
             BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
 
             std::cout << "Saved!" << std::endl;
+            std::cout << "Duration: " << duration/iteration << "\n";
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

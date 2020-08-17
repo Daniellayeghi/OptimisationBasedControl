@@ -274,7 +274,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
                 _regularizer = min;
             }
             if (_regularizer(0, 0) > 1e10) {
-                std::cout << "Exceed" "\n";
+//                std::cout << "Exceed" "\n";
                 break;
             }
         }
@@ -303,7 +303,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
     _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
     cost.emplace_back(_prev_total_cost);
-    std::cout << _prev_total_cost << std::endl;
+//    std::cout << _prev_total_cost << std::endl;
 }
 
 

@@ -34,7 +34,6 @@ double lastx = 0;
 double lasty = 0;
 
 //counter
-int iteration = 0;
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
 std::uniform_real_distribution<> dist(-4, 4);
@@ -210,6 +209,10 @@ int main(int argc, const char** argv)
     std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
 
 /* ==================================================Simulation=======================================================*/
+    auto start = high_resolution_clock::now();
+    auto end   = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(end - start).count();
+    int iteration = 1;
     // use the first while condition if you want to simulate for a period.
     while(!glfwWindowShouldClose(window))
     {
@@ -224,11 +227,15 @@ int main(int argc, const char** argv)
             pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
             vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
             ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
-
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            start = high_resolution_clock::now();
             pi.control(d);
+            end = high_resolution_clock::now();
+            duration += duration_cast<milliseconds>(end - start).count();
+            std::cout << duration/iteration << std::endl;
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -253,8 +260,8 @@ int main(int argc, const char** argv)
         BufferUtilities::save_to_file(pos_data, pos_buffer);
         BufferUtilities::save_to_file(vel_data, vel_buffer);
         BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
-
         std::cout << "Saved!" << std::endl;
+        std::cout << "Duration: " << duration/iteration << "\n";
         save_data = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

@@ -216,7 +216,10 @@ int main(int argc, const char** argv)
     std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
 
 /* ==================================================Simulation=======================================================*/
-
+    auto start = high_resolution_clock::now();
+    auto end   = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(end - start).count();
+    int iteration = 1;
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -231,9 +234,14 @@ int main(int argc, const char** argv)
             vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
             ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            start = high_resolution_clock::now();
             ilqr.control(d);
+            end = high_resolution_clock::now();
+            duration += duration_cast<milliseconds>(end - start).count();
+            std::cout << duration/iteration << std::endl;
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -258,6 +266,7 @@ int main(int argc, const char** argv)
             BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
 
             std::cout << "Saved!" << std::endl;
+            std::cout << "Duration: " << duration/iteration << "\n";
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

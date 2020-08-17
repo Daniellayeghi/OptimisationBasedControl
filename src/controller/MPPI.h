@@ -7,8 +7,8 @@
 #include <iostream>
 
 //TODO: Break this out to a separate cost class
-#define FINGER 1
-#define CARTPOLE 0
+#define FINGER 0
+#define CARTPOLE 1
 
 #if FINGER
 template<int state_size, int ctrl_size>
@@ -43,10 +43,8 @@ public:
     double terminal_cost(Eigen::Matrix<double, state_size, 1>& state) const
     {
         double result = 0;
-        result += 10000 * std::pow(1 - std::cos(state(2, 0)), 2);
-        result += 500 * std::pow(state(5, 0), 2) * 0.01;
-        result += 0 * std::pow(state(3, 0), 2) * 0.01;
-        result += 0 * std::pow(state(4, 0), 2) * 0.01;
+        result += 500000 * std::pow(1 - std::cos(state(2, 0)), 2);
+        result += 5000 * std::pow(state(5, 0), 2);
         return result;
     }
 
@@ -97,6 +95,11 @@ public:
                           control_error.template transpose() * m_R * control_error * 0.5)(0, 0);
 
         return (1- 1/variance)/2 + qr_cost + bounded_state_error(state);
+    }
+
+    double terminal_cost(Eigen::Matrix<double, state_size, 1>& state) const
+    {
+        return 0;
     }
 
 private:
