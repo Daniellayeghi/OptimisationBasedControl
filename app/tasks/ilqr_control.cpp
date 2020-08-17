@@ -38,8 +38,6 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_END )
     {
-        mj_resetData(m, d);
-        mj_forward(m, d);
         save_data = true;
     }
 }
@@ -192,7 +190,7 @@ int main(int argc, const char** argv)
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
 
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 50, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);

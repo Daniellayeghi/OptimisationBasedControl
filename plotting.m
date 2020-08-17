@@ -2,7 +2,7 @@ clear all
 clc
 
 %% Plot Acrobot iLQR
-SAVE_AR = true;
+SAVE_AR = false;
 
 fig_ilqr_ar_1 = figure();
 ar_ctrl = csvread("acrobot_ctrl.csv");
@@ -41,7 +41,7 @@ if(SAVE_AR)
 end
 
 %% Plot Cartpole iLQR
-SAVE_CP = true;
+SAVE_CP = false;
 
 fig_ilqr_cp_1 = figure();
 cp_ctrl = csvread("cartpole_ctrl.csv");
@@ -79,9 +79,50 @@ if(SAVE_CP)
     save("cp_pos.mat", 'cp_pos');
 end
 
+%% Plot Finger iLQR
+SAVE_FI = false;
+
+fig_ilqr_fi_1 = figure();
+fi_ctrl = csvread("finger_ctrl.csv");
+[row, ~] = size(fi_ctrl);
+iteration = linspace(1, row, row)/0.01;
+plot(iteration , fi_ctrl(:, 1));
+hold on
+plot(iteration , fi_ctrl(:, 2));
+legend('Joint-1 control', 'Joint-2 control', 'interpreter','latex', 'FontSize', 12)
+title('Finger control trajectory','interpreter','latex', 'FontSize', 12);
+xlabel('time (s)','interpreter','latex', 'FontSize', 12);
+ylabel('$u$', 'Interpreter', 'latex', 'FontSize', 12);
+
+fig_ilqr_fi_2 = figure();
+fi_pos = csvread("finger_pos.csv");
+fi_vel = csvread("finger_vel.csv");
+plot(iteration, fi_pos(:, 3))
+title('Finger-Spinner position','interpreter','latex', 'FontSize', 12);
+xlabel('time','interpreter','latex', 'FontSize', 12);
+ylabel('${x}$', 'interpreter', 'latex', 'FontSize', 12);
+
+fig_ilqr_fi_3 = figure();
+fi_cost = csvread("finger_cost_mpc.csv");
+[row, ~] = size(fi_cost);
+iteration = linspace(1, row, row);
+plot(iteration , fi_cost)
+title('Finger-Spinner MPC cost - iteration','interpreter','latex', 'FontSize', 12);
+xlabel('MPC iteration','interpreter','latex', 'FontSize', 12);
+ylabel('Cost', 'Interpreter', 'latex', 'FontSize', 12);
+
+print(fig_ilqr_fi_1,'fi_ctrl_ilqr.png','-dpng','-r600');
+print(fig_ilqr_fi_2,'fi_pp_ilqr.png','-dpng','-r600');
+print(fig_ilqr_fi_3,'fi_cost_ilqr.png','-dpng','-r600');
+
+if(SAVE_FI)
+    save("fi_cost.mat", 'fi_cost');
+    save("fi_vel.mat", 'fi_vel');
+    save("fi_pos.mat", 'fi_pos');
+end
 
 %% Plot Cartpole MPPI
-SAVE_CP_MPPI = true;
+SAVE_CP_MPPI = false;
 
 fig_mppi_1 = figure();
 cp_ctrl_mppi = csvread("cartpole_ctrl_mppi.csv");
@@ -117,4 +158,46 @@ if(SAVE_CP_MPPI)
     save("cp_cost_mppi.mat", 'cp_cost_mppi');
     save("cp_vel_mppi.mat", 'cp_vel_mppi');
     save("cp_pos_mppi.mat", 'cp_pos_mppi');
+end
+
+%% Plot Finger MPPI
+SAVE_FI_MPPI = false;
+
+fig_mppi_fi_1 = figure();
+fi_ctrl_mppi = csvread("finger_ctrl_mppi.csv");
+[row, ~] = size(fi_ctrl_mppi);
+iteration = linspace(1, row, row)/0.01;
+plot(iteration , fi_ctrl_mppi(:, 1));
+hold on
+plot(iteration , fi_ctrl_mppi(:, 2));
+legend('Joint-1 control', 'Joint-2 control', 'interpreter','latex', 'FontSize', 12)
+title('Finger control trajectory','interpreter','latex', 'FontSize', 12);
+xlabel('time (s)','interpreter','latex', 'FontSize', 12);
+ylabel('$u$', 'Interpreter', 'latex', 'FontSize', 12);
+
+fig_mppi_fi_2 = figure();
+fi_pos_mppi = csvread("finger_pos_mppi.csv");
+fi_vel_mppi = csvread("finger_vel_mppi.csv");
+plot(iteration, fi_pos_mppi(:, 3))
+title('Finger-Spinner Position','interpreter','latex', 'FontSize', 12);
+xlabel('$x$','interpreter','latex', 'FontSize', 12);
+ylabel('$\dot{x}$', 'interpreter', 'latex', 'FontSize', 12);
+
+fig_mppi_fi_3 = figure();
+fi_cost_mppi = csvread("finger_cost_mpc_mppi.csv");
+[row, ~] = size(fi_cost_mppi);
+iteration = linspace(1, row, row);
+plot(iteration , fi_cost_mppi)
+title('Finger-Spinner MPC cost - iteration','interpreter','latex', 'FontSize', 12);
+xlabel('MPC iteration','interpreter','latex', 'FontSize', 12);
+ylabel('Cost', 'Interpreter', 'latex', 'FontSize', 12);
+
+print(fig_mppi_fi_1,'fi_ctrl_mppi.png','-dpng','-r600');
+print(fig_mppi_fi_2,'fi_pp_mppi.png','-dpng','-r600');
+print(fig_mppi_fi_3,'fi_cost_mppi.png','-dpng','-r600');
+
+if(SAVE_FI_MPPI)
+    save("fi_cost_mppi.mat", 'fi_cost_mppi');
+    save("fi_vel_mppi.mat", 'fi_vel_mppi');
+    save("fi_pos_mppi.mat", 'fi_pos_mppi');
 end

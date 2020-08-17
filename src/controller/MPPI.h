@@ -6,9 +6,11 @@
 #include <vector>
 #include <iostream>
 
+//TODO: Break this out to a separate cost class
+#define FINGER 1
+#define CARTPOLE 0
 
-
-#if 0
+#if FINGER
 template<int state_size, int ctrl_size>
 class QRCost
 {
@@ -42,8 +44,8 @@ private:
     double bounded_state_error(Eigen::Matrix<double, state_size, 1>& state) const
     {
         double result = 0;
-        result += 40000 * std::pow(1 - std::cos(state(2, 0)), 2);
-        result += 5000 * std::pow(state(5, 0), 2) * 0.01;
+        result += 130000 * std::pow(1 - std::cos(state(2, 0)), 2);
+        result += 500 * std::pow(state(5, 0), 2) * 0.01;
         return result;
     }
 
@@ -55,7 +57,7 @@ private:
 #endif
 
 
-#if 1
+#if CARTPOLE
 template<int state_size, int ctrl_size>
 class QRCost
 {

@@ -161,10 +161,10 @@ int main(int argc, const char** argv)
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
     x_terminal_gain *= 0;
-    x_terminal_gain (2, 2) = 500000;
-    x_terminal_gain (3, 2) = 500 * 0.01;
-    x_terminal_gain (4, 4) = 500 * 0.01;
-    x_terminal_gain (5, 5) = 50000 * 0.01;
+    x_terminal_gain (2, 2) = 1500000000;
+    x_terminal_gain (3, 3) = 50000 * 0.01;
+    x_terminal_gain (4, 4) = 50000 * 0.01;
+    x_terminal_gain (5, 5) = 5000000;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -173,15 +173,13 @@ int main(int argc, const char** argv)
     }
 
     x_gain *= 0;
-    x_gain (2, 2) = 5000;
-    x_gain (3, 2) = 5 * 0.01;
-    x_gain (4, 4) = 5 * 0.01;
-    x_gain (5, 5) = 50 * 0.01;
+    x_gain (3, 3) = 1 * 0.01;
+    x_gain (4, 4) = 1 * 0.01;
 
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 50;
+    u_gain *= 100000;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -193,18 +191,13 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -0.8;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
-
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
 
-    QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
-
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 500, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
@@ -240,9 +233,9 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
-            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
-            ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
+            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1], d->qpos[2]).finished());
+            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1], d->qvel[2]).finished());
+            ctrl_buffer.emplace_back((ctrl << d->ctrl[0], d->ctrl[1]).finished());
 
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);

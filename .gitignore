@@ -10,5 +10,6 @@ libraries
 *.csv
 *.mat
 *.m~
+*.png
 data/
 figures/

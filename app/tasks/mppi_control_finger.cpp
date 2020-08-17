@@ -42,7 +42,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if(act==GLFW_PRESS && key==GLFW_KEY_END)
     {
-        end_sim = true;
+        save_data = true;
     }
 }
 
@@ -162,12 +162,12 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 500;
+    Eigen::Matrix<double, n_ctrl, n_ctrl> R = Eigen::Matrix<double, n_ctrl, n_ctrl>::Identity() * 1;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
 
-    MPPIParams params {500, 500, 0.9, 50000};
+    MPPIParams params {700, 25, 0.99, 400};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -178,16 +178,12 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
     // initial position
-    d->qpos[0] = -M_PI_2 + 0.4;
-    d->qpos[1] = 0;
-    d->qpos[2] = 0;
-    d->qvel[0] = 0.0;
-    d->qvel[1] = 0.0;
-    d->qvel[2] = 0.0;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -0.8;
+    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    std::fstream cost_mpc(path + ("finer_cost_mpc_mppi.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + ("finger_cost_mpc_mppi.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("finger_ctrl_mppi.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("finger_pos_mppi.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("finger_vel_mppi.csv"), std::fstream::out | std::fstream::trunc);
@@ -203,7 +199,7 @@ int main(int argc, const char** argv)
 
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window) and not end_sim)
+    while( !glfwWindowShouldClose(window))
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -213,9 +209,10 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             cost_buffer.emplace_back(pi.traj_cost);
-            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
-            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
-            ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
+            std::cout << pi.traj_cost << "\n";
+            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1], d->qpos[2]).finished());
+            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1], d->qvel[2]).finished());
+            ctrl_buffer.emplace_back((ctrl << d->ctrl[0], d->ctrl[1]).finished());
 
             mjcb_control = MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             pi.control(d);

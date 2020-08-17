@@ -277,7 +277,6 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
                 std::cout << "Exceed" "\n";
                 break;
             }
-
         }
     }
 #endif

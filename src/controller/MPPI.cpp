@@ -26,7 +26,8 @@ namespace
     {
         for(auto row = 0; row < state.rows()/2; ++row)
         {
-            state(row, 0) = BasicMath::wrap_to_min_max(data->qpos[row],-M_PI, M_PI);;
+//            state(row, 0) = BasicMath::wrap_to_min_max(data->qpos[row],-M_PI, M_PI);
+            state(row, 0) = data->qpos[row];
             state(row+state.rows()/2, 0) = data->qvel[row];
         }
     }
@@ -67,7 +68,7 @@ m_m(m)
     m_state.assign(m_params.m_sim_time, Eigen::Matrix<double, state_size, 1>::Zero());
     m_control.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_delta_control.assign(m_params.m_sim_time,
-            std::vector<Eigen::Matrix<double, ctrl_size, 1>>(m_params.m_k_samples,Eigen::Matrix<double, ctrl_size, 1>::Zero()));
+            std::vector<Eigen::Matrix<double, ctrl_size, 1>>(m_params.m_k_samples,Eigen::Matrix<double, ctrl_size, 1>::Random()));
 
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
 }
