@@ -24,8 +24,8 @@ public:
     ILQR(FiniteDifference<state_size, ctrl_size>& fd,
          CostFunction<state_size, ctrl_size>& cf,
          const mjModel * m,
-         int simulation_time,
-         int iteration,
+         const unsigned int simulation_time,
+         const unsigned int iteration,
          const mjData* d,
          const std::vector<ctrl_vec>* init_u = nullptr);
 
@@ -35,20 +35,12 @@ public:
     void backward_pass();
     void forward_pass(const mjData* d);
 
-    ctrl_vec _cached_control;
-
-    std::vector<ctrl_vec> _u_traj;
-    std::vector<double>   cost;
-    int _iteration           = 0;
-    int _simulation_time     = 0;
-
 private:
     void forward_simulate(const mjData* d);
-    ctrl_vec Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
-    ctrl_mat Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
-    state_vec Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
-
-    state_mat Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    ctrl_vec       Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    ctrl_mat       Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    state_vec      Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
+    state_mat      Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_state_mat Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
 
     std::array<double, 10> _backtrackers{};
@@ -75,7 +67,7 @@ private:
     CostFunction<state_size, ctrl_size>& _cf;
 
     const mjModel* _m;
-    mjData* _d_cp = nullptr;
+    mjData* _d_cp            = nullptr;
     double _prev_total_cost  = 0;
     const double _delta_init = 2.0;
     double _delta            = _delta_init;
@@ -86,6 +78,14 @@ private:
 
     mjtNum min_bound = -1;
     mjtNum max_bound = 1;
+
+public:
+
+    ctrl_vec _cached_control;
+    std::vector<ctrl_vec> _u_traj;
+    std::vector<double>   cost;
+    int _simulation_time = 0;
+    int _iteration       = 0;
 };
 
 

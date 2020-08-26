@@ -36,10 +36,8 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END )
+    if( act==GLFW_PRESS && key==GLFW_KEY_END)
     {
-//        mj_resetData(m, d);
-//        mj_forward(m, d);
         save_data = true;
     }
 }

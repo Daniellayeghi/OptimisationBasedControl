@@ -12,7 +12,6 @@
 using namespace SimulationParameters;
 static MyController<MPPI<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi;
 static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr ;
-static bool first = true;
 static int _mark;
 
 #define myFREESTACK d->pstack = _mark;
@@ -58,14 +57,10 @@ controls(controls), _m(m), _d(d)
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
-#if 1
     for (auto row = 0; row < ctrl_size; ++row)
     {
         _d->ctrl[row] = controls._cached_control(row, 0);
     }
-
-//    std::cout << "CTRL: " << "\n" << controls._cached_control << std::endl;
-#endif
 }
 
 

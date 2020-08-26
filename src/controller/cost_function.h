@@ -35,7 +35,7 @@ public:
     ctrl_mat L_uu(const mjData *d);
     state_ctrl_mat L_ux(const mjData *d);
     state_vec Lf_x(const mjData *d);
-    state_mat Lf_xx(const mjData *d);
+    state_mat Lf_xx();
 
     mjtNum running_cost(const mjData *d);
     mjtNum terminal_cost(const mjData *d);

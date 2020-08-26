@@ -87,7 +87,7 @@ public:
                       ctrl_vector& delta_control,
                       double variance) const
     {
-        state_vector state_error  = m_state_goal - state;
+        [[maybe_unused]] state_vector state_error  = m_state_goal - state;
         ctrl_vector control_error = m_control_goal - control;
 
         double qr_cost = (control_error.template transpose() * m_R * control_error +
@@ -114,10 +114,10 @@ private:
         return result;
     }
 
-    state_vector m_state_goal;
-    ctrl_vector  m_control_goal;
     q_matrix m_Q;
     r_matrix m_R;
+    state_vector m_state_goal;
+    ctrl_vector  m_control_goal;
 };
 #endif
 

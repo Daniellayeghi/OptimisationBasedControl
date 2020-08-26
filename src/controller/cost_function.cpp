@@ -151,7 +151,7 @@ Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::Lf_x(c
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx(const mjData *d)
+Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx()
 {
     return  2 *_x_terminal_gain;
 }

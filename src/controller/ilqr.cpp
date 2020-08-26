@@ -75,8 +75,8 @@ template<int state_size, int ctrl_size>
 ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   CostFunction<state_size, ctrl_size>& cf,
                                   const mjModel * m,
-                                  const int simulation_time,
-                                  const int iteration,
+                                  const unsigned int simulation_time,
+                                  const unsigned int iteration,
                                   const mjData* d,
                                   const std::vector<ILQR<state_size, ctrl_size>::ctrl_vec>* init_u) :
 _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration)
@@ -197,7 +197,7 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         }
         _l.back()    = _cf.terminal_cost(_d_cp);
         _l_x.back()  = _cf.Lf_x(_d_cp);
-        _l_xx.back() = _cf.Lf_xx(_d_cp);
+        _l_xx.back() = _cf.Lf_xx();
         copy_data(_m, d, _d_cp);
         _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
         recalculate = false;
