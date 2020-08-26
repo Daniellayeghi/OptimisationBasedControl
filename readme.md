@@ -1,8 +1,9 @@
 # Overview
 
 This repo is primarily based on implementation of trajectory optimisation algorithms. The two main algorithms implemented atm are iLQR and MPPI.
-The **app** directory has the source files for both algorithms running on environments such as cartpole, acrobot, double integrator in the context of an MPC loop.
+The **app** directory has the source files for both algorithms running on environments such as finger-spinner, cartpole, acrobot, double integrator in the context of an MPC loop.
 
+<<<<<<< HEAD
 ## Dependencies
 To build the following dependencies are required:
 - Eigen3
@@ -25,6 +26,10 @@ make -j nThreads
 ~~~
 ## Tasks
 The gifs below show some of the iLQR and MPPI workingo on different environments
+=======
+
+# Tasks
+The gifs below show iLQR and MPPI working on different environments
 - iLQR (Finger Spinner)
 
 ![Alt Text](gifs/finger_ilqr.gif) 
