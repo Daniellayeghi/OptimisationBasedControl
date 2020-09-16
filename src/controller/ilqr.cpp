@@ -2,7 +2,7 @@
 #include <numeric>
 #include "mujoco.h"
 #include "ilqr.h"
-#include "../src/controller/simulation_params.h"
+#include "../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
 

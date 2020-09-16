@@ -3,9 +3,9 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../src/controller/simulation_params.h"
-#include "../../src/utilities/basic_math.h"
+#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
+#include "../../src/utilities/buffer.h"
 
 // for sleep timers
 #include <chrono>
@@ -197,9 +197,9 @@ int main(int argc, const char** argv)
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-//    ilqr.control(d);
-//    control.fill_control_buffer(ilqr._u_traj);
-/* ============================================CSV Output Files=======================================================*/
+    DummyBuffer d_buff;
+
+    /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
     std::fstream cost_mpc(path + ("acrobot_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
@@ -207,19 +207,8 @@ int main(int argc, const char** argv)
     std::fstream pos_data(path + ("acrobot_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("acrobot_vel.csv"), std::fstream::out | std::fstream::trunc);
 
-    Eigen::Matrix<double, n_jpos, 1> pos;
-    Eigen::Matrix<double, n_jvel, 1> vel;
-    Eigen::Matrix<double, n_ctrl, 1> ctrl;
-
-    std::vector<Eigen::Matrix<double, n_jpos, 1>> pos_buffer;
-    std::vector<Eigen::Matrix<double, n_jvel, 1>> vel_buffer;
-    std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
-
 /* ==================================================Simulation=======================================================*/
-    auto start = high_resolution_clock::now();
-    auto end   = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end - start).count();
-    int iteration = 1;
+
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -230,18 +219,11 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            pos_buffer.emplace_back((pos << d->qpos[0], d->qpos[1]).finished());
-            vel_buffer.emplace_back((vel << d->qvel[0], d->qvel[1]).finished());
-            ctrl_buffer.emplace_back((ctrl << d->ctrl[0]).finished());
+            d_buff.fill_buffer(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-            start = high_resolution_clock::now();
             ilqr.control(d);
-            end = high_resolution_clock::now();
-            duration += duration_cast<milliseconds>(end - start).count();
-            std::cout << duration/iteration << std::endl;
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
-            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -258,15 +240,12 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
+
         if(save_data)
         {
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
-            BufferUtilities::save_to_file(pos_data, pos_buffer);
-            BufferUtilities::save_to_file(vel_data, vel_buffer);
-            BufferUtilities::save_to_file(ctrl_data, ctrl_buffer);
-
+            d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::cout << "Saved!" << std::endl;
-            std::cout << "Duration: " << duration/iteration << "\n";
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

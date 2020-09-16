@@ -1,7 +1,7 @@
 #include <iostream>
 #include <numeric>
 #include "MPPI.h"
-#include"simulation_params.h"
+#include"../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
 using namespace SimulationParameters;

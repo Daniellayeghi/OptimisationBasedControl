@@ -6,7 +6,7 @@
 #include "../utilities/finite_diff.h"
 #include "../utilities/internal_types.h"
 #include "cost_function.h"
-#include "simulation_params.h"
+#include "../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
 using namespace SimulationParameters;

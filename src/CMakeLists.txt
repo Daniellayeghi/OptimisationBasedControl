@@ -1,3 +1,4 @@
 add_subdirectory(controller)
 add_subdirectory(utilities)
 add_subdirectory(observers)
+add_subdirectory(parameters)

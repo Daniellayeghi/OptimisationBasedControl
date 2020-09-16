@@ -1,7 +1,7 @@
 #include <iostream>
 #include "finite_diff.h"
 #include "internal_types.h"
-#include "../src/controller/simulation_params.h"
+#include "../parameters/simulation_params.h"
 #include "../src/utilities/basic_math.h"
 
 static int _mark = 0;

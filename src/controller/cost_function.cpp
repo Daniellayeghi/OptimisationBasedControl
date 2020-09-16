@@ -1,6 +1,6 @@
 #include <iostream>
 #include "cost_function.h"
-#include "simulation_params.h"
+#include "../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
 namespace
