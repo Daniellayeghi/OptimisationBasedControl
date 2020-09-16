@@ -4,6 +4,7 @@ set(BINARIES
         ilqr_control.cpp
         ilqr_double_integrator.cpp
         ilqr_finger.cpp
+        ilqr_franka.cpp
         mppi_control_finger.cpp
         mppi_control_cartpole.cpp
         )
