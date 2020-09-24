@@ -7,12 +7,18 @@
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 
+#include "../third_party/imgui/imgui.h"
+#include "../third_party/imgui/examples/imgui_impl_glfw.h"
+#include "../third_party/imgui/examples/imgui_impl_opengl3.h"
+
 // for sleep timers
 #include <chrono>
 #include <thread>
 
 using namespace std;
 using namespace std::chrono;
+using namespace SimulationParameters;
+constexpr const bool show_gui =  true;
 // local variables include
 
 // MuJoCo data structures
@@ -98,6 +104,49 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
+
+static void gui_reset(mjData *data, const mjModel *model)
+{
+    mj_resetData(model, data);
+    data->qpos[0] = 0; data->qpos[1] = 0; data->qpos[2] = 0; data->qpos[3] = -1.0; data->qpos[4] = 0; data->qpos[5] = 0; data->qpos[6] = 0;
+    data->qvel[0] = 0; data->qvel[1] = 0; data->qvel[2] = 0; data->qvel[3] = -0.0; data->qvel[4] = 0; data->qvel[5] = 0; data->qvel[6] = 0;
+}
+
+static void copy_data_over(Matrix<double, n_jvel+n_jpos, n_jvel+n_jpos>& Q_running,
+                           Matrix<double, n_jvel+n_jpos, n_jvel+n_jpos>& Q_terminal,
+                           Matrix<double, n_ctrl, n_ctrl>& R_running,
+                           Map<Matrix<double, n_jvel+n_jpos, 1>>& Qr_map,
+                           Map<Matrix<double, n_jvel+n_jpos, 1>>& Qf_map,
+                           Map<Matrix<double, n_ctrl, 1>>& R_map)
+{
+    Q_running  = Qr_map.asDiagonal();
+    Q_terminal = Qf_map.asDiagonal();
+    R_running  = R_map.asDiagonal();
+    std::cout << Q_running << "\n";
+}
+
+
+template<int square_size>
+static void generate_input(char * input, int buff_size, Eigen::Matrix<double, square_size, square_size>& gain, int offset = 0)
+{
+    ImGui::InputText("Input", input, buff_size);
+    if(ImGui::Button("SET"))
+    {
+        std::stringstream ss (input);
+        int iteration = 0;
+        for (double value; ss >> value;)
+        {
+            if (iteration < square_size)
+                gain(iteration, iteration) = value;
+            if (ss.peek() == ',')
+                ss.ignore();
+            if (ss.peek() == ']')
+                ss.ignore();
+            ++iteration;
+        }
+    }
+}
+
 // main function
 int main(int argc, const char** argv)
 {
@@ -131,10 +180,9 @@ int main(int argc, const char** argv)
         mju_error("Could not initialize GLFW");
 
     // Assert against model params (literals)
-//    using namespace SimulationParameters;
-//    assert(m->nv == n_jvel);
-//    assert(m->nq == n_jpos);
-//    assert(m->nu == n_ctrl);
+    assert(m->nv == n_jvel);
+    assert(m->nq == n_jpos);
+    assert(m->nu == n_ctrl);
 
     // create window, make OpenGL context current, request v-sync
     GLFWwindow* window = glfwCreateWindow(1200, 900, "Demo", NULL, NULL);
@@ -150,36 +198,26 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 0;
-    x_terminal_gain (2, 2) = 1500000000;
-    x_terminal_gain (3, 3) = 50000 * 0.01;
-    x_terminal_gain (4, 4) = 50000 * 0.01;
-    x_terminal_gain (5, 5) = 5000000;
+    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0,
+                                                                                  100, 100, 100, 100, 100, 100, 100, 0, 0;
+    x_terminal_diag *= 25;
+    x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
+    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    x_gain *= 0;
-    x_gain (3, 3) = 1 * 0.01;
-    x_gain (4, 4) = 1 * 0.01;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                                                                                10, 10, 10, 10, 10, 10, 10, 10, 10;
+    x_running_diag  *= 100;
+    x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
+    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 100000;
-
-    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+    u_gain *= 0.000000000000000001;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -187,13 +225,13 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-//    // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -1.5; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
-    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.5; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
+   // initial position
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -1.0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
+    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, x_terminal_gain, m);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 5, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
@@ -201,6 +239,27 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
     DummyBuffer d_buff;
+
+/* ==================================================GUI Setup=======================================================*/
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init(nullptr);
+    ImGui::StyleColorsDark();
+
+    enum QuadMat {Qp_r = 0, Qv_r, Qp_f, Qv_f, R_r};
+    std::array<const char *, 5> gain_names {{"Qp_r", "Qv_r",
+                                             "Qp_f","Qv_f", "R_r"}};
+
+    std::array<std::pair<QuadMat, int>, 5> matrix{{{Qp_r, n_jpos},{Qv_r, n_jvel},
+                                                   {Qp_f, n_jpos},{Qv_f, n_jvel},
+                                                   {R_r, n_ctrl}}};
+
+    static int gain_selection = 0;
+    constexpr const int buff_size = 5*n_jpos+n_jpos*2;
+    char input[buff_size];
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -213,30 +272,66 @@ int main(int argc, const char** argv)
 /* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
+    while(not glfwWindowShouldClose(window))
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
+
+        if constexpr (show_gui)
+        {
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            // The same shit as below but with the opposite bool changed
+            for(unsigned int elem = 0; elem < matrix.size(); ++elem)
+            {
+                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem)); if(elem < matrix.size() - 1) ImGui::SameLine();
+            }
+
+            switch(gain_selection)
+            {
+                case Qp_f : generate_input(input, buff_size, x_terminal_gain); break;
+                case Qv_f : generate_input(input, buff_size, x_terminal_gain, n_jpos); break;
+                case Qp_r : generate_input(input, buff_size, x_running_gain); break;
+                case Qv_r : generate_input(input, buff_size, x_running_gain, n_jpos); break;
+                case R_r : generate_input(input, buff_size, u_gain); break;
+                default: break;
+            }
+
+            if(ImGui::Button("Reset"))
+                gui_reset(d, m);
+        }
+
         mjtNum simstart = d->time;
+
         while( d->time - simstart < 1.0/60.0 )
         {
-//            d_buff.fill_buffer(d);
-//            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-//            ilqr.control(d);
-//            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            d_buff.fill_buffer(d);
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            ilqr.control(d);
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
-        }
+         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // get framebuffer viewport
+
         mjrRect viewport = {0, 0, 0, 0};
         glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
         // update scene and render
         mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
         mjr_render(viewport, &scn, &con);
+
+        if constexpr (show_gui)
+        {
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
 
         // swap OpenGL buffers (blocking call due to v-sync)
         glfwSwapBuffers(window);
@@ -261,7 +356,7 @@ int main(int argc, const char** argv)
     mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
-
+    ImGui_ImplGlfw_Shutdown();
     // terminate GLFW (crashes with Linux NVidia drivers)
 #if defined(__APPLE__) || defined(_WIN32)
     glfwTerminate();

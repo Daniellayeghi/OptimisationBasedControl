@@ -16,6 +16,6 @@
         <include file="assets/chain0.xml"/>
     </worldbody>
 
-    <include file='assets/actuator0.xml'/>
-    <option gravity="disable"/>
+    <include file='assets/frc_actuator0.xml'/>
+
 </mujoco>

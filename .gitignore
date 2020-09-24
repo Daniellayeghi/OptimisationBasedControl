@@ -13,3 +13,4 @@ libraries
 *.png
 data/
 figures/
+third_party/
