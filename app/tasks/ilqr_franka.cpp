@@ -112,19 +112,6 @@ static void gui_reset(mjData *data, const mjModel *model)
     data->qvel[0] = 0; data->qvel[1] = 0; data->qvel[2] = 0; data->qvel[3] = -0.0; data->qvel[4] = 0; data->qvel[5] = 0; data->qvel[6] = 0;
 }
 
-static void copy_data_over(Matrix<double, n_jvel+n_jpos, n_jvel+n_jpos>& Q_running,
-                           Matrix<double, n_jvel+n_jpos, n_jvel+n_jpos>& Q_terminal,
-                           Matrix<double, n_ctrl, n_ctrl>& R_running,
-                           Map<Matrix<double, n_jvel+n_jpos, 1>>& Qr_map,
-                           Map<Matrix<double, n_jvel+n_jpos, 1>>& Qf_map,
-                           Map<Matrix<double, n_ctrl, 1>>& R_map)
-{
-    Q_running  = Qr_map.asDiagonal();
-    Q_terminal = Qf_map.asDiagonal();
-    R_running  = R_map.asDiagonal();
-    std::cout << Q_running << "\n";
-}
-
 
 template<int square_size>
 static void generate_input(char * input, int buff_size, Eigen::Matrix<double, square_size, square_size>& gain, int offset = 0)
@@ -133,7 +120,7 @@ static void generate_input(char * input, int buff_size, Eigen::Matrix<double, sq
     if(ImGui::Button("SET"))
     {
         std::stringstream ss (input);
-        int iteration = 0;
+        int iteration = 0 + offset;
         for (double value; ss >> value;)
         {
             if (iteration < square_size)
@@ -141,11 +128,12 @@ static void generate_input(char * input, int buff_size, Eigen::Matrix<double, sq
             if (ss.peek() == ',')
                 ss.ignore();
             if (ss.peek() == ']')
-                ss.ignore();
+                    break;
             ++iteration;
         }
     }
 }
+
 
 // main function
 int main(int argc, const char** argv)
@@ -204,20 +192,20 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0,
-                                                                                  100, 100, 100, 100, 100, 100, 100, 0, 0;
-    x_terminal_diag *= 25;
+                                                                                  1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0;
+    x_terminal_diag *= 100;
     x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10,
                                                                                 10, 10, 10, 10, 10, 10, 10, 10, 10;
-    x_running_diag  *= 100;
+    x_running_diag  *= 0;
     x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.000000000000000001;
+    u_gain *= 0.001;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -226,19 +214,19 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
    // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -1.0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -2.0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, x_terminal_gain, m);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 5, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 20, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 
 /* ==================================================GUI Setup=======================================================*/
 
@@ -250,12 +238,9 @@ int main(int argc, const char** argv)
     ImGui::StyleColorsDark();
 
     enum QuadMat {Qp_r = 0, Qv_r, Qp_f, Qv_f, R_r};
-    std::array<const char *, 5> gain_names {{"Qp_r", "Qv_r",
-                                             "Qp_f","Qv_f", "R_r"}};
+    std::array<const char *, 5> gain_names {{"Qp_r", "Qv_r","Qp_f","Qv_f", "R_r"}};
 
-    std::array<std::pair<QuadMat, int>, 5> matrix{{{Qp_r, n_jpos},{Qv_r, n_jvel},
-                                                   {Qp_f, n_jpos},{Qv_f, n_jvel},
-                                                   {R_r, n_ctrl}}};
+    std::array<std::pair<QuadMat, int>, 5> matrix{{{Qp_r, n_jpos},{Qv_r, n_jvel},{Qp_f, n_jpos},{Qv_f, n_jvel},{R_r, n_ctrl}}};
 
     static int gain_selection = 0;
     constexpr const int buff_size = 5*n_jpos+n_jpos*2;
@@ -264,10 +249,10 @@ int main(int argc, const char** argv)
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    std::fstream cost_mpc(path + ("ilqr_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("ilqr_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("ilqr_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("ilqr_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + ("franka_ilqr_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("franka_ilqr_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("franka_ilqr_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("franka_ilqr_vel.csv"), std::fstream::out | std::fstream::trunc);
 
 /* ==================================================Simulation=======================================================*/
 
@@ -289,16 +274,17 @@ int main(int argc, const char** argv)
             // The same shit as below but with the opposite bool changed
             for(unsigned int elem = 0; elem < matrix.size(); ++elem)
             {
-                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem)); if(elem < matrix.size() - 1) ImGui::SameLine();
+                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem));
+                if(elem < matrix.size() - 1) ImGui::SameLine();
             }
 
             switch(gain_selection)
             {
-                case Qp_f : generate_input(input, buff_size, x_terminal_gain); break;
-                case Qv_f : generate_input(input, buff_size, x_terminal_gain, n_jpos); break;
-                case Qp_r : generate_input(input, buff_size, x_running_gain); break;
-                case Qv_r : generate_input(input, buff_size, x_running_gain, n_jpos); break;
-                case R_r : generate_input(input, buff_size, u_gain); break;
+                case Qp_f : generate_input(input, buff_size, cost_func._x_terminal_gain); break;
+                case Qv_f : generate_input(input, buff_size, cost_func._x_terminal_gain, n_jpos); break;
+                case Qp_r : generate_input(input, buff_size, cost_func._x_gain); break;
+                case Qv_r : generate_input(input, buff_size, cost_func._x_gain, n_jpos); break;
+                case R_r : generate_input(input, buff_size, cost_func._u_gain); break;
                 default: break;
             }
 
@@ -343,11 +329,16 @@ int main(int argc, const char** argv)
         {
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
-            std::cout << "Saved!" << std::endl;
             save_data = false;
+            std::cout << "Saved!" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
+
+    BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
+    d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     // free visualization storage
     mjv_freeScene(&scn);
     mjr_freeContext(&con);

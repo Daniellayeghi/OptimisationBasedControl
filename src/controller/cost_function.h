@@ -41,6 +41,10 @@ public:
     mjtNum terminal_cost(const mjData *d);
     mjtNum trajectory_running_cost(std::vector<state_vec> & x_trajectory, std::vector<ctrl_vec> & u_trajectory);
 
+    ctrl_mat  _u_gain;
+    state_mat _x_gain;
+    state_mat _x_terminal_gain;
+
 private:
     void update_errors(const mjData *d);
     void update_errors(state_vec &state, ctrl_vec &ctrl);
@@ -51,9 +55,7 @@ private:
     state_vec _x_error;
     ctrl_vec  _u_desired;
     state_vec _x_desired;
-    ctrl_mat  _u_gain;
-    state_mat _x_gain;
-    state_mat _x_terminal_gain;
+
 
     const mjModel* _m;
 };
