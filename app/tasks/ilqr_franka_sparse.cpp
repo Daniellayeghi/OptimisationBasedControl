@@ -128,7 +128,7 @@ static void generate_input(char * input, int buff_size, Eigen::Matrix<double, sq
             if (ss.peek() == ',')
                 ss.ignore();
             if (ss.peek() == ']')
-                    break;
+                break;
             ++iteration;
         }
     }
@@ -146,7 +146,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/franka_panda.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/franka_sparse_env.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -186,19 +186,19 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
     Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0,
-                                                                                  1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0,
+                                                                                  1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0;
     x_terminal_diag *= 100;
     x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10,
-                                                                                10, 10, 10, 10, 10, 10, 10, 10, 10;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0,
+                                                                                10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0;
     x_running_diag  *= 0;
     x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_running_gain; x_running_gain = x_running_diag.asDiagonal();
@@ -213,7 +213,7 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-   // initial position
+    // initial position
     d->qpos[0] = 0; d->qpos[1] = -M_PI/4; d->qpos[2] = 0; d->qpos[3] = -3*M_PI/4; d->qpos[4] = 0; d->qpos[5] = M_PI_2; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
@@ -226,7 +226,7 @@ int main(int argc, const char** argv)
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
-    DataBuffer d_buff;
+    DummyBuffer d_buff;
 
 /* ==================================================GUI Setup=======================================================*/
 
@@ -298,10 +298,10 @@ int main(int argc, const char** argv)
         {
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-//            ilqr.control(d);
+            ilqr.control(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
-         }
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // get framebuffer viewport

@@ -32,16 +32,16 @@
                             <joint name="panda0_joint5" range="-2.8973 2.8973" class="panda_forearm"/>
                             <geom class="panda_viz" mesh="link5_viz"/>
                             <geom class="panda_col" mesh="link5_col" mass="3.00049"/>
-                            <body name="panda0_link6" pos="0 0 0" euler='1.57 0 1.57'>
-                                <joint name="panda0_joint6" range="-1.6573 2.1127" class="panda_forearm"/>
-                                <!-- <body name="panda0_link6" pos="0 0 0" quat="0.707107 0.707107 0 0"> -->
-                                <!-- <joint name="panda0_joint6" range="-0.0873 3.8223" class="panda_forearm"/> -->
+<!--                            <body name="panda0_link6" pos="0 0 0" euler='1.57 0 1.57'>-->
+<!--                                <joint name="panda0_joint6" range="-1.6573 2.1127" class="panda_forearm"/>-->
+                             <body name="panda0_link6" pos="0 0 0" quat="0.707107 0.707107 0 0">
+                                <joint name="panda0_joint6" range="-0.0873 3.8223" class="panda_forearm"/>
                                 <geom class="panda_viz" mesh="link6_viz"/>
                                 <geom class="panda_col" mesh="link6_col" mass="1.3235"/>
                                 <body name="panda0_link7" pos="0.088 0 0" euler='1.57 0 0.7854'>
                                     <joint name="panda0_joint7" range="-2.8973 2.8973" class="panda_forearm"/>
-                                    <!-- <body name="panda0_link7" pos="0.088 0 0" quat="0.707107 0.707107 0 0"> -->
-                                    <!-- <joint name="panda0_joint7" range="-2.9671 2.9671" class="panda_forearm"/> -->
+<!--                                 <body name="panda0_link7" pos="0.088 0 0" quat="0.707107 0.707107 0 0">-->
+<!--                                 <joint name="panda0_joint7" range="-2.9671 2.9671" class="panda_forearm"/>-->
                                     <geom class="panda_viz" mesh="link7_viz"/>
                                     <geom class="panda_col" mesh="link7_col" mass="0.2"/>
                                     <geom pos="0 0 0.107" quat="0.92388 0 0 -0.382683" class="panda_viz" mesh="hand_viz"/>

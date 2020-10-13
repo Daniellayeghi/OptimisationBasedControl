@@ -10,6 +10,8 @@ find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(PythonInterp 3)
+find_package(PythonLibs   3)
 
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
@@ -56,3 +58,4 @@ add_subdirectory(src)
 add_subdirectory(app)
 add_subdirectory(test)
 add_subdirectory(third_party)
+add_subdirectory(bindings)
