@@ -1,12 +1,20 @@
 #include <pybind11/pybind11.h>
+#include <mujoco.h>
+
+
+const mjModel *m = nullptr;
+mjData  *d = nullptr;
+
 
 int add(int i, int j) {
+    char error[1000] = "Could not load binary model";
+    m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
     return i + j;
 }
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(example_binding, m) {
+PYBIND11_MODULE(example, m) {
     m.doc() = R"pbdoc(
         Pybind11 example plugin
         -----------------------

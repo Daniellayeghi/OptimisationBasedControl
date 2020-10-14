@@ -6,6 +6,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(pybind)
 
+find_package(PythonInterp 3)
+find_package(PythonLibs   3)
 
 if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
     INCLUDE_DIRECTORIES(
@@ -13,9 +15,8 @@ if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
             ${PYBIND11_INCLUDE_DIRS}
     )
 
-    pybind11_add_module(example example_binding.cpp)
-#    ADD_LIBRARY(example SHARED example_binding.cpp)
-
+    pybind11_add_module(example MODULE example_binding.cpp)
+    target_link_libraries(example PRIVATE ${LIB_MUJOCO})
     SET_TARGET_PROPERTIES( example
             PROPERTIES
             PREFIX ""
