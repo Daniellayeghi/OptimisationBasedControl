@@ -1,17 +1,27 @@
 #include <pybind11/pybind11.h>
 #include <mujoco.h>
+#include <iostream>
+
+mjModel *model = NULL;
+mjData  *d = NULL;
 
 
-const mjModel *m = nullptr;
-mjData  *d = nullptr;
-
-
-int add(int i, int j) {
+int load_file(std::string& file_path)
+{
     char error[1000] = "Could not load binary model";
-    m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
-    return i + j;
-}
+    mj_activate(MUJ_KEY_PATH);
 
+    if (not file_path.empty())
+        model = mj_loadXML(file_path.c_str(), 0, error, 1000);
+
+    if(!model)
+        mju_error_s("Load model error: %s", error);
+
+    std::cout << model->nq << std::endl;
+    return 0;
+ }
+
+ 
 namespace py = pybind11;
 
 PYBIND11_MODULE(example, m) {
