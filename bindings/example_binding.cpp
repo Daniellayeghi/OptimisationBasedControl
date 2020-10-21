@@ -1,12 +1,12 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <mujoco.h>
 #include <iostream>
 
-mjModel *model = NULL;
-mjData  *d = NULL;
+mjModel *model = nullptr;
+mjData  *d = nullptr;
 
-
-int load_file(std::string& file_path)
+void load_xml(std::string& file_path)
 {
     char error[1000] = "Could not load binary model";
     mj_activate(MUJ_KEY_PATH);
@@ -16,34 +16,22 @@ int load_file(std::string& file_path)
 
     if(!model)
         mju_error_s("Load model error: %s", error);
+}
 
-    std::cout << model->nq << std::endl;
-    return 0;
- }
 
- 
+void print_array(std::array<double, 4>& arr)
+{
+    for(auto & element : arr)
+        std::cout << element << std::endl;
+}
+
+
 namespace py = pybind11;
 
 PYBIND11_MODULE(example, m) {
-    m.doc() = R"pbdoc(
-        Pybind11 example plugin
-        -----------------------
-        .. currentmodule:: cmake_example
-        .. autosummary::
-           :toctree: _generate
-           add
-           subtract
-    )pbdoc";
 
-    m.def("add", &add, R"pbdoc(
-        Add two numbers
-        Some other explanation about the add function.
-    )pbdoc");
-
-    m.def("subtract", [](int i, int j) { return i - j; }, R"pbdoc(
-        Subtract two numbers
-        Some other explanation about the subtract function.
-    )pbdoc");
+    m.def("load_xml_file", &load_xml);
+    m.def("print", &print_array);
 
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;
