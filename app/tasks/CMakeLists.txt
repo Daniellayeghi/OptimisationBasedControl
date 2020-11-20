@@ -6,6 +6,7 @@ set(BINARIES
         ilqr_finger.cpp
         ilqr_franka.cpp
         ilqr_franka_sparse.cpp
+        ilqr_pendulum.cpp
         mppi_control_finger.cpp
         mppi_control_cartpole.cpp
         )
@@ -27,4 +28,5 @@ foreach(bin_file ${BINARIES})
     target_link_libraries(${BIN_NAME} control_lib)
     target_link_libraries(${BIN_NAME} util_lib)
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
+    target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
 endforeach(bin_file ${BINARIES})

@@ -24,8 +24,8 @@ public:
     ILQR(FiniteDifference<state_size, ctrl_size>& fd,
          CostFunction<state_size, ctrl_size>& cf,
          const mjModel * m,
-         const int simulation_time,
-         const int iteration,
+         int simulation_time,
+         int iteration,
          const mjData* d,
          const std::vector<ctrl_vec>* init_u = nullptr);
 
@@ -84,8 +84,8 @@ public:
     ctrl_vec _cached_control;
     std::vector<ctrl_vec> _u_traj;
     std::vector<double>   cost;
-    int _simulation_time = 0;
-    int _iteration       = 0;
+    const int _simulation_time;
+    const int _iteration;
 };
 
 

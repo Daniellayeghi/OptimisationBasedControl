@@ -1,0 +1,66 @@
+<mujoco model="finger">
+
+	<visual>
+		<headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
+		<map znear=".01"/>
+		<quality shadowsize="2048"/>
+	</visual>
+
+	<asset>
+		<texture name="skybox" type="skybox" builtin="gradient" rgb1=".4 .6 .8" rgb2="0 0 0"
+				 width="800" height="800" mark="random" markrgb="1 1 1"/>
+	</asset>
+
+	<asset>
+		<texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+		<material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+		<material name="self" rgba=".7 .5 .3 1"/>
+		<material name="self_default" rgba=".7 .5 .3 1"/>
+		<material name="self_highlight" rgba="0 .5 .3 1"/>
+		<material name="effector" rgba=".7 .4 .2 1"/>
+		<material name="effector_default" rgba=".7 .4 .2 1"/>
+		<material name="effector_highlight" rgba="0 .5 .3 1"/>
+		<material name="decoration" rgba=".3 .5 .7 1"/>
+		<material name="eye" rgba="0 .2 1 1"/>
+		<material name="target" rgba=".6 .3 .3 1"/>
+		<material name="target_default" rgba=".6 .3 .3 1"/>
+		<material name="target_highlight" rgba=".6 .3 .3 .4"/>
+	</asset>
+
+	<option timestep="0.01" cone="elliptic" iterations="20">
+		<flag gravity="enable"/>
+	</option>
+
+	<default>
+		<geom solimp="0 0.9 0.01" solref=".02 1"/>
+		<joint type="hinge" axis="0 -1 0"/>
+		<motor ctrllimited="true" ctrlrange="-1 1"/>
+		<default class="finger">
+			<site type="ellipsoid" size=".025 .03 .025" rgba=".5 .5 .5 .3" group="3"/>
+		</default>
+	</default>
+
+	<worldbody>
+		<light name="light" directional="true" diffuse=".6 .6 .6" pos="0 0 2" specular=".3 .3 .3"/>
+		<geom name="ground" type="plane" pos="0 0 -0.6" size=".6 .2 10" material="grid"/>
+		<camera name="cam0" pos="0 -1 .8" xyaxes="1 0 0 0 1 2"/>
+		<camera name="cam1" pos="0 -1 .4" xyaxes="1 0 0 0 0 1" />
+
+		<body name="proximal" pos="0 0 0.0" childclass="finger">
+			<geom name="proximal_decoration" type="cylinder" fromto="0 -.033 0 0 .033 0" size=".034" material="decoration"/>
+			<joint name="proximal" range="-130 -60" damping="0.015" limited="false"/>
+			<geom name="proximal" type="capsule" material="self" size=".03" fromto="0 0 0 0 0 -.3"/>
+		</body>
+	</worldbody>
+
+	<actuator>
+		<motor name="proximal" joint="proximal" gear="1"/>
+	</actuator>
+
+	<!-- All finger observations are functions of sensors. This is useful for finite-differencing. -->
+	<sensor>
+		<jointpos name="proximal" joint="proximal"/>
+		<jointvel name="proximal_velocity" joint="proximal"/>
+	</sensor>
+
+</mujoco>

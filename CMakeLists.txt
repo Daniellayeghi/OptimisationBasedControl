@@ -3,6 +3,7 @@ project(OptControl_MUJOCO)
 
 set(USE_GL 1)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 include(FetchContent)
 
 #add_compile_options(-Wall -Wextra)
@@ -10,6 +11,7 @@ find_package(autodiff REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(Torch REQUIRED)
 
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.

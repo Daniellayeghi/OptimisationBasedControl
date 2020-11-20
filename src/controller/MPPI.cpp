@@ -43,6 +43,7 @@ namespace
     }
 
 
+    // TODO: CLamp like ilqr and put clamping in some form of util
     template<int ctrl_size>
     void clamp_control(Eigen::Matrix<mjtNum, ctrl_size, 1>& control, mjtNum max_bound, mjtNum min_bound)
     {

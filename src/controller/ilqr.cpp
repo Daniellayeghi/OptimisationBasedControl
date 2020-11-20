@@ -62,7 +62,7 @@ namespace
     {
         for (auto row = 0; row < control.rows(); ++row)
         {
-            control(row, 0) = std::clamp(control(row, 0), limits[row * 2], limits[row * 2 + 1]);
+            control(row, 0) = std::clamp(control(row, 0),  limits[row * 2], limits[row * 2 + 1]);
         }
     }
 }
@@ -112,7 +112,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
 
     copy_data(m, d, _d_cp);
     fill_state_vector(d, _x_traj.front(), _m);
-    for (unsigned int time = 0; time < simulation_time; ++time)
+    for (int time = 0; time < simulation_time; ++time)
     {
         set_control_data(_d_cp, _u_traj[time]);
         mj_step(m, _d_cp);
@@ -241,7 +241,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
         for (auto time = 0; time < _simulation_time; ++time) {
             _u_traj_new[time] =
                     _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
-            clamp_control(_u_traj_new[time], _m->actuator_forcerange);
+            clamp_control(_u_traj_new[time], _m->actuator_ctrlrange);
             set_control_data(_d_cp, _u_traj_new[time]);
             mj_step(_m, _d_cp);
             fill_state_vector(_d_cp, _x_traj_new[time + 1], _m);

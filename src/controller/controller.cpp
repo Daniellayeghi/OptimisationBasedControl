@@ -57,10 +57,10 @@ controls(controls), _m(m), _d(d)
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
-//    for (auto row = 0; row < ctrl_size; ++row)
-//    {
-//        _d->ctrl[row] = controls._cached_control(row, 0);
-//    }
+    for (auto row = 0; row < ctrl_size; ++row)
+    {
+        _d->ctrl[row] = controls._cached_control(row, 0);
+    }
 }
 
 
