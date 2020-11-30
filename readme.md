@@ -13,7 +13,7 @@ To build the following dependencies are required:
 - Clone the repo.
 - Use the ```find_mjkey``` script to set MuJoCo key to variable ```MUJ_KEY_PATH```. Otherwise set it yourself.
 - Copy MuJoCo binaries to directory ``libraries``.
-- Make sure glfw is installed so cmake can linked to it.
+- Make sure glfw is installed so cmake can link to it.
 - Build
 ~~~
 cd OptimisationBasedControl
