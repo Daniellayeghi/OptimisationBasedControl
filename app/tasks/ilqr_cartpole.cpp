@@ -104,23 +104,6 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // main function
 int main(int argc, const char** argv)
 {
-    torch::jit::script::Module module;
-    try {
-        // Deserialize the ScriptModule from a file using torch::jit::load().
-        module = torch::jit::load("/home/daniel/Repos/mujoco_py_test/value_gradient/traced_value_model.pt");
-    }
-    catch (const c10::Error& e) {
-        std::cerr << "error loading the model\n";
-        return -1;
-    }
-
-    std::vector<torch::jit::IValue> inputs;
-    inputs.emplace_back(torch::zeros({1, 2}));
-
-    // Execute the model and turn its output into a tensor.
-    at::Tensor output = module.forward(inputs).toTensor();
-    std::cout << output.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
-    // activate software
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model

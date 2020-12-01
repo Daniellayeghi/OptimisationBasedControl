@@ -6,7 +6,6 @@ set(BINARIES
         ilqr_finger.cpp
         ilqr_franka.cpp
         ilqr_franka_sparse.cpp
-        ilqr_pendulum.cpp
         mppi_control_finger.cpp
         mppi_control_cartpole.cpp
         )
