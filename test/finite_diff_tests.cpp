@@ -185,9 +185,9 @@ TEST_F(SolverTests, Finite_Difference_Ctrl_Jacobian_Stable_Equilibrium_NULL)
     Eigen::Matrix<double, 4, 2> result_ref;
 
     result_ref << 0.00384395, -0.00518951,
-            -0.00518951,  0.01911017,
-            0.38439548, -0.51895131,
-            -0.51895131,  1.91101738;
+                 -0.00518951,  0.01911017,
+                  0.38439548, -0.51895131,
+                 -0.51895131,  1.91101738;
 
     ASSERT_TRUE(result_ref.isApprox(result, .00001));
 }

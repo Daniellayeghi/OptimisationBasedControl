@@ -15,3 +15,8 @@ target_link_libraries(solver_tests gtest_main gtest util_lib Eigen3::Eigen)
 target_link_libraries(solver_tests libglew.so libglfw.so libglewegl.so libglewosmesa.so)
 target_link_libraries(solver_tests ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
 target_link_libraries(solver_tests glut)
+
+
+add_executable(open_mp_tests open_mp_tests.cpp)
+target_link_libraries(open_mp_tests gtest_main gtest util_lib Eigen3::Eigen)
+target_link_libraries(open_mp_tests OpenMP::OpenMP_CXX)
