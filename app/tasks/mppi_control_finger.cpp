@@ -166,7 +166,7 @@ int main(int argc, const char** argv)
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
 
-    MPPIParams params {400, 50, 0.99, 500};
+    MPPIParams params {200, 75, 0.99, 1000};
 
     QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
     MPPI<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -179,7 +179,7 @@ int main(int argc, const char** argv)
     DataBuffer d_buff;
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -0.8;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = M_PI;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";

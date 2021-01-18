@@ -7,8 +7,8 @@
 #include <iostream>
 
 //TODO: Break this out to a separate cost class
-#define FINGER 0
-#define CARTPOLE 1
+#define FINGER 1
+#define CARTPOLE 0
 
 #if FINGER
 template<int state_size, int ctrl_size>
