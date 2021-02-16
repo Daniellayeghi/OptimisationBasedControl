@@ -1,13 +1,51 @@
-
+// Created by majed on 12/02/2021.
+#include <omp.h>
 #include "mujoco.h"
+#include "cstdio"
+#include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../../src/parameters/simulation_params.h"
-#include "../../src/utilities/basic_math.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 
+
+#if 0 // testing omp speeds
+int main()
+{
+    Eigen::Matrix<double, 2, 1> input;
+    input << 1, 0;
+    double inputsA[100];
+    double inputsB[100];
+    Eigen::Matrix<double, 2, 1> inputs[100][8];
+    /*
+    Eigen::Matrix<double, 2, 1> zero;
+    zero.setZero();
+    std::vector<Eigen::Matrix<double, 2, 1>> inputs(100, zero);
+     */
+    // std::vector<Eigen::Matrix<double, 2, 1>> inputs;
+    double run_time = 0.0;
+    omp_set_num_threads(2);
+#if 1
+#pragma omp parallel default(none) shared(inputs) firstprivate(input) private (run_time)
+    {
+        double start_time = omp_get_wtime();
+        #pragma omp for nowait
+        for(int i = 0; i < 100; ++i)
+        {
+            inputs[i][0] = input;
+            // inputs.emplace_back(input);
+        }
+
+        run_time = omp_get_wtime() - start_time;
+        printf("Last Thread time: %.7f \n", run_time);
+    }
+#endif
+    std::cout << inputs[90][0]<< std::endl;
+    return 0;
+}
+#else
 
 // for sleep timers
 #include <chrono>
@@ -38,7 +76,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END)
+    if( act==GLFW_PRESS && key==GLFW_KEY_END )
     {
         save_data = true;
     }
@@ -100,10 +138,10 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-
 // main function
 int main(int argc, const char** argv)
 {
+    // activate software
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
@@ -111,7 +149,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/Acrobot.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -125,6 +163,7 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
+    m->opt.timestep = 0.01;
     // make data
     d = mj_makeData(m);
 
@@ -152,7 +191,7 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0;
     Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
@@ -160,20 +199,18 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 5000;
-    x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
+    x_terminal_gain *= 11000;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_gain *= 0;
+    x_gain *= 20;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 50;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -185,15 +222,15 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
+    d->qpos[0] = M_PI + 0.5; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> R;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    QRCost<n_jpos + n_jvel, n_ctrl> qrcost(R, Q, x_state_1, u_control_1);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 75, 1, d, nullptr);
+
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
@@ -202,15 +239,16 @@ int main(int argc, const char** argv)
 
     DummyBuffer d_buff;
 
-/* ============================================CSV Output Files=======================================================*/
+    /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + ("acrobot_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("acrobot_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("acrobot_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("acrobot_vel.csv"), std::fstream::out | std::fstream::trunc);
 
 /* ==================================================Simulation=======================================================*/
+
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
@@ -218,7 +256,6 @@ int main(int argc, const char** argv)
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
-
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
@@ -268,3 +305,5 @@ int main(int argc, const char** argv)
 #endif
     return 1;
 }
+
+#endif

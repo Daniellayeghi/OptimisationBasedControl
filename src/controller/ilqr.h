@@ -8,6 +8,18 @@
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 
+#define SAMPLE_SIZE 200
+#define PADDING 8
+
+struct MPPIParams
+{
+    int m_k_samples  = 0;
+    int m_sim_time   = 0;
+    float m_variance = 0;
+    float m_lambda   = 0;
+};
+
+
 template<int state_size, int ctrl_size>
 class ILQR
 {
@@ -79,8 +91,15 @@ private:
     mjtNum min_bound = -1;
     mjtNum max_bound = 1;
 
+    // added sampling members
+    const MPPIParams m_params;
+
+    ctrl_vector m_control[SAMPLE_SIZE][PADDING];
+    double m_delta_cost_to_go[SAMPLE_SIZE][PADDING];
+
 public:
 
+    double traj_cost;
     ctrl_vec _cached_control;
     std::vector<ctrl_vec> _u_traj;
     std::vector<double>   cost;

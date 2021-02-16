@@ -56,6 +56,17 @@ namespace
         }
     }
 
+    template<int state_size>
+    inline void fill_state_vector(mjData* data, Eigen::Matrix<double, state_size, 1>& state)
+    {
+        for(auto row = 0; row < state.rows()/2; ++row)
+        {
+//            state(row, 0) = BasicMath::wrap_to_min_max(data->qpos[row],-M_PI, M_PI);
+            state(row, 0) = data->qpos[row];
+            state(row+state.rows()/2, 0) = data->qvel[row];
+        }
+    }
+
 
     template<int rows, int cols>
     void clamp_control(Eigen::Matrix<mjtNum, rows, cols>& control, const mjtNum * limits)
@@ -101,6 +112,11 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
     _x_traj_new.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
     _x_traj.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
     _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+
+    // initialize sampling members
+    m_delta_cost_to_go = {0};
+    m_control = {0};
+    traj_cost = 0;
 
     if(init_u == nullptr)
     {
@@ -203,6 +219,116 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         recalculate = false;
     }
 }
+
+
+#if 1   // Parallel Sampling + gradient method forward_simulator
+
+// m_sate + _x_traj ?
+template<int state_size, int ctrl_size>
+void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
+{
+    if (recalculate)
+    {
+        fill_state_vector(_d_cp , _x_traj.front());
+        std::fill(std::begin(m_delta_cost_to_go), std::end(m_delta_cost_to_go), 0);
+
+        copy_data(_m, d, _d_cp);
+        for (auto time = 0; time < _simulation_time; ++time)
+        {
+            // Parallel threads sample iteration
+            omp_set_num_threads(OMP_NUM_THREADS);
+            #pragma omp parallel default(none) shared(m_param) firstprivate(_d_cp, _m)
+            {
+                double start_time = omp_get_wtime();
+                #pragma omp for
+                for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
+                {
+                    m_delta_control[sample] = m_params.m_variance * ctrl_vec::Random();
+                    ctrl_vec instant_control = m_control[time] + m_delta_control[sample][0];
+
+                    /* TODO:: Need to understand how m_control is being used if it needs to be retained over time
+                     * Change the cost function calculation to fit into to parallel loop 
+                     */
+                    // Forward simulate controls
+                    set_control_data(m_d_cp, instant_control);
+                    mj_step(_m, _d_cp);
+                    state_vec m_state;
+                    fill_state_vector(m_d_cp, m_state);
+
+                    // Compute cost-to-go of the controls
+                    m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func(m_state[time + 1],
+                                                                                          m_control[time],
+                                                                                          m_delta_control[sample],
+                                                                                          m_params.m_variance);
+
+                    m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
+                    traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0)/m_delta_cost_to_go.size();
+                    m_delta_control.back()[sample] = m_params.m_variance * ctrl_vector::Random();
+
+                }
+                double run_time = omp_get_wtime() - start_time;
+            };
+
+            traj_cost /= m_params.m_k_samples;
+            compute_control_trajectory();
+
+            set_control_data(_d_cp, _u_traj[time]);
+            _l[time] = _cf.running_cost(_d_cp);
+            _l_u[time] = (_cf.L_u(_d_cp));
+            _l_x[time] = (_cf.L_x(_d_cp));
+            _l_xx[time] = (_cf.L_xx(_d_cp));
+            _l_ux[time] = (_cf.L_ux(_d_cp));
+            _l_uu[time] = (_cf.L_uu(_d_cp));
+            _fd.f_x_f_u(_d_cp);
+            _f_x[time] = (_fd.f_x());
+            _f_u[time] = (_fd.f_u());
+            mj_step(_m, _d_cp);
+        }
+        _l.back()    = _cf.terminal_cost(_d_cp);
+        _l_x.back()  = _cf.Lf_x(_d_cp);
+        _l_xx.back() = _cf.Lf_xx();
+        copy_data(_m, d, _d_cp);
+        _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
+        recalculate = false;
+    }
+}
+
+/* // Original MPPI control function contents
+ * MPPI<state_size, ctrl_size>::ctrl_vector instant_control;
+
+    fill_state_vector(m_d_cp, m_state.front());
+    std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
+
+    for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
+    {
+        copy_data(m_m, d, m_d_cp);
+        for (auto time = 0; time < m_params.m_sim_time - 1; ++time)
+        {
+            // u += du -> du ~ N(0, variance)
+            m_delta_control[time][sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
+            instant_control = m_control[time] + m_delta_control[time][sample];
+
+            // Forward simulate controls
+            set_control_data(m_d_cp, instant_control);
+            mj_step(m_m, m_d_cp);
+            fill_state_vector(m_d_cp, m_state[time + 1]);
+
+            // Compute cost-to-go of the controls
+            m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func(m_state[time + 1],
+                                                                                  m_control[time],
+                                                                                  m_delta_control[time][sample],
+                                                                                   m_params.m_variance);
+        }
+        m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
+        traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0)/m_delta_cost_to_go.size();
+        m_delta_control.back()[sample] = m_params.m_variance * MPPI<state_size, ctrl_size>::ctrl_vector::Random();
+    }
+    traj_cost /= m_params.m_k_samples;
+    compute_control_trajectory();
+*/
+
+
+#endif
 
 
 // TODO: make data const if you can

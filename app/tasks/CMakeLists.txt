@@ -1,4 +1,4 @@
-
+find_package(OpenMP)
 set(BINARIES
         ilqr_cartpole.cpp
         ilqr_control.cpp
@@ -8,6 +8,7 @@ set(BINARIES
         ilqr_franka_sparse.cpp
         mppi_control_finger.cpp
         mppi_control_cartpole.cpp
+        openmp_test.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
@@ -28,4 +29,5 @@ foreach(bin_file ${BINARIES})
     target_link_libraries(${BIN_NAME} util_lib)
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
     target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
+    target_link_libraries(${BIN_NAME} OpenMP::OpenMP_CXX)
 endforeach(bin_file ${BINARIES})
