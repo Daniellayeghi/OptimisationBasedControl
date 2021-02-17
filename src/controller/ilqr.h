@@ -94,7 +94,7 @@ private:
     // added sampling members
     const MPPIParams m_params;
 
-    ctrl_vector m_control[SAMPLE_SIZE][PADDING];
+    ctrl_vec m_control[SAMPLE_SIZE][PADDING];
     double m_delta_cost_to_go[SAMPLE_SIZE][PADDING];
 
 public:
