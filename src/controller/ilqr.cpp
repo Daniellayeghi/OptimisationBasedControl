@@ -49,10 +49,6 @@ namespace
 
         for (unsigned int row = 0; row < state_size / 2; ++row) {
             state(row, 0) = data->qpos[row];
-
-            int jid = m->dof_jntid[row];
-            if (m->jnt_type[jid] == mjJNT_HINGE)
-                state(row, 0) = BasicMath::wrap_to_2pi(data->qpos[row]);
         }
     }
 

@@ -8,30 +8,26 @@
 
 namespace InternalTypes
 {
-    using Mat3x3 = Eigen::Matrix<mjtNum, 3, 3>;
-    using Mat2x1 = Eigen::Matrix<mjtNum, 2, 1>;
-    using Mat1x2 = Eigen::Matrix<mjtNum, 2, 1>;
-    using Mat2x2 = Eigen::Matrix<mjtNum, 2, 2>;
-    using Mat2x4 = Eigen::Matrix<mjtNum, 2, 4>;
-    using Mat3x6 = Eigen::Matrix<mjtNum, 3, 6>;
-    using Mat3x9 = Eigen::Matrix<mjtNum, 3, 9>;
-    using Mat9x1 = Eigen::Matrix<mjtNum, 9, 1>;
-    using Mat9x2 = Eigen::Matrix<mjtNum, 9, 2>;
-    using Mat9x3 = Eigen::Matrix<mjtNum, 9, 3>;
-    using Mat9x9 = Eigen::Matrix<mjtNum, 9, 9>;
-    using Mat6x3 = Eigen::Matrix<mjtNum, 6, 3>;
-    using Mat6x1 = Eigen::Matrix<mjtNum, 6, 1>;
-    using Mat6x6 = Eigen::Matrix<mjtNum, 6, 6>;
-    using Mat6x9 = Eigen::Matrix<mjtNum, 6, 9>;
-    using Mat4x2 = Eigen::Matrix<mjtNum, 4, 2>;
-    using Mat4x4 = Eigen::Matrix<mjtNum, 4, 4>;
-    using Mat4x1 = Eigen::Matrix<mjtNum, 4, 1>;
-    using Mat4x6 = Eigen::Matrix<mjtNum, 4, 6>;
+    template<typename T, int state_size, int ctrl_size>
+    struct SystemTypes
+    {
+        using ctrl_vector  = Eigen::Matrix<T, ctrl_size, 1>;
+        using state_vector = Eigen::Matrix<T, state_size, 1>;
+    };
+
+
+    template<typename T, int state_size, int ctrl_size>
+    struct CostTypes
+    {
+        using ctrl_cost  = Eigen::Matrix<T, ctrl_size, ctrl_size>;
+        using state_cost = Eigen::Matrix<T, state_size, state_size>;
+    };
 }
 
 
 namespace AutoDiffTypes
 {
+    using namespace InternalTypes;
     using inner_derivative_type4x1 = Eigen::Matrix<double, 8, 1>;
     using inner_active_scalar4x1   = Eigen::AutoDiffScalar<inner_derivative_type4x1>;
     using outer_derivative_type4x1 = Eigen::Matrix<inner_active_scalar4x1, 8, 1>;

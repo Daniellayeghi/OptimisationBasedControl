@@ -18,10 +18,6 @@ namespace
         for(unsigned int row = 0; row < state_size/2; ++row)
         {
             x(row, 0) = state->qpos[row];
-
-            int jid = m->dof_jntid[row];
-            if(m->jnt_type[jid] == mjJNT_HINGE)
-                x(row, 0) = BasicMath::wrap_to_2pi(state->qpos[row]);
         }
 
         for(unsigned int row = 0; row < ctrl_size; ++row)
@@ -65,12 +61,9 @@ inline void CostFunction<state_size, ctrl_size>::update_errors(state_vec& state,
 {
     for(unsigned int row = 0; row < state_size/2; ++row)
     {
-        int jid = _m->dof_jntid[row];
-        if(_m->jnt_type[jid] == mjJNT_HINGE)
-            state(row, 0) = BasicMath::wrap_to_2pi(state(row, 0));
+        state(row, 0) = state(row, 0);
     }
     _x_error = state - _x_desired;
-
     _u_error = ctrl;
 }
 
@@ -102,7 +95,7 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
     {
         int jid = _m->dof_jntid[row];
         if(_m->jnt_type[jid] == mjJNT_HINGE)
-            x_trajectory.back()(row, 0) = BasicMath::wrap_to_2pi(x_trajectory.back()(row, 0));
+            x_trajectory.back()(row, 0) = x_trajectory.back()(row, 0);
     }
     _x_error =  _x_desired - x_trajectory.back();
     //Running cost + terminal cost
