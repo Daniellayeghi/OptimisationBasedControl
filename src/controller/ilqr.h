@@ -7,17 +7,10 @@
 #include "../utilities/internal_types.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
+#include "MPPI.h"
 
 #define SAMPLE_SIZE 200
 #define PADDING 8
-
-struct MPPIParams
-{
-    int m_k_samples  = 0;
-    int m_sim_time   = 0;
-    float m_variance = 0;
-    float m_lambda   = 0;
-};
 
 
 template<int state_size, int ctrl_size>
@@ -40,6 +33,15 @@ public:
          int iteration,
          const mjData* d,
          const std::vector<ctrl_vec>* init_u = nullptr);
+
+    ILQR(FiniteDifference<state_size, ctrl_size>& fd,
+            CostFunction<state_size, ctrl_size>& cf,
+    const mjModel * m,
+    const int simulation_time,
+    const int iteration,
+    const mjData* d,
+    const std::vector<ctrl_vec>* init_u,
+    const MPPIParams& params);
 
     ~ILQR();
 
@@ -91,10 +93,15 @@ private:
     mjtNum min_bound = -1;
     mjtNum max_bound = 1;
 
-    // added sampling members
+    // added OpenMP sampling members
+    QRCost<state_size, ctrl_size> m_cost_func;
+    ctrl_vec total_step_entropy(const ctrl_vec delta_control_samples[][PADDING],
+                       const double d_cost_to_go_samples[][PADDING]) const;
+    void compute_control_trajectory();
     const MPPIParams m_params;
 
     ctrl_vec m_control[SAMPLE_SIZE][PADDING];
+    ctrl_vec m_delta_control[SAMPLE_SIZE][PADDING];
     double m_delta_cost_to_go[SAMPLE_SIZE][PADDING];
 
 public:

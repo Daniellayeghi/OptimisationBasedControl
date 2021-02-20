@@ -7,6 +7,7 @@
 #include <omp.h>
 
 #define OMP_NUM_THREADS 2
+#define USE_OPENMP 1
 
 namespace
 {
@@ -91,6 +92,70 @@ ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   const int simulation_time,
                                   const int iteration,
                                   const mjData* d,
+                                  const std::vector<ILQR<state_size, ctrl_size>::ctrl_vec>* init_u,
+                                  const MPPIParams& params) :
+_fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration), m_params(params)
+{
+    _d_cp = mj_makeData(m);
+    _prev_total_cost = 0;
+    _regularizer.setIdentity();
+
+    _l.assign(_simulation_time + 1, 0);
+    _l_x.assign(simulation_time + 1, ilqr_t::state_vec::Zero());
+    _l_xx.assign(simulation_time + 1, ilqr_t::state_mat::Zero());
+    _l_u.assign(simulation_time, ilqr_t::ctrl_vec::Zero());
+    _l_ux.assign(simulation_time, ilqr_t::ctrl_state_mat::Zero());
+    _l_uu.assign(simulation_time, ilqr_t::ctrl_mat::Zero());
+
+    _f_x.assign(simulation_time, ilqr_t::state_mat::Zero());
+    _f_u.assign(simulation_time, ilqr_t::state_ctrl_mat::Zero());
+
+    _fb_K.assign(_simulation_time, ilqr_t::ctrl_state_mat ::Zero());
+    _ff_k.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+
+    _x_traj_new.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
+    _x_traj.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
+    _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+
+    // initialize sampling members
+    // m_delta_cost_to_go = {};
+    m_control = {};
+    traj_cost = 0.0;
+    // m_params = {};
+
+    if(init_u == nullptr)
+    {
+        _u_traj.assign(_simulation_time,ilqr_t::ctrl_vec::Random() * 0);
+    }else
+    {
+        _u_traj = *init_u;
+    }
+
+    copy_data(m, d, _d_cp);
+    fill_state_vector(d, _x_traj.front(), _m);
+    for (int time = 0; time < simulation_time; ++time)
+    {
+        set_control_data(_d_cp, _u_traj[time]);
+        mj_step(m, _d_cp);
+        fill_state_vector(_d_cp, _x_traj[time+1], _m);
+    }
+    copy_data(m, d, _d_cp);
+
+    _backtrackers =  {{1.00000000e+00, 9.09090909e-01,
+                       6.83013455e-01, 4.24097618e-01,
+                       2.17629136e-01, 9.22959982e-02,
+                       3.23491843e-02, 9.37040641e-03,
+                       2.24320079e-03, 4.43805318e-04}};
+}
+
+
+template<int state_size, int ctrl_size>
+ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
+                                  CostFunction<state_size, ctrl_size>& cf,
+                                  const mjModel * m,
+                                  const int simulation_time,
+                                  const int iteration,
+                                  const mjData* d,
                                   const std::vector<ILQR<state_size, ctrl_size>::ctrl_vec>* init_u) :
 _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration)
 {
@@ -145,6 +210,8 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
                        3.23491843e-02, 9.37040641e-03,
                        2.24320079e-03, 4.43805318e-04}};
 }
+
+
 
 
 template<int state_size, int ctrl_size>
@@ -226,6 +293,50 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
 
 #else  // Parallel Sampling + gradient method forward_simulator
 
+double accumulate_padded_array(double arr[][PADDING], int start_index, int end_index)
+{
+    double sum = 0.0;
+    for(int i = start_index; i < end_index; ++i)
+    {
+        sum += arr[i][0];
+    }
+
+    return sum;
+}
+
+template<int state_size, int ctrl_size>
+typename ILQR<state_size, ctrl_size>::ctrl_vec
+ILQR<state_size, ctrl_size>::total_step_entropy(const ctrl_vec delta_control_samples[][PADDING],
+                                           const double d_cost_to_go_samples[][PADDING]) const
+{
+    ctrl_vec numerator = ctrl_vec::Zero();
+    double denomenator =  0;
+    for (int i = 0; i < m_params.m_k_samples; ++i)
+    {
+        denomenator += (std::exp(-(1 / m_params.m_lambda) * d_cost_to_go_samples[i][0]));
+    }
+
+    for (unsigned long col = 0; col < m_params.m_k_samples; ++col)
+    {
+        numerator += (std::exp(-(1 / m_params.m_lambda) * d_cost_to_go_samples[col][0]) * delta_control_samples[col][0]);
+    }
+    return numerator/denomenator;
+}
+
+template <int state_size, int ctrl_size>
+void ILQR<state_size, ctrl_size>::compute_control_trajectory()
+{
+    for (auto time = 0; time < m_params.m_sim_time; ++time)
+    {
+        m_control[time] += (total_entropy(m_delta_control[time], m_delta_cost_to_go));
+    }
+
+    _cached_control = m_control.front();
+
+    std::rotate(m_control.begin(), m_control.begin() + 1, m_control.end());
+    m_control.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
+}
+
 // m_sate + _x_traj ?
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
@@ -238,10 +349,9 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         copy_data(_m, d, _d_cp);
         for (auto time = 0; time < _simulation_time; ++time)
         {
-            ctrl_vec m_delta_control[SAMPLE_SIZE][PADDING] = {};
             // Parallel threads sample iteration
             omp_set_num_threads(OMP_NUM_THREADS);
-            #pragma omp parallel default(none) shared(m_params) firstprivate(_d_cp, _m)
+            #pragma omp parallel default(none) shared(m_params, m_delta_control) firstprivate(_d_cp, _m)
             {
                 double start_time = omp_get_wtime();
                 #pragma omp for
@@ -254,6 +364,7 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
                      * Change the cost function calculation to fit into to parallel loop
                      * Need to transfer values to added member variables
                      */
+
                     // Forward simulate controls
                     set_control_data(_d_cp, instant_control);
                     mj_step(_m, _d_cp);
@@ -261,14 +372,15 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
                     fill_state_vector(_d_cp, m_state);
 
                     // Compute cost-to-go of the controls
-                    m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func(m_state[time + 1],
-                                                                                          m_control[time],
-                                                                                          m_delta_control[sample],
+                    m_delta_cost_to_go[sample][0] = m_delta_cost_to_go[sample][0] + m_cost_func(m_state,
+                                                                                          m_control[time][0],
+                                                                                          m_delta_control[sample][0],
                                                                                           m_params.m_variance);
                     // Need to rewrite this section to use array indexing for last value passed to m_delta_cost_to_go i.e. equivalent to end()
-                    m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
-                    traj_cost += std::accumulate(std::begin(m_delta_cost_to_go), std::end(m_delta_cost_to_go), 0.0)/(sizeof(m_delta_cost_to_go)/sizeof(m_delta_cost_to_go[0][0]));
-                    // m_delta_control.back()[sample][0] = m_params.m_variance * ctrl_vec::Random();
+                    m_delta_cost_to_go[sample][0] = m_delta_cost_to_go[sample][0] + m_cost_func.terminal_cost(m_state);
+                    traj_cost += accumulate_padded_array(m_delta_cost_to_go, 0, sample) /
+                            (sizeof(m_delta_cost_to_go)/ (PADDING * sizeof(m_delta_cost_to_go[0][0])));
+                    m_delta_control[sample][0] = m_params.m_variance * ctrl_vec::Random();
 
                 }
                 double run_time = omp_get_wtime() - start_time;
