@@ -5,6 +5,9 @@
 #include <functional>
 #include <mujoco.h>
 #include "eigen3/Eigen/Core"
+#include "torch/script.h"
+
+
 using namespace Eigen;
 #include "../utilities/internal_types.h"
 
@@ -27,7 +30,7 @@ public:
                  const state_mat& x_gain,
                  const ctrl_mat& u_gain,
                  const state_mat& x_terminal_gain,
-                 const mjModel* model);
+                 const mjModel* model, torch::jit::script::Module* module = nullptr);
 
     state_vec L_x(const mjData *d);
     ctrl_vec  L_u(const mjData *d);
@@ -35,7 +38,7 @@ public:
     ctrl_mat L_uu(const mjData *d);
     state_ctrl_mat L_ux(const mjData *d);
     state_vec Lf_x(const mjData *d);
-    state_mat Lf_xx();
+    state_mat Lf_xx(const mjData *d);
 
     mjtNum running_cost(const mjData *d);
     mjtNum terminal_cost(const mjData *d);
@@ -56,7 +59,7 @@ private:
     ctrl_vec  _u_desired;
     state_vec _x_desired;
 
-
+    torch::jit::script::Module* _module = nullptr;
     const mjModel* _m;
 };
 

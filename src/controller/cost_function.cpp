@@ -3,6 +3,7 @@
 #include "../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
+
 namespace
 {
 
@@ -29,6 +30,8 @@ namespace
             u(row, 0) = state->ctrl[row];
         }
     }
+
+    std::vector<torch::jit::IValue> inputs;
 }
 
 
@@ -40,13 +43,16 @@ CostFunction<state_size, ctrl_size>::CostFunction(const state_vec& x_desired,
                                                   const state_mat& x_gain,
                                                   const ctrl_mat& u_gain,
                                                   const state_mat& x_terminal_gain,
-                                                  const mjModel* m) : _m(m)
+                                                  const mjModel* m, torch::jit::script::Module * module) :
+                                                  _m(m),
+                                                  _module(module)
 {
     _u_desired = u_desired;
     _x_desired = x_desired;
     _x_gain = x_gain;
     _u_gain = u_gain;
     _x_terminal_gain = x_terminal_gain;
+    inputs.emplace_back(torch::empty({1, 2}));
 }
 
 
@@ -113,8 +119,21 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
 template<int state_size, int ctrl_size>
 mjtNum CostFunction<state_size, ctrl_size>::terminal_cost(const mjData *d)
 {
+
     update_errors(d);
-    return (_x_error.transpose() * _x_terminal_gain * _x_error)(0, 0);
+    mjtNum final_cost = (_x_error.transpose() * _x_terminal_gain * _x_error)(0, 0);
+    if (_module)
+    {
+        using namespace SimulationParameters;
+        Eigen::Matrix<float, n_jpos+n_jvel, 1> x_f = _x.template cast<float>();
+        inputs.front() = torch::from_blob(x_f.data(), {1, 2});
+        at::Tensor value = _module->forward(inputs).toTensor();
+        auto value_a = value.accessor<float, 2>();
+        final_cost += final_cost + value_a[0][0];
+    }
+
+    std::cout << final_cost << "\n";
+    return final_cost;
 }
 
 
@@ -122,13 +141,48 @@ template<int state_size, int ctrl_size>
 Eigen::Matrix<mjtNum, state_size, 1> CostFunction<state_size, ctrl_size>::Lf_x(const mjData *d)
 {
     update_errors(d);
-    return  _x_error.transpose() * (2 *_x_terminal_gain);
+    Eigen::Matrix<double, state_size, 1> v_d; v_d.setZero();
+
+    if (_module)
+    {
+        auto wrap_val = [&](Eigen::Matrix<double, state_size, 1> & state_vec) {
+            using namespace SimulationParameters;
+            Eigen::Matrix<float, n_jpos + n_jvel, 1> x_f = state_vec.template cast<float>();
+            inputs.front() = torch::from_blob(x_f.data(), {1, 2});
+            at::Tensor value = _module->forward(inputs).toTensor();
+            auto value_a = value.accessor<float, 2>();
+            return value_a[0][0];
+        };
+
+        Eigen::Matrix<double, state_size, 1> perturb_state;
+
+        for(int state = 0; state < state_size; ++state)
+        {
+            perturb_state.setZero();
+            perturb_state(state, 0) += 1e-8;
+            perturb_state = _x + perturb_state;
+            v_d(state, 0) = (wrap_val(perturb_state) - wrap_val(_x))/1e-8;
+        }
+    }
+    std::cout << v_d << "\n";
+    return  (_x_error.transpose() * (2 *_x_terminal_gain)).transpose() + v_d;
 }
 
 
 template<int state_size, int ctrl_size>
-Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx()
+Eigen::Matrix<mjtNum, state_size, state_size> CostFunction<state_size, ctrl_size>::Lf_xx(const mjData* d)
 {
+    update_errors(d);
+    auto wrap_val = [&](Eigen::Matrix<double, state_size, 1> & state_vec) {
+        using namespace SimulationParameters;
+        Eigen::Matrix<float, n_jpos + n_jvel, 1> x_f = state_vec.template cast<float>();
+        inputs.front() = torch::from_blob(x_f.data(), {1, 2});
+        at::Tensor value = _module->forward(inputs).toTensor();
+        auto value_a = value.accessor<float, 2>();
+        return value_a[0][0];
+    };
+
+
     return  2 *_x_terminal_gain;
 }
 

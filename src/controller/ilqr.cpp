@@ -197,7 +197,7 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         }
         _l.back()    = _cf.terminal_cost(_d_cp);
         _l_x.back()  = _cf.Lf_x(_d_cp);
-        _l_xx.back() = _cf.Lf_xx();
+        _l_xx.back() = _cf.Lf_xx(_d_cp);
         copy_data(_m, d, _d_cp);
         _prev_total_cost = std::accumulate(_l.begin(), _l.end(), 0.0);
         recalculate = false;
