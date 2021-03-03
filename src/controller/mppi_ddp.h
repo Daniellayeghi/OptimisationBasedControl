@@ -48,6 +48,7 @@ public:
                           control.template transpose() * m_ctrl_variance_inv * control)(0, 0);
 
 
+        std::cout << "ddp: " << ddp_bias << std::endl;
         return (ddp_bias + pi_bias) * lambda;
     }
 

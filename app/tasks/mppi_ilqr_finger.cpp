@@ -189,20 +189,21 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    MPPIDDPParams params {10, 75, 0.999, 1, 1000};
+    MPPIDDPParams params {30, 75, 0.999, 1, 1};
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
     Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
-        ddp_var.diagonal()[elem] = 0.000000005;
+        ddp_var.diagonal()[elem] = 1;
     }
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> state_reg; state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos + n_jvel; ++elem)
+    for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        state_reg.diagonal()[elem] = 0;
+        state_reg.diagonal()[elem + n_jvel] = 200;
+        state_reg.diagonal()[elem] = 1000;
     }
 
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(ddp_var.inverse(), ctrl_var.inverse(), state_reg, x_desired, u_desired);
