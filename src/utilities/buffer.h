@@ -34,6 +34,7 @@ class DataBuffer : public BaseBuffer<DataBuffer>
 
     void fill(const mjData *data)
     {
+        using namespace Eigen;
         Eigen::Map<RowVectorXd> pos(data->qpos, n_jpos);
         Eigen::Map<RowVectorXd> vel(data->qpos, n_jvel);
         Eigen::Map<RowVectorXd> ctrl(data->ctrl, n_ctrl);

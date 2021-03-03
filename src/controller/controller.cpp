@@ -3,15 +3,16 @@
 #include <chrono>
 #include <random>
 #include "controller.h"
-#include "../utilities/finite_diff.h"
-#include "../utilities/internal_types.h"
 #include "cost_function.h"
 #include "../parameters/simulation_params.h"
-#include "../utilities/basic_math.h"
+#include "ilqr.h"
+#include "MPPI.h"
+#include "mppi_ddp.h"
 
 using namespace SimulationParameters;
 static MyController<MPPI<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi;
 static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr ;
+static MyController<MPPIDDP<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp ;
 static int _mark;
 
 #define myFREESTACK d->pstack = _mark;
@@ -61,6 +62,7 @@ void MyController<T, state_size, ctrl_size>::controller()
     {
         _d->ctrl[row] = controls._cached_control(row, 0);
     }
+    std::cout << controls._cached_control << std::endl;
 }
 
 
@@ -75,6 +77,11 @@ void MyController<T, state_size, ctrl_size>::set_instance(MyController<T, state_
     {
         my_ctrl_mppi = myctrl;
     }
+
+    else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
+    {
+        my_ctrl_mppi_ddp = myctrl;
+    }
 }
 
 
@@ -88,6 +95,10 @@ void MyController<T, state_size,ctrl_size>::callback_wrapper(const mjModel *m, m
     else if constexpr(std::is_same<T, MPPI<state_size, ctrl_size>>::value)
     {
         my_ctrl_mppi->controller();
+    }
+    else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
+    {
+        my_ctrl_mppi_ddp->controller();
     }
 }
 
@@ -108,3 +119,4 @@ void MyController<T, state_size, ctrl_size>::fill_control_buffer(const std::vect
 
 template class MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
 template class MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
+template class MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;

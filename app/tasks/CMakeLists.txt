@@ -8,6 +8,7 @@ set(BINARIES
         ilqr_franka_sparse.cpp
         mppi_control_finger.cpp
         mppi_control_cartpole.cpp
+        mppi_ilqr_finger.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
