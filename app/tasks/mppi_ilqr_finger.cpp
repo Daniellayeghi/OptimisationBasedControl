@@ -43,7 +43,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END)
+    if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
     {
         save_data = true;
     }
@@ -189,7 +189,7 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    MPPIDDPParams params {30, 75, 0.999, 1, 1};
+    MPPIDDPParams params {30, 75, 0.999, 1, 0};
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
     Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
@@ -224,16 +224,16 @@ int main(int argc, const char** argv)
     MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
-
+    std::fstream cost_mpc(path + ("cartpole_cost_mpc_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("cartpole_ctrl_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("cartpole_pos_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("cartpole_vel_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::vector<double> cost_buffer;
     // use the first while condition if you want to simulate for a period.
     while(!glfwWindowShouldClose(window))
     {
@@ -244,6 +244,7 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
+            cost_buffer.emplace_back(pi.traj_cost);
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
@@ -270,6 +271,7 @@ int main(int argc, const char** argv)
 
     if(save_data)
     {
+        BufferUtilities::save_to_file(cost_mpc, cost_buffer);
         d_buff.save_buffer(pos_data, vel_data, ctrl_data);
         std::cout << "Saved!" << std::endl;
         save_data = false;
