@@ -3,8 +3,7 @@
 #include <iostream>
 #include <numeric>
 #include "MPPI.h"
-#include"../parameters/simulation_params.h"
-#include "../utilities/basic_math.h"
+#include "../utilities/eigen_norm_dist.h"
 
 using namespace SimulationParameters;
 
@@ -60,21 +59,23 @@ namespace
 template<int state_size, int ctrl_size>
 MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
                                         const QRCostDDP<state_size, ctrl_size>& cost,
-                                        const MPPIDDPParams& params)
-                                        :
-                                        m_params(params),
-                                        m_cost_func(cost),
-                                        m_m(m)
+                                        const MPPIDDPParams<ctrl_size>& params)
+        :
+        m_params(params),
+        m_cost_func(cost),
+        m_m(m),
+        m_normX_cholesk(Eigen::Matrix<double,n_ctrl, 1>::Zero(), params.ctrl_variance, true)
+
 {
-    m_d_cp = mj_makeData(m_m);
+    m_samples_d_cp = mj_makeData(m_m);
 
     _cached_control = MPPIDDP<state_size, ctrl_size>::ctrl_vector::Zero();
 
     m_state.assign(m_params.m_sim_time, Eigen::Matrix<double, state_size, 1>::Zero());
     m_control.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_delta_control.assign(m_params.m_sim_time,std::vector<Eigen::Matrix<double, ctrl_size, 1>>(
-                                   m_params.m_k_samples,Eigen::Matrix<double, ctrl_size, 1>::Random()
-                                   ));
+            m_params.m_k_samples,Eigen::Matrix<double, ctrl_size, 1>::Random()
+    ));
 
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
 }
@@ -88,14 +89,19 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const std::vector<MPPIDDP<state_si
     double denomenator =  0;
     for (auto& sample_cost: m_delta_cost_to_go)
     {
-        denomenator += (std::exp(-(1 / m_params.m_lambda) * (sample_cost - min_cost)));
+        auto cost_diff = sample_cost - min_cost;
+        denomenator += (std::exp(-(1 / m_params.m_lambda) * (cost_diff)));
     }
 
     for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
     {
-        numerator += (std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) * delta_control_samples[col]);
+        numerator += (
+                std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) * delta_control_samples[col]
+                );
     }
-    return numerator/denomenator;
+    return numerator/(
+            denomenator * std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale)
+            );
 }
 
 
@@ -116,42 +122,58 @@ void MPPIDDP<state_size, ctrl_size>::MPPIDDP::compute_control_trajectory()
 }
 
 
+template <int state_size, int ctrl_size>
+void MPPIDDP<state_size, ctrl_size>::MPPIDDP::adapt_variance()
+{
+    Eigen::Matrix<double, n_ctrl, n_ctrl> new_variance; new_variance.setZero();
+    for(const auto & delta_control_samples : m_delta_control)
+        for(const auto & delta_control_sample: delta_control_samples)
+        {
+
+        }
+}
+
+
 template<int state_size, int ctrl_size>
 void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, std::vector<MPPIDDP<state_size, ctrl_size>::ctrl_vector>& ddp_ctrl)
 {
     MPPIDDP<state_size, ctrl_size>::ctrl_vector instant_control;
 
-    fill_state_vector(m_d_cp, m_state.front());
+    fill_state_vector(m_samples_d_cp, m_state.front());
     std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
 
-    for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
+    for (auto sample = 0; sample < m_params.m_k_samples- 1; ++sample)
     {
-        copy_data(m_m, d, m_d_cp);
-        for (auto time = 0; time < m_params.m_sim_time - 1; ++time)
+        copy_data(m_m, d, m_samples_d_cp);
+        for(auto time = 0; time < m_params.m_sim_time - 1; ++time)
         {
-            // u += du -> du ~ N(0, variance)
-            m_delta_control[time][sample] = m_params.m_variance * MPPIDDP<state_size, ctrl_size>::ctrl_vector::Random();
+//             u += du -> du ~ N(0, variance)
+            m_delta_control[time][sample] = m_normX_cholesk.samples(1);
+//            m_delta_control[time][sample] = m_params.m_variance * MPPIDDP<state_size, ctrl_size>::ctrl_vector::Random();
             instant_control = m_control[time] + m_delta_control[time][sample];
 
             // Forward simulate controls
-            set_control_data(m_d_cp, instant_control);
-            mj_step(m_m, m_d_cp);
-            fill_state_vector(m_d_cp, m_state[time + 1]);
+            set_control_data(m_samples_d_cp, instant_control);
+            mj_step(m_m, m_samples_d_cp);
+            fill_state_vector(m_samples_d_cp, m_state[time + 1]);
 
             // Compute cost-to-go of the controls
-            m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func(m_state[time + 1],
-                                                                                  m_control[time],
-                                                                                  m_delta_control[time][sample],
-                                                                                  ddp_ctrl[time],
-                                                                                  m_params.m_lambda, m_params.importance);
+            m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample]
+                    + m_cost_func(
+                            m_state[time + 1],
+                            m_control[time],
+                            m_delta_control[time][sample],
+                            ddp_ctrl[time]
+                            );
         }
         m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
         traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0)/m_delta_cost_to_go.size();
-        m_delta_control.back()[sample] = m_params.m_variance * MPPIDDP<state_size, ctrl_size>::ctrl_vector::Random();
+//        m_delta_control.back()[sample] = m_params.m_variance * MPPIDDP<state_size, ctrl_size>::ctrl_vector::Random();
+        m_delta_control.back()[sample] = m_normX_cholesk.samples(1);
     }
     traj_cost /= m_params.m_k_samples;
     compute_control_trajectory();
-    std::cout << "diff: " <<  ddp_ctrl.front() - _cached_control << std::endl;
+//    std::cout << "diff: " <<  ddp_ctrl.front() - _cached_control << std::endl;
 
 }
 
@@ -159,7 +181,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, std::vector<MPPIDD
 template<int state_size, int ctrl_size>
 MPPIDDP<state_size, ctrl_size>::~MPPIDDP()
 {
-    mj_deleteData(m_d_cp);
+    mj_deleteData(m_samples_d_cp);
 }
 
 template class MPPIDDP<n_jpos + n_jvel, n_ctrl>;

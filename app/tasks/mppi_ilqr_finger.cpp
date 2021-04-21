@@ -1,17 +1,11 @@
 
 #include "mujoco.h"
-#include "cstdio"
-#include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
-#include "random"
 #include "../../src/controller/controller.h"
 #include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-#include "../../src/controller/cost_function.h"
-#include "../../src/controller/ilqr.h"
-#include "../../src/controller/MPPI.h"
 #include "../../src/controller/mppi_ddp.h"
 
 // for sleep timers
@@ -31,10 +25,10 @@ mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
 // mouse interaction
-bool button_left = false;
+bool button_left   = false;
 bool button_middle = false;
-bool button_right =  false;
-bool save_data    = false;
+bool button_right  = false;
+bool save_data     = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -105,10 +99,10 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-
 // main function
 int main(int argc, const char** argv)
 {
+    // activate software
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
@@ -116,7 +110,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/finger.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -157,28 +151,34 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0;
+    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 5000;
-    x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
+    x_terminal_gain *= 0;
+    x_terminal_gain (2, 2) = 1500000000;
+    x_terminal_gain (3, 3) = 50000 * 0.01;
+    x_terminal_gain (4, 4) = 50000 * 0.01;
+    x_terminal_gain (5, 5) = 5000000;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
+
     x_gain *= 0;
+    x_gain (3, 3) = 1 * 0.01;
+    x_gain (4, 4) = 1 * 0.01;
+
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 100000;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -189,53 +189,70 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    MPPIDDPParams params {30, 75, 0.999, 1, 0};
+    // initial position
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
+    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
+
+
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
     Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
-        ddp_var.diagonal()[elem] = 1;
+        ddp_var.diagonal()[elem] = 0.0001;
     }
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> state_reg; state_reg.setIdentity();
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> state_reg_vec;
+    state_reg_vec << 0, 0, 500000, 5000, 5000, 5000;
+    Eigen::Matrix<double,  n_jpos + n_jvel,  n_jpos + n_jvel> t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
+
+
+    Eigen::Matrix<double, n_ctrl, 1> control_reg_vec;
+    state_reg_vec << 0, 0;
+    Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg; control_reg = control_reg_vec.asDiagonal();
+
+
+    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        state_reg.diagonal()[elem + n_jvel] = 200;
-        state_reg.diagonal()[elem] = 1000;
+        r_state_reg.diagonal()[elem + n_jvel] = 200;
+        r_state_reg.diagonal()[elem] = 0;
     }
 
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(ddp_var.inverse(), ctrl_var.inverse(), state_reg, x_desired, u_desired);
+    MPPIDDPParams<n_ctrl> params {400, 100, 1, 1, 1};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
+            ddp_var.inverse(), ctrl_var.inverse(), t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
+            );
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
-    // initial position
-    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
-
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 75, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
 
     // install control callback
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DataBuffer d_buff;
+    DummyBuffer d_buff;
+
+//    ilqr.control(d);
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel_piddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + ("finger_cost_mpc_pi_ddp_0.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("finger_vel.csv"), std::fstream::out | std::fstream::trunc);
     std::vector<double> cost_buffer;
+
+/* ==================================================Simulation=======================================================*/
+
     // use the first while condition if you want to simulate for a period.
-    while(!glfwWindowShouldClose(window))
+    while( !glfwWindowShouldClose(window))
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -246,10 +263,17 @@ int main(int argc, const char** argv)
         {
             cost_buffer.emplace_back(pi.traj_cost);
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            ilqr._u_traj = pi.m_control;
+//            const auto neg_cost = ilqr.exp_cost_reduction.front();
+//            params.IMPORTANCE = 1.0/(1.0 + std::exp((neg_cost)*2.2))*2;
+//            params.IMPORTANCE += (1/sqrt(M_PI*2*1e-4)*std::exp(-neg_cost*neg_cost/(2*1e-4)))/130;
+//            params.IMPORTANCE = 1;
+//            std::cout << "cost red: " << ilqr.exp_cost_reduction.front() << "\n";
+
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 
@@ -267,17 +291,16 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
-    }
 
-    if(save_data)
-    {
-        BufferUtilities::save_to_file(cost_mpc, cost_buffer);
-        d_buff.save_buffer(pos_data, vel_data, ctrl_data);
-        std::cout << "Saved!" << std::endl;
-        save_data = false;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if(save_data)
+        {
+            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
+            d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+            std::cout << "Saved!" << std::endl;
+            save_data = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
-
     // free visualization storage
     mjv_freeScene(&scn);
     mjr_freeContext(&con);

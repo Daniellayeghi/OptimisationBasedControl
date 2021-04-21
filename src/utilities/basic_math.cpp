@@ -1,8 +1,11 @@
 #include "basic_math.h"
 #include <cmath>
+#include <array>
+#include <random>
 
 namespace BasicMath
 {
+    using namespace std;
     double wrap_to_max(double x, double max)
     {
         return fmod(max + fmod(x, max), max);
@@ -17,7 +20,7 @@ namespace BasicMath
 
     double wrap_to_2pi(double x)
     {
-        //Comment wrapping for cartpole uncomment for acrobot
+//        Comment wrapping for cartpole uncomment for acrobot
 //        auto angle = (2*M_PI - x) < 1e-7 ?  0 :  x - 2 * M_PI * floor( x / (2 * M_PI));
 //        return angle;
         return x;

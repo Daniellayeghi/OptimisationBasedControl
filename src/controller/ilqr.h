@@ -84,6 +84,7 @@ public:
     ctrl_vec _cached_control;
     std::vector<ctrl_vec> _u_traj;
     std::vector<double>   cost;
+    std::vector<double>   exp_cost_reduction;
     const int _simulation_time;
     const int _iteration;
 };

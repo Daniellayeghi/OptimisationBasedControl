@@ -81,6 +81,7 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
     _prev_total_cost = 0;
     _regularizer.setIdentity();
 
+    exp_cost_reduction.assign(_simulation_time, 0.0);
     _l.assign(_simulation_time + 1, 0);
     _l_x.assign(simulation_time + 1, ilqr_t::state_vec::Zero());
     _l_xx.assign(simulation_time + 1, ilqr_t::state_mat::Zero());
@@ -212,14 +213,18 @@ void ILQR<state_size, ctrl_size>::backward_pass()
     {
         auto Qx = Q_x(time, V_x);    auto Qu  = Q_u(time, V_x);
         auto Quu = Q_uu(time, V_xx); auto Qux = Q_ux(time, V_xx); auto Qxx = Q_xx(time, V_xx);
-        _ff_k[time] = -1 * Quu.colPivHouseholderQr().solve(Qu);
+        JacobiSVD<MatrixXd> svd(Quu); double cond = svd.singularValues()(0)/svd.singularValues()(svd.singularValues().size()-1);
+//        exp_cost_reduction[time] = (Q_u(time, V_x).transpose() * _ff_k[time]) - (0.5 * _ff_k[time].transpose() * (Q_uu(time, V_xx) * _ff_k[time]))(0, 0);
+        exp_cost_reduction[time] = cond;
+//        _fb_K[time] = -1 * Quu.bdcSvd(ComputeFullU | ComputeFullV).solve(Qux);
+//        _ff_k[time] = -1 * Quu.bdcSvd(ComputeFullU | ComputeFullV).solve(Qu);
         _fb_K[time] = -1 * Quu.colPivHouseholderQr().solve(Qux);
+        _ff_k[time] = -1 * Quu.colPivHouseholderQr().solve(Qu);
+
         V_x   = Qx + (_fb_K[time].transpose() * Quu * (_ff_k[time]));
         V_x  += _fb_K[time].transpose() * Qu + Qux.transpose() * _ff_k[time];
-
         V_xx  = Qxx + _fb_K[time].transpose() * Quu * _fb_K[time];
         V_xx += _fb_K[time].transpose() * Qux + Qux.transpose() * _fb_K[time];
-
         V_xx  = 0.5 * (V_xx + V_xx.transpose());
     }
 }

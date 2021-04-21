@@ -1,0 +1,93 @@
+<mujoco model="planar point mass">
+
+
+  <option timestep="0.01" cone="elliptic" iterations="200">
+    <flag gravity="enable"/>
+  </option>
+
+  <default>
+    <geom solimp="0 0.9 0.01" solref=".02 1"/>
+    <joint type="hinge" axis="0 -1 0"/>
+    <motor ctrllimited="true" ctrlrange="-1 1"/>
+  </default>
+
+
+  <visual>
+    <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
+    <map znear=".01"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <asset>
+      <texture name="skybox" type="skybox" builtin="gradient" rgb1=".4 .6 .8" rgb2="0 0 0"
+               width="800" height="800" mark="random" markrgb="1 1 1"/>
+  </asset>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+    <material name="self" rgba=".7 .5 .3 1"/>
+    <material name="self_default" rgba=".7 .5 .3 1"/>
+    <material name="self_highlight" rgba="0 .5 .3 1"/>
+    <material name="effector" rgba=".7 .4 .2 1"/>
+    <material name="effector_default" rgba=".7 .4 .2 1"/>
+    <material name="effector_highlight" rgba="0 .5 .3 1"/>
+    <material name="decoration" rgba=".3 .5 .7 1"/>
+    <material name="eye" rgba="0 .2 1 1"/>
+    <material name="target" rgba=".6 .3 .3 1"/>
+    <material name="target_default" rgba=".6 .3 .3 1"/>
+    <material name="target_highlight" rgba=".6 .3 .3 .4"/>
+  </asset>
+
+
+
+  <worldbody>
+    <light name="light" pos="0 0 1"/>
+    <camera name="fixed" pos="0 0 .75" quat="1 0 0 0"/>
+    <geom name="ground" type="plane" pos="0 0 0" size=".35 .35 .1"/>
+    <geom name="wall_x" type="plane" pos="-.35 0 .02" zaxis="1 0 0"  size=".02 .3 .02"/>
+    <geom name="wall_y" type="plane" pos="0 -.35 .02" zaxis="0 1 0"  size=".3 .02 .02"/>
+    <geom name="wall_neg_x" type="plane" pos=".35 0 .02" zaxis="-1 0 0"  size=".02 .3 .02"/>
+    <geom name="wall_neg_y" type="plane" pos="0 .35 .02" zaxis="0 -1 0"  size=".3 .02 .02"/>
+   
+   <body name="proximal" pos="0 0 0.02" quat="0.7071 0.7071 0 0">
+      <geom name="proximal_decoration" type="cylinder" fromto="0 -0.02 0 0 0.02 0" size=".014" material="decoration"/>
+      <joint name="proximal" range="-130 -60" ref="-90" damping="0.05" limited="false"/>
+      <geom name="proximal" type="capsule" material="self" size=".01" fromto="0 0 0 0 0 -.10" contype="1" conaffinity="0"/>
+      <body name="distal" pos="0 0 -.1">
+        <joint name="distal" range="-45 45" damping="0.5" limited="false"/>
+        <geom name="distal" type="capsule" size=".008" material="self" fromto="0 0 0 0 0 -.10" contype="1" conaffinity="0"/>
+        <body name="distal2" pos="0 0 -.1">
+          <joint name="distal2" range="-45 45" damping="0.5" limited="false"/>
+          <geom name="distal2" type="capsule" size=".004" material="self" fromto="0 0 0 0 0 -.10" contype="1" conaffinity="0"/>
+        </body>
+      </body>
+    </body>
+
+
+<!--    <body name="k" pos="0.1 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1" contype="1" conaffinity="1"/>-->
+<!--    </body>-->
+<!--    <body name="a" pos="0.15 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1" contype="1" conaffinity="1"/>-->
+<!--    </body>-->
+<!--    <body name="b" pos="0.12 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1" contype="1" conaffinity="1"/>-->
+<!--    </body>-->
+<!--    <body name="c" pos="0.08 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1"/>-->
+<!--    </body>-->
+<!--    <body name="d" pos="0.0 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1"/>-->
+<!--    </body>-->
+<!--    <body name="e" pos="-0.1 0.002 0">-->
+<!--    <geom type="sphere" size=".02" rgba="1 0 0 1"/>-->
+<!--    </body>-->
+  </worldbody>
+  
+  <actuator>
+    <motor name="proximal" joint="proximal" gear="1"/>
+    <motor name="distal" joint="distal" gear="0.5"/>
+    <motor name="distal2" joint="distal2" gear="0.25"/>
+  </actuator>
+</mujoco>

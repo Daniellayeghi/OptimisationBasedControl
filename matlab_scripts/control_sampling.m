@@ -16,5 +16,4 @@ for i= 1:2000
    x(i, :) = state_i';
 end
 
-% plot(x(:, 1), linspace(0, 1, 2000));
 plot3(x(:, 1), x(:, 2), x(:, 3))
