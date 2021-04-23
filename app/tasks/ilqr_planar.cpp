@@ -227,21 +227,21 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> t_state_reg; t_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        t_state_reg.diagonal()[elem + n_jvel] = 4000;
+        t_state_reg.diagonal()[elem + n_jvel] = 400000000;
         t_state_reg.diagonal()[elem] = 100000;
     }
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        r_state_reg.diagonal()[elem + n_jvel] = 0;
-        r_state_reg.diagonal()[elem] = 0;
+        r_state_reg.diagonal()[elem + n_jvel] = 10;
+        r_state_reg.diagonal()[elem] = 1000000000;
     }
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg;
     control_reg << 10, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
 
-    MPPIDDPParams<n_ctrl> params {300,75,1000, 0, 0, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {40,75,1, 0, 0, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
             ddp_var.inverse(), ctrl_var.inverse(), t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
             );
