@@ -98,6 +98,7 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
     // Computing the new covariance is taken from:
     // "Path Integral Policy Improvement with Covariance Matrix Adaptation"
     ctrl_vector numerator_mean = ctrl_vector::Zero();
+    ctrl_vector numerator= ctrl_vector::Zero();
     ctrl_matrix numerator_cov  = ctrl_matrix::Zero();
     double denomenator =  0;
 
@@ -121,6 +122,20 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
                 );
     }
 
+    for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
+    {
+        numerator += (
+                std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) * m_delta_control[time][col]
+        );
+    }
+     ctrl_vector res = numerator/(
+            denomenator * std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale)
+    );
+
+
+    ctrl_vector res_2 = numerator_mean / (
+            denomenator * std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale)
+    );
     return {numerator_mean / (
             denomenator * std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale)
             ), numerator_cov/denomenator};
@@ -174,6 +189,8 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, std::vector<ctrl_v
         // dU ~ N(mean, variance)
         m_ctrl_samples_time.block(sample, 0, 1, m_params.m_sim_time * n_ctrl) =
                 m_normX_cholesk.samples(m_params.m_sim_time * n_ctrl);
+//        m_ctrl_samples_time.row(sample) = m_normX_cholesk.samples(m_params.m_sim_time * n_ctrl);
+
 
         copy_data(m_m, d, m_d_cp);
         for(auto time = 0; time < m_params.m_sim_time - 1; ++time)
@@ -196,9 +213,9 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, std::vector<ctrl_v
                             ddp_ctrl[time]);
         }
         m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.terminal_cost(m_state.back());
-        traj_cost += std::accumulate(
-                m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0
+        traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0
                 )/m_delta_cost_to_go.size();
+
     }
     traj_cost /= m_params.m_k_samples;
     compute_control_trajectory();
