@@ -62,7 +62,7 @@ void MyController<T, state_size, ctrl_size>::controller()
     {
         _d->ctrl[row] = controls._cached_control(row, 0);
     }
-    std::cout << controls._cached_control << std::endl;
+//    std::cout << controls._cached_control << std::endl;
 }
 
 

@@ -195,14 +195,14 @@ int main(int argc, const char** argv)
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
-        ddp_var.diagonal()[elem] = 0.01;
+        ddp_var.diagonal()[elem] = 0.001;
     }
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> t_state_reg; t_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        t_state_reg.diagonal()[elem + n_jvel] = 200;
-        t_state_reg.diagonal()[elem] = 1000;
+        t_state_reg.diagonal()[elem + n_jvel] = 100;
+        t_state_reg.diagonal()[elem] = 10000;
     }
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
@@ -219,8 +219,9 @@ int main(int argc, const char** argv)
         control_reg.diagonal()[elem] = 0;
     }
 
-    MPPIDDPParams<n_ctrl> params {25, 75, 1, 0, 0, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(ddp_var.inverse(), ctrl_var.inverse(), t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params);
+    MPPIDDPParams<n_ctrl> params {25, 75, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params);
+
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position
@@ -260,10 +261,10 @@ int main(int argc, const char** argv)
         {
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-//            ilqr.control(d);
-//            pi.m_control = ilqr._u_traj;
-            pi.control(d, ilqr._u_traj);
-//            ilqr._u_traj = pi.m_control;
+            ilqr.control(d);
+            pi.m_control = ilqr._u_traj;
+            pi.control(d, ilqr._u_traj, ilqr._covariance);
+            ilqr._u_traj = pi.m_control;
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

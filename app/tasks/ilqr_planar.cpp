@@ -215,7 +215,7 @@ int main(int argc, const char** argv)
     d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 //    d->qpos[0] = 0; d->qvel[0] = 0;
 
-
+    Eigen::Matrix<double, n_ctrl, 1> ctrl_mean; ctrl_mean.setZero();
     Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
     Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
@@ -241,9 +241,9 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg;
     control_reg << 10, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
 
-    MPPIDDPParams<n_ctrl> params {40,75,1, 0, 0, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {40,75,1, 0, 0, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            ddp_var.inverse(), ctrl_var.inverse(), t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
+            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
             );
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

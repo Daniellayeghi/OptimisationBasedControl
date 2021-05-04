@@ -285,4 +285,3 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
 
 using namespace SimulationParameters;
 template class FiniteDifference<n_jpos + n_jvel, n_ctrl>;
-template class FiniteDifference<4, 2>;

@@ -169,14 +169,14 @@ int main(int argc, const char** argv)
     }
     x_terminal_gain *= 0;
     x_terminal_gain (2, 2) = 1500000000;
-    x_terminal_gain (3, 3) = 50000 * 0.01;
-    x_terminal_gain (4, 4) = 50000 * 0.01;
+    x_terminal_gain (3, 3) = 0;
+    x_terminal_gain (4, 4) = 0;
     x_terminal_gain (5, 5) = 5000000;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
+        x_gain(element + n_jpos,element + n_jpos) = 0;
     }
 
     x_gain *= 0;
@@ -198,13 +198,13 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 1; d->qpos[1] = 0; d->qpos[2] = 1;
+    d->qpos[0] = 1.5; d->qpos[1] = 0; d->qpos[2] = 1.5;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
 
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 100, 1, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 75, 1, d, nullptr);
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);

@@ -30,63 +30,64 @@ public:
          const std::vector<ctrl_vec>* init_u = nullptr);
 
     ~ILQR();
-
     void control(const mjData* d);
-    void backward_pass();
-    void forward_pass(const mjData* d);
 
 private:
+
     void forward_simulate(const mjData* d);
+    void forward_pass(const mjData* d);
+    auto update_regularizer();
+    void backward_pass();
     ctrl_vec       Q_u(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
     ctrl_mat       Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     state_vec      Q_x(int time, Eigen::Matrix<double, state_size, 1>& _v_x);
     state_mat      Q_xx(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_state_mat Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    state_ctrl_mat Q_xu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+
 
     std::array<double, 10> _backtrackers{};
     state_mat _regularizer;
 
-    std::vector<state_mat> _f_x;
+    // Derivative containers
+    std::vector<state_mat>      _f_x;
     std::vector<state_ctrl_mat> _f_u;
-    std::vector<double> _l;
-    std::vector<state_vec> _l_x;
-    std::vector<ctrl_vec> _l_u;
-    std::vector<state_mat> _l_xx;
-
+    std::vector<double>         _l;
+    std::vector<state_vec>      _l_x;
+    std::vector<ctrl_vec>       _l_u;
+    std::vector<state_mat>      _l_xx;
     std::vector<ctrl_state_mat> _l_ux;
-    std::vector<ctrl_mat> _l_uu;
-
-    std::vector<ctrl_vec> _ff_k ;
+    std::vector<ctrl_mat>       _l_uu;
+    // Control containers
+    std::vector<ctrl_vec>       _ff_k;
     std::vector<ctrl_state_mat> _fb_K;
-    std::vector<state_vec> _x_traj;
-
-    std::vector<state_vec> _x_traj_new;
-    std::vector<ctrl_vec>  _u_traj_new;
+    std::vector<state_vec>      _x_traj;
+    std::vector<state_vec>      _x_traj_new;
+    std::vector<ctrl_vec>       _u_traj_new;
 
     FiniteDifference<state_size, ctrl_size>& _fd;
-    CostFunction<state_size, ctrl_size>& _cf;
+    CostFunction<state_size, ctrl_size>&     _cf;
 
     const mjModel* _m;
     mjData* _d_cp            = nullptr;
     double _prev_total_cost  = 0;
     const double _delta_init = 2.0;
     double _delta            = _delta_init;
-
-    bool converged   = false;
-    bool accepted    = false;
-    bool recalculate = true;
-
-    mjtNum min_bound = -1;
-    mjtNum max_bound = 1;
+    bool converged           = false;
+    bool accepted            = false;
+    bool recalculate         = true;
+    const mjtNum min_bound   = -1;
+    const mjtNum max_bound   = 1;
 
 public:
 
-    ctrl_vec _cached_control;
+    ctrl_vec              _cached_control;
+    std::vector<ctrl_mat> _covariance;
     std::vector<ctrl_vec> _u_traj;
     std::vector<double>   cost;
     std::vector<double>   exp_cost_reduction;
-    const int _simulation_time;
-    const int _iteration;
+    const int             _simulation_time;
+    const int             _iteration;
 };
 
 

@@ -5,7 +5,6 @@
 #include "../parameters/simulation_params.h"
 #include "../utilities/basic_math.h"
 
-
 namespace
 {
     template <typename T>
@@ -83,25 +82,26 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
 
     exp_cost_reduction.assign(_simulation_time, 0.0);
     _l.assign(_simulation_time + 1, 0);
-    _l_x.assign(simulation_time + 1, ilqr_t::state_vec::Zero());
-    _l_xx.assign(simulation_time + 1, ilqr_t::state_mat::Zero());
-    _l_u.assign(simulation_time, ilqr_t::ctrl_vec::Zero());
-    _l_ux.assign(simulation_time, ilqr_t::ctrl_state_mat::Zero());
-    _l_uu.assign(simulation_time, ilqr_t::ctrl_mat::Zero());
+    _l_x.assign(simulation_time + 1, state_vec::Zero());
+    _l_xx.assign(simulation_time + 1, state_mat::Zero());
+    _l_u.assign(simulation_time, ctrl_vec::Zero());
+    _l_ux.assign(simulation_time, ctrl_state_mat::Zero());
+    _l_uu.assign(simulation_time, ctrl_mat::Zero());
 
-    _f_x.assign(simulation_time, ilqr_t::state_mat::Zero());
-    _f_u.assign(simulation_time, ilqr_t::state_ctrl_mat::Zero());
+    _f_x.assign(simulation_time, state_mat::Zero());
+    _f_u.assign(simulation_time, state_ctrl_mat::Zero());
 
-    _fb_K.assign(_simulation_time, ilqr_t::ctrl_state_mat ::Zero());
-    _ff_k.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+    _fb_K.assign(_simulation_time, ctrl_state_mat ::Zero());
+    _ff_k.assign(_simulation_time, ctrl_vec::Zero());
 
-    _x_traj_new.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
-    _x_traj.assign(_simulation_time + 1, ilqr_t::state_vec::Zero());
-    _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+    _x_traj_new.assign(_simulation_time + 1, state_vec::Zero());
+    _x_traj.assign(_simulation_time + 1, state_vec::Zero());
+    _u_traj_new.assign(_simulation_time, ctrl_vec::Zero());
+    _covariance.assign(_simulation_time, ctrl_mat::Zero());
 
     if(init_u == nullptr)
     {
-        _u_traj.assign(_simulation_time,ilqr_t::ctrl_vec::Random() * 0);
+        _u_traj.assign(_simulation_time,ctrl_vec::Random() * 0);
     }else
     {
         _u_traj = *init_u;
@@ -163,6 +163,13 @@ ILQR<state_size, ctrl_size>::Q_ux(int time,Eigen::Matrix<double, state_size, sta
     return _l_ux[time] + (_f_u[time].transpose() * (_v_xx + _regularizer)) * _f_x[time];
 }
 
+template<int state_size, int ctrl_size>
+Eigen::Matrix<double, state_size, ctrl_size>
+ILQR<state_size, ctrl_size>::Q_xu(int time,Eigen::Matrix<double, state_size, state_size>& _v_xx)
+{
+    return _f_x[time].transpose() * (_v_xx + _regularizer) * _f_u[time];
+}
+
 
 template<int state_size, int ctrl_size>
 Eigen::Matrix<double, ctrl_size, ctrl_size>
@@ -208,14 +215,35 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 {
     Eigen::Matrix<double, state_size, 1> V_x = _l_x.back();
     Eigen::Matrix<double, state_size, state_size> V_xx = _l_xx.back();
-
+    static Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
+    static Eigen::Matrix<double, state_size+ctrl_size, 1> gradient;
+    static const auto sub =  Eigen::Matrix<double, state_size, ctrl_size>::Zero();
+    static Eigen::Matrix<double, n_ctrl, n_ctrl> temporal_average_num = Eigen::Matrix<double, n_ctrl, n_ctrl>::Zero();
+    static auto temporal_average_den = 0;
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
-        auto Qx = Q_x(time, V_x);    auto Qu  = Q_u(time, V_x);
-        auto Quu = Q_uu(time, V_xx); auto Qux = Q_ux(time, V_xx); auto Qxx = Q_xx(time, V_xx);
-        JacobiSVD<MatrixXd> svd(Quu); double cond = svd.singularValues()(0)/svd.singularValues()(svd.singularValues().size()-1);
+        const auto Qx = Q_x(time, V_x);    const auto Qu  = Q_u(time, V_x); const auto Qxu = Q_xu(time, V_xx);
+        const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time, V_xx); const auto Qxx = Q_xx(time, V_xx);
+
+//        temporal_average_num += ((Quu - Qux*Qxx.inverse()*Qxu).inverse() * ((_simulation_time - 1) - time));
+//        temporal_average_den += (_simulation_time - time);
+//        {
+        _covariance[time] = 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse();
+//            hessian << Qxx, Qxu, Qux, Quu;
+//        if (time == 0)
+//            {
+//                std::cout << "------------------Hessian---------------------" << "\n";
+//                std::cout << 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse() << "\n";
+//            }
+//            gradient << Qx, Qu;
+//            std::cout << "------------------Gradient---------------------" << "\n";
+//            std::cout << gradient<< "\n";
+//        }
+
+//        JacobiSVD<MatrixXd> svd(Quu);
+//        double cond = svd.singularValues()(0)/svd.singularValues()(svd.singularValues().size()-1);
 //        exp_cost_reduction[time] = (Q_u(time, V_x).transpose() * _ff_k[time]) - (0.5 * _ff_k[time].transpose() * (Q_uu(time, V_xx) * _ff_k[time]))(0, 0);
-        exp_cost_reduction[time] = cond;
+//        exp_cost_reduction[time] = cond;
 //        _fb_K[time] = -1 * Quu.bdcSvd(ComputeFullU | ComputeFullV).solve(Qux);
 //        _ff_k[time] = -1 * Quu.bdcSvd(ComputeFullU | ComputeFullV).solve(Qu);
         _fb_K[time] = -1 * Quu.colPivHouseholderQr().solve(Qux);
@@ -227,72 +255,82 @@ void ILQR<state_size, ctrl_size>::backward_pass()
         V_xx += _fb_K[time].transpose() * Qux + Qux.transpose() * _fb_K[time];
         V_xx  = 0.5 * (V_xx + V_xx.transpose());
     }
+//    std::cout << temporal_average_num/temporal_average_den << "\n";
+}
+
+
+template<int state_size, int ctrl_size>
+auto ILQR<state_size, ctrl_size>::update_regularizer()
+{
+    auto break_condition = false;
+    auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj_new);
+    if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8)
+    {
+        converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
+        _prev_total_cost = new_total_cost;
+        recalculate = true;
+        _delta = std::min(1.0, _delta) / _delta_init;
+        _regularizer *= _delta;
+        if (_regularizer.norm() < 1e-6)
+            _regularizer.setIdentity() * 1e-6;
+
+        accepted = true;
+        _x_traj = _x_traj_new;
+        _u_traj = _u_traj_new;
+        break_condition = true;
+    }
+
+    if (not accepted) {
+        _delta = std::max(1.0, _delta) * _delta_init;
+        static const auto min = ILQR::state_mat::Identity() * 1e-6;
+        // All elements are equal hence the (0, 0) comparison
+        if ((_regularizer * _delta)(0, 0) > 1e-6) {
+            _regularizer = _regularizer * _delta;
+        } else {
+            _regularizer = min;
+        }
+        if (_regularizer(0, 0) > 1e10) {
+//                std::cout << "Exceed" "\n";
+            break_condition = true;
+        }
+    }
+    return break_condition;
 }
 
 
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 {
-    //TODO Regularize the Quu inversion instead and split out the adaption from the forward pass functions
-    for (const auto &backtracker : _backtrackers) {
-        _u_traj_new.assign(_simulation_time, ilqr_t::ctrl_vec::Zero());
+    //TODO Regularize the Quu inversion instead
+    for (const auto &backtracker : _backtrackers)
+    {
+        std::fill(_u_traj_new.begin(), _u_traj_new.end(), ctrl_vec::Zero());
 
         copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
-        for (auto time = 0; time < _simulation_time; ++time) {
-            _u_traj_new[time] =
-                    _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
+        for (auto time = 0; time < _simulation_time; ++time)
+        {
+            _u_traj_new[time] =  _u_traj[time] + (_ff_k[time] * backtracker) + _fb_K[time] * (_x_traj_new[time] - _x_traj[time]);
             clamp_control(_u_traj_new[time], _m->actuator_ctrlrange);
             set_control_data(_d_cp, _u_traj_new[time]);
             mj_step(_m, _d_cp);
             fill_state_vector(_d_cp, _x_traj_new[time + 1], _m);
         }
-#if 1
-        auto new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj_new);
-
-        if (new_total_cost < _prev_total_cost or new_total_cost < 1e-8) {
-            converged = (std::abs(_prev_total_cost - new_total_cost / _prev_total_cost) < 1e-6);
-            _prev_total_cost = new_total_cost;
-            recalculate = true;
-            _delta = std::min(1.0, _delta) / _delta_init;
-            _regularizer *= _delta;
-            if (_regularizer.norm() < 1e-6)
-                _regularizer.setIdentity() * 1e-6;
-
-            accepted = true;
-            _x_traj = _x_traj_new;
-            _u_traj = _u_traj_new;
+        if(update_regularizer())
             break;
-        }
-
-        if (not accepted) {
-            _delta = std::max(1.0, _delta) * _delta_init;
-            static const auto min = ILQR::state_mat::Identity() * 1e-6;
-            // All elements are equal hence the (0, 0) comparison
-            if ((_regularizer * _delta)(0, 0) > 1e-6) {
-                _regularizer = _regularizer * _delta;
-            } else {
-                _regularizer = min;
-            }
-            if (_regularizer(0, 0) > 1e10) {
-//                std::cout << "Exceed" "\n";
-                break;
-            }
-        }
     }
-#endif
 }
 
 
 template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::control(const mjData* d)
 {
-    _delta = _delta_init;
+    _delta = _delta_init; recalculate = true; converged = false;
     _regularizer.setIdentity();
-    recalculate = true; converged = false;
     for(auto iteration = 0; iteration < _iteration; ++iteration)
     {
-        accepted = false;
+        recalculate = true; converged = false; accepted = false; _delta = _delta_init;
+        _regularizer.setIdentity();
         fill_state_vector(d, _x_traj.front(), _m);
         forward_simulate(d);
         backward_pass();
@@ -304,7 +342,6 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
     _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
     cost.emplace_back(_prev_total_cost);
-//    std::cout << _prev_total_cost << std::endl;
 }
 
 

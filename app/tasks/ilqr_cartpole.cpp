@@ -171,6 +171,7 @@ int main(int argc, const char** argv)
     }
     x_gain *= 0;
 
+
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
     u_gain *= 0.02;
