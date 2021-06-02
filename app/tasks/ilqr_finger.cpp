@@ -11,6 +11,8 @@
 // for sleep timers
 #include <chrono>
 #include <thread>
+#include<iostream>
+
 
 using namespace std;
 using namespace std::chrono;
@@ -212,12 +214,12 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DummyBuffer d_buff;
-
 //    ilqr.control(d);
 
 /* ============================================CSV Output Files=======================================================*/
-    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+    std::vector<double> cost_buffer;
 
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
     std::fstream cost_mpc(path + ("finger_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);

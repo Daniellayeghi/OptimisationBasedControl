@@ -10,6 +10,7 @@
 // for sleep timers
 #include <chrono>
 #include <thread>
+#include<iostream>
 
 using namespace std;
 using namespace std::chrono;
@@ -182,7 +183,6 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = M_PI + 0.5; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> R;
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;

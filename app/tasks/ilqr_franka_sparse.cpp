@@ -12,8 +12,10 @@
 #include "../third_party/imgui/examples/imgui_impl_opengl3.h"
 
 // for sleep timers
-#include <chrono>
-#include <thread>
+#include<chrono>
+#include<thread>
+#include<iostream>
+
 
 using namespace std;
 using namespace std::chrono;

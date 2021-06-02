@@ -42,7 +42,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END)
+    if( act==GLFW_PRESS && key==GLFW_KEY_ENTER)
     {
         save_data = true;
     }
@@ -216,11 +216,11 @@ int main(int argc, const char** argv)
     Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg; control_reg.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        control_reg.diagonal()[elem] = 0;
+        control_reg.diagonal()[elem] = 1000;
     }
 
-    MPPIDDPParams<n_ctrl> params {25, 75, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params);
+    MPPIDDPParams<n_ctrl> params {10, 75, 0.0001, 0, 0, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 1, params);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -242,12 +242,19 @@ int main(int argc, const char** argv)
     DummyBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
-    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+    std::vector<Eigen::Matrix<double, n_ctrl, 1>> pi_ctrl;
+    std::vector<Eigen::Matrix<double, n_ctrl, 1>> ddp_ctrl;
+    pi_ctrl.reserve(1000);
+    ddp_ctrl.reserve(1000);
 
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+    std::fstream pi_ctrl_file(path + ("pi_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ddp_ctrl_file(path + ("ddp_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+
+    std::fstream cost_mpc(path + ("cartpole_pi_ddp_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("cartpole_pi_ddp_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("cartpole_pi_ddp_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("cartpole_pi_ddp_vel.csv"), std::fstream::out | std::fstream::trunc);
 
     // use the first while condition if you want to simulate for a period.
     while(!glfwWindowShouldClose(window))
@@ -262,11 +269,15 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.m_control = ilqr._u_traj;
-            pi.control(d, ilqr._u_traj, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
+//            pi.m_control = ilqr._u_traj_cp;
+            ddp_ctrl.emplace_back(ilqr._u_traj_cp.front());
+            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+//            std::cout << "DDP var: " << ilqr._covariance.front() << "  " << params.ctrl_variance << "\n";
+            pi_ctrl.emplace_back(pi.m_control_cp.front());
+            ilqr._u_traj = pi.m_control_cp;
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+//            cost_buffer.emplace_back(pi.traj_cost);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -287,10 +298,12 @@ int main(int argc, const char** argv)
 
     if(save_data)
     {
+        BufferUtilities::save_to_file(ddp_ctrl_file, ddp_ctrl);
+        BufferUtilities::save_to_file(pi_ctrl_file, pi_ctrl);
         d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         std::cout << "Saved!" << std::endl;
         save_data = false;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     // free visualization storage

@@ -1,68 +1,11 @@
-#include <iostream>
+#include<iostream>
 #include <numeric>
 #include "mujoco.h"
 #include "ilqr.h"
 #include "../parameters/simulation_params.h"
-#include "../utilities/basic_math.h"
+#include "../../src/utilities/mujoco_utils.h"
 
-namespace
-{
-    template <typename T>
-    void copy_data(const mjModel* model, const mjData *data, T *data_cp)
-    {
-        data_cp->time = data->time;
-        mju_copy(data_cp->qpos, data->qpos, model->nq);
-        mju_copy(data_cp->qvel, data->qvel, model->nv);
-        mju_copy(data_cp->qacc, data->qacc, model->nv);
-        mju_copy(data_cp->qfrc_applied, data->qfrc_applied, model->nv);
-        mju_copy(data_cp->xfrc_applied, data->xfrc_applied, 6*model->nbody);
-        mju_copy(data_cp->ctrl, data->ctrl, model->nu);
-    }
-
-
-    template<typename T, int ctrl_size >
-    void set_control_data(mjData* data, const Eigen::Matrix<T, ctrl_size, 1>& ctrl)
-    {
-        for(auto row = 0; row < ctrl.rows(); ++row)
-        {
-            data->ctrl[row] = ctrl(row, 0);
-        }
-    }
-
-
-    template<typename T, int state_size>
-    void set_state_data(mjData* data, Eigen::Matrix<T, state_size, 1>& state) {
-        for (unsigned int row = 0; row < state_size / 2; ++row)
-        {
-            data->qpos[row] = state(row, 0);
-            data->qvel[row] = state(row+state_size/2, 0);
-        }
-    }
-
-
-    template<typename T, int state_size>
-    void fill_state_vector(const mjData* data, Eigen::Matrix<T, state_size, 1>& state, const mjModel* m) {
-        for (unsigned int row = 0; row < state_size / 2; ++row) {
-            state(row + state_size / 2, 0) = data->qvel[row];
-        }
-
-        for (unsigned int row = 0; row < state_size / 2; ++row) {
-            state(row, 0) = data->qpos[row];
-        }
-    }
-
-
-    template<int rows, int cols>
-    void clamp_control(Eigen::Matrix<mjtNum, rows, cols>& control, const mjtNum * limits)
-    {
-        for (auto row = 0; row < control.rows(); ++row)
-        {
-            control(row, 0) = std::clamp(control(row, 0),  limits[row * 2], limits[row * 2 + 1]);
-        }
-    }
-}
-
-
+using namespace MujocoUtils;
 using namespace SimulationParameters;
 
 
@@ -97,23 +40,25 @@ _fd(fd) ,_cf(cf), _m(m), _simulation_time(simulation_time), _iteration(iteration
     _x_traj_new.assign(_simulation_time + 1, state_vec::Zero());
     _x_traj.assign(_simulation_time + 1, state_vec::Zero());
     _u_traj_new.assign(_simulation_time, ctrl_vec::Zero());
+    _u_traj_cp.assign(_simulation_time,ctrl_vec::Zero());
     _covariance.assign(_simulation_time, ctrl_mat::Zero());
 
     if(init_u == nullptr)
     {
         _u_traj.assign(_simulation_time,ctrl_vec::Random() * 0);
+
     }else
     {
         _u_traj = *init_u;
     }
 
     copy_data(m, d, _d_cp);
-    fill_state_vector(d, _x_traj.front(), _m);
+    fill_state_vector(d, _x_traj.front());
     for (int time = 0; time < simulation_time; ++time)
     {
         set_control_data(_d_cp, _u_traj[time]);
         mj_step(m, _d_cp);
-        fill_state_vector(_d_cp, _x_traj[time+1], _m);
+        fill_state_vector(_d_cp, _x_traj[time+1]);
     }
     copy_data(m, d, _d_cp);
 
@@ -215,31 +160,18 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 {
     Eigen::Matrix<double, state_size, 1> V_x = _l_x.back();
     Eigen::Matrix<double, state_size, state_size> V_xx = _l_xx.back();
-    static Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
-    static Eigen::Matrix<double, state_size+ctrl_size, 1> gradient;
-    static const auto sub =  Eigen::Matrix<double, state_size, ctrl_size>::Zero();
-    static Eigen::Matrix<double, n_ctrl, n_ctrl> temporal_average_num = Eigen::Matrix<double, n_ctrl, n_ctrl>::Zero();
-    static auto temporal_average_den = 0;
+//    static Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
+
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
         const auto Qx = Q_x(time, V_x);    const auto Qu  = Q_u(time, V_x); const auto Qxu = Q_xu(time, V_xx);
         const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time, V_xx); const auto Qxx = Q_xx(time, V_xx);
-
-//        temporal_average_num += ((Quu - Qux*Qxx.inverse()*Qxu).inverse() * ((_simulation_time - 1) - time));
-//        temporal_average_den += (_simulation_time - time);
-//        {
-        _covariance[time] = 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse();
-//            hessian << Qxx, Qxu, Qux, Quu;
-//        if (time == 0)
-//            {
-//                std::cout << "------------------Hessian---------------------" << "\n";
-//                std::cout << 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse() << "\n";
-//            }
-//            gradient << Qx, Qu;
-//            std::cout << "------------------Gradient---------------------" << "\n";
-//            std::cout << gradient<< "\n";
-//        }
-
+        const ctrl_mat cov = 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse();
+        if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val){return not std::isnan(val);}))
+            _covariance[time] = cov;
+        else
+            _covariance[time] = ctrl_mat::Identity();
+//        hessian << Qxx, Qxu, Qux, Quu;
 //        JacobiSVD<MatrixXd> svd(Quu);
 //        double cond = svd.singularValues()(0)/svd.singularValues()(svd.singularValues().size()-1);
 //        exp_cost_reduction[time] = (Q_u(time, V_x).transpose() * _ff_k[time]) - (0.5 * _ff_k[time].transpose() * (Q_uu(time, V_xx) * _ff_k[time]))(0, 0);
@@ -255,7 +187,6 @@ void ILQR<state_size, ctrl_size>::backward_pass()
         V_xx += _fb_K[time].transpose() * Qux + Qux.transpose() * _fb_K[time];
         V_xx  = 0.5 * (V_xx + V_xx.transpose());
     }
-//    std::cout << temporal_average_num/temporal_average_den << "\n";
 }
 
 
@@ -314,7 +245,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             clamp_control(_u_traj_new[time], _m->actuator_ctrlrange);
             set_control_data(_d_cp, _u_traj_new[time]);
             mj_step(_m, _d_cp);
-            fill_state_vector(_d_cp, _x_traj_new[time + 1], _m);
+            fill_state_vector(_d_cp, _x_traj_new[time + 1]);
         }
         if(update_regularizer())
             break;
@@ -331,7 +262,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
     {
         recalculate = true; converged = false; accepted = false; _delta = _delta_init;
         _regularizer.setIdentity();
-        fill_state_vector(d, _x_traj.front(), _m);
+        fill_state_vector(d, _x_traj.front());
         forward_simulate(d);
         backward_pass();
         forward_pass(d);
@@ -339,6 +270,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
             break;
     }
     _cached_control = _u_traj.front();
+    std::copy(_u_traj.begin(), _u_traj.end(), _u_traj_cp.begin());
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
     _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
     cost.emplace_back(_prev_total_cost);

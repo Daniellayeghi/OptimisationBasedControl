@@ -11,7 +11,6 @@
 template<int state_size, int ctrl_size>
 class ILQR
 {
-    using ilqr_t    = ILQR<state_size, ctrl_size>;
     using ctrl_vec  = Eigen::Matrix<double, ctrl_size, 1>;
     using state_vec = Eigen::Matrix<double, state_size, 1>;
     using state_mat = Eigen::Matrix<double, state_size, state_size>;
@@ -80,10 +79,10 @@ private:
     const mjtNum max_bound   = 1;
 
 public:
-
     ctrl_vec              _cached_control;
     std::vector<ctrl_mat> _covariance;
     std::vector<ctrl_vec> _u_traj;
+    std::vector<ctrl_vec> _u_traj_cp;
     std::vector<double>   cost;
     std::vector<double>   exp_cost_reduction;
     const int             _simulation_time;

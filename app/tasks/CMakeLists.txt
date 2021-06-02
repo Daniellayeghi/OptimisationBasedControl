@@ -7,8 +7,8 @@ set(BINARIES
         ilqr_franka.cpp
         ilqr_franka_sparse.cpp
         ilqr_planar.cpp
-        mppi_control_finger.cpp
-        mppi_control_cartpole.cpp
+#        mppi_control_finger.cpp
+#        mppi_control_cartpole.cpp
         mppi_ilqr_cartpole.cpp
         mppi_ilqr_double_cartpole.cpp
         mppi_ilqr_finger.cpp

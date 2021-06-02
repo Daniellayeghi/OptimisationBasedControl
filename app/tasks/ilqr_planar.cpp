@@ -17,7 +17,6 @@
 #include <thread>
 #include <random>
 
-
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -42,7 +41,7 @@ namespace {
 
 // Choose a random mean between 1 and 6
     std::default_random_engine e1(r());
-    std::uniform_real_distribution<double> uniform_dist(0, 1);
+    std::uniform_real_distribution<double> uniform_dist(-10, 10);
     int mean = uniform_dist(e1);
 
 
@@ -59,9 +58,9 @@ namespace {
         // backspace: reset simulation
         if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
         {
-            d->qpos[0] = uniform_dist(e1);
-            d->qpos[1] = uniform_dist(e1);
-            d->qpos[2] = uniform_dist(e1);
+            auto k = false;
+            d->qacc[0] = uniform_dist(e1);
+            d->qacc[1] = uniform_dist(e1);
         }
     }
 
@@ -144,11 +143,12 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
-    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.01, 0.01}};
-    populate_obstacles(12, m->nbody*3-1, pos, m);
+    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+    MujocoUtils::populate_obstacles(9, m->nbody*3-1, pos, m);
 
-//    int i = mj_saveLastXML("../../../models/rand_point_mass.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass.xml", 0, error, 1000);
+    int i = mj_saveLastXML("../../../models/rand_point_mass.xml", m, error, 1000);
+    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
+    m = mj_loadXML("../../../models/rand_point_mass.xml", 0, error, 1000);
 
     // make data
     d = mj_makeData(m);
@@ -178,9 +178,22 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
-    // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0;
+
+    GenericCost<mjData, mjModel, bool>::cost func = [](const mjData* data, const mjModel *model){
+        std::array<int, 3> joint_list {{0, 1, 2}};
+        for(auto i = 0; i < data->ncon; ++i)
+        {
+            bool check_1 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+            bool check_2 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
+
+            if (check_1 != check_2)
+                return true;
+        }
+        return false;
+    };
+
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0;
+    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -189,7 +202,7 @@ int main(int argc, const char** argv)
     }
     x_terminal_gain *= 500;
     x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
+    x_terminal_gain(1,1) *= 0.05;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -200,7 +213,7 @@ int main(int argc, const char** argv)
 
     Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 1;
 
     Eigen::Matrix<double, n_ctrl, 1> u_control_1;
     Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
@@ -212,7 +225,9 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
+//    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
+    d->qpos[0] =  0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
+
 //    d->qpos[0] = 0; d->qvel[0] = 0;
 
     Eigen::Matrix<double, n_ctrl, 1> ctrl_mean; ctrl_mean.setZero();
@@ -221,29 +236,32 @@ int main(int argc, const char** argv)
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
-        ddp_var.diagonal()[elem] = 0.01;
+        ddp_var.diagonal()[elem] = 0.001;
     }
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> t_state_reg; t_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        t_state_reg.diagonal()[elem + n_jvel] = 400000000;
-        t_state_reg.diagonal()[elem] = 100000;
+        t_state_reg.diagonal()[elem + n_jvel] = 10;
+        t_state_reg.diagonal()[elem] = 1000;
     }
+    t_state_reg.diagonal()[1] = 1000 * 0.05;
+
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        r_state_reg.diagonal()[elem + n_jvel] = 10;
-        r_state_reg.diagonal()[elem] = 1000000000;
+        r_state_reg.diagonal()[elem + n_jvel] = 0;
+        r_state_reg.diagonal()[elem] = 0;
     }
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg;
-    control_reg << 10, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
+    Eigen::Matrix<double, n_ctrl, 1> control_reg_vec;
+//    control_reg_vec << 1, 1, 1;
+    control_reg_vec << 1, 1;
 
-    MPPIDDPParams<n_ctrl> params {40,75,1, 0, 0, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {100, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
+            t_state_reg, r_state_reg, control_reg_vec.asDiagonal(), x_desired, u_desired, 0.001, params
             );
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -283,10 +301,9 @@ int main(int argc, const char** argv)
         {
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-//            ilqr.control(d);
-//            pi.m_control = ilqr._u_traj;
-            pi.control(d, ilqr._u_traj);
-//            ilqr._u_traj = pi.m_control;
+            ilqr.control(d);
+            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+            ilqr._u_traj = pi.m_control_cp;
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

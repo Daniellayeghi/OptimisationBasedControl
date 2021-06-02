@@ -11,7 +11,6 @@
 #include "../../src/utilities/buffer.h"
 #include "../../src/controller/cost_function.h"
 #include "../../src/controller/ilqr.h"
-#include "../../src/controller/MPPI.h"
 #include "../../src/controller/mppi_ddp.h"
 
 // for sleep timers
@@ -221,9 +220,10 @@ int main(int argc, const char** argv)
         control_reg.diagonal()[elem] = 0;
     }
 
-    MPPIDDPParams<n_ctrl> params {15, 75, 1000, 0, 0, ctrl_mean, ddp_var, ctrl_var};
+
+    MPPIDDPParams<n_ctrl> params {100, 100, 0.0001, 0, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
+            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 25, params
             );
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -264,10 +264,10 @@ int main(int argc, const char** argv)
         {
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-//            ilqr.control(d);
+            ilqr.control(d);
 //            pi.m_control = ilqr._u_traj;
-            pi.control(d, ilqr._u_traj);
-//            ilqr._u_traj = pi.m_control;
+            pi.control(d, ilqr._u_traj, ilqr._covariance);
+            ilqr._u_traj = pi.m_control;
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

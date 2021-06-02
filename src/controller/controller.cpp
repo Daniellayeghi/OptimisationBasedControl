@@ -6,13 +6,11 @@
 #include "cost_function.h"
 #include "../parameters/simulation_params.h"
 #include "ilqr.h"
-#include "MPPI.h"
 #include "mppi_ddp.h"
 
 using namespace SimulationParameters;
-static MyController<MPPI<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi;
-static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr ;
-static MyController<MPPIDDP<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp ;
+static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr;
+static MyController<MPPIDDP<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
 static int _mark;
 
 #define myFREESTACK d->pstack = _mark;
@@ -60,6 +58,9 @@ void MyController<T, state_size, ctrl_size>::controller()
 {
     for (auto row = 0; row < ctrl_size; ++row)
     {
+//        if(fabs(controls._cached_control(row, 0) > 1))
+//            std::cout << controls._cached_control(row, 0) << "\n";
+
         _d->ctrl[row] = controls._cached_control(row, 0);
     }
 //    std::cout << controls._cached_control << std::endl;
@@ -73,11 +74,6 @@ void MyController<T, state_size, ctrl_size>::set_instance(MyController<T, state_
     {
         my_ctrl_ilqr = myctrl;
     }
-    else if constexpr(std::is_same<T, MPPI<state_size, ctrl_size>>::value)
-    {
-        my_ctrl_mppi = myctrl;
-    }
-
     else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
     {
         my_ctrl_mppi_ddp = myctrl;
@@ -91,10 +87,6 @@ void MyController<T, state_size,ctrl_size>::callback_wrapper(const mjModel *m, m
     if constexpr(std::is_same<T, ILQR<state_size, ctrl_size>>::value)
     {
         my_ctrl_ilqr->controller();
-    }
-    else if constexpr(std::is_same<T, MPPI<state_size, ctrl_size>>::value)
-    {
-        my_ctrl_mppi->controller();
     }
     else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
     {
@@ -117,6 +109,5 @@ void MyController<T, state_size, ctrl_size>::fill_control_buffer(const std::vect
 }
 
 
-template class MyController<MPPI<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
 template class MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
 template class MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;

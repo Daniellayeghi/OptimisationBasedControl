@@ -6,7 +6,6 @@
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 #include "ilqr.h"
-#include "MPPI.h"
 
 
 template<typename T, int state_size, int ctrl_size>

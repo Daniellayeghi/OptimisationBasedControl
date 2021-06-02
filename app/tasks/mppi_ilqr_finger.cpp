@@ -221,7 +221,7 @@ int main(int argc, const char** argv)
 
     MPPIDDPParams<n_ctrl> params {15, 75, 1000, 0, 0, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, params
+            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 1, params
     );
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -265,14 +265,8 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj);
+            pi.control(d, ilqr._u_traj, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
-//            const auto neg_cost = ilqr.exp_cost_reduction.front();
-//            params.IMPORTANCE = 1.0/(1.0 + std::exp((neg_cost)*2.2))*2;
-//            params.IMPORTANCE += (1/sqrt(M_PI*2*1e-4)*std::exp(-neg_cost*neg_cost/(2*1e-4)))/130;
-//            params.IMPORTANCE = 1;
-//            std::cout << "cost red: " << ilqr.exp_cost_reduction.front() << "\n";
-
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

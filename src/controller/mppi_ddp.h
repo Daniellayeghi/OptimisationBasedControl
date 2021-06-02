@@ -1,9 +1,4 @@
 
-#define NEW 1
-#define OLD 0
-
-#if NEW
-
 #ifndef OPTCONTROL_MUJOCO_MPPI_DDP_H
 #define OPTCONTROL_MUJOCO_MPPI_DDP_H
 
@@ -28,6 +23,14 @@ struct MPPIDDPParams{
 };
 
 
+template<typename T, typename F, typename S>
+struct GenericCost
+{
+public:
+    using cost = S (*)(const T* state, const F* model);
+};
+
+
 template<int state_size, int ctrl_size>
 class QRCostDDP
 {
@@ -42,8 +45,10 @@ public:
               const r_matrix& control_reg,
               const state_vector& state_goal,
               const ctrl_vector& ctrl_goal,
+              const double ddp_variance_reg,
               const MPPIDDPParams<ctrl_size> &params
     ):
+            m_ddp_variance_reg(ddp_variance_reg),
             m_params(params),
             m_state_goal(state_goal),
             m_control_goal(ctrl_goal),
@@ -55,27 +60,13 @@ public:
         m_ddp_variance_inv = m_params.ddp_variance.inverse();
     }
 
-    double terminal_cost(const state_vector& state) const
-    {
-        state_vector state_error  = m_state_goal - state;
-        return state_error.transpose() * m_t_state_reg * state_error;
-//        double result = 0;
-//        result += 500000 * std::pow(1 - std::cos(state(2, 0)), 2);
-//        result += 5000 * std::pow(state(5, 0), 2);
-//        return result;
-    }
-
-
     double operator()(const state_vector& state,
                       const ctrl_vector& control,
                       const ctrl_vector& delta_control,
                       const ctrl_vector& ddp_mean_control)
     {
-        m_ddp_variance_inv = m_params.ddp_variance.inverse();
-        m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
-
-//        std::cout << "ddp_var_inv " << m_ddp_variance_inv << "\n";
-//        std::cout << "ctrl_var_inv  " << m_ctrl_variance_inv << "\n";
+        m_ddp_variance_inv = ((m_params.ddp_variance+r_matrix::Identity()*1e-6)/m_ddp_variance_reg).inverse();
+//        m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
 
         ctrl_vector new_control = control + delta_control;
 
@@ -97,17 +88,38 @@ public:
     }
 
 
-
     double bounded_state_error([[maybe_unused]]const state_vector& state, const ctrl_vector& control) const
     {
-//        ctrl_error.transpose() * m_control_reg * ctrl_error
+
+        static const bool func = [](const mjData* data, const mjModel *model){
+            std::array<int, 4> joint_list {{0, 1, 2, 3}};
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                bool check_1 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+                bool check_2 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
+
+                if (check_1 != check_2)
+                    return true;
+            }
+            return false;
+        };
+
         state_vector state_error = m_state_goal - state;
         ctrl_vector ctrl_error = m_control_goal - control;
-        return (ctrl_error.transpose() * m_control_reg * ctrl_error+ state.transpose() * m_r_state_reg * state)(0, 0);
+        return (ctrl_error.transpose() * m_control_reg * ctrl_error + state.transpose() * m_r_state_reg * state)(0, 0);
+    }
+
+
+    double terminal_cost(const state_vector& state) const
+    {
+        state_vector state_error  = m_state_goal - state;
+        return state_error.transpose() * m_t_state_reg * state_error;
     }
 
 private:
 
+
+    const double m_ddp_variance_reg;
     const MPPIDDPParams<ctrl_size>& m_params;
     state_vector m_state_goal;
     ctrl_vector  m_control_goal;
@@ -136,6 +148,7 @@ public:
 
     ctrl_vector _cached_control;
     std::vector<ctrl_vector> m_control;
+    std::vector<ctrl_vector> m_control_cp;
     double traj_cost{};
 
 private:
@@ -156,13 +169,12 @@ private:
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
+    Eigen::Matrix<ctrl_vector, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samp_time;
 
     // Models
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;
-    mjData*  m_time_d_cp = nullptr;
     Eigen::EigenMultivariateNormal<double> m_normX_cholesk;
 };
 
 #endif //OPTCONTROL_MUJOCO_MPPI_DDP_H
-#endif

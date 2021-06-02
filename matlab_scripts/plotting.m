@@ -44,11 +44,11 @@ end
 SAVE_CP = false;
 
 fig_ilqr_cp_1 = figure();
-cp_ctrl = csvread("cartpole_ctrl.csv");
+cp_ctrl = csvread("pi_ctrl_0_imp.csv");
 [row, ~] = size(cp_ctrl);
 iteration = linspace(1, row, row)/0.01;
 plot(iteration , cp_ctrl(:, 1))
-title('Cartpole control trajectory','interpreter','latex', 'FontSize', 12);
+title('Cartpole control trajectory PI k=0 scale=0','interpreter','latex', 'FontSize', 12);
 xlabel('time (s)','interpreter','latex', 'FontSize', 12);
 ylabel('$u$', 'Interpreter', 'latex', 'FontSize', 12);
 

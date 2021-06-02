@@ -5,7 +5,7 @@
 
 namespace SimulationParameters
 {
-    constexpr const int n_ctrl = 1;
+    constexpr const int n_ctrl = 2;
     constexpr const int n_jpos = 2;
     constexpr const int n_jvel = 2;
     constexpr const int n_ctrl_cost  = 0;
