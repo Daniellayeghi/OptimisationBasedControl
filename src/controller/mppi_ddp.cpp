@@ -160,7 +160,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
 //                std::cout << func(m_d_cp, m_m) << "\n";
 
              m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] +
-                    m_cost_func(m_state[time + 1],m_control[time], instant_pert, ddp_ctrl[time]) + func(m_d_cp, m_m) * 1000;
+                    m_cost_func(m_state[time + 1],m_control[time], instant_pert, ddp_ctrl[time]) + func(m_d_cp, m_m) * 5000;
         }
         m_ctrl_samples_time.block(sample, (m_params.m_sim_time-1)*n_ctrl, 1, n_ctrl) =
                 samples.block(0, m_params.m_sim_time-1, n_ctrl, 1).transpose().eval();

@@ -9,7 +9,7 @@
 
 
 #include "mjxmacro.h"
-#include "uitools.h"
+#include "../../etc/uitools.h"
 #include "stdio.h"
 #include "string.h"
 
@@ -1920,7 +1920,7 @@ void init(void)
         mju_error("Headers and library have different versions");
 
     // activate MuJoCo license
-    mj_activate("mjkey.txt");
+    mj_activate(MUJ_KEY_PATH);
 
     // init GLFW, set timer callback (milliseconds)
     if (!glfwInit())

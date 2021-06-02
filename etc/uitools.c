@@ -8,7 +8,7 @@
 */
 
 
-#include "../include/uitools.h"
+#include "uitools.h"
 #include "stdio.h"
 #include "string.h"
 
