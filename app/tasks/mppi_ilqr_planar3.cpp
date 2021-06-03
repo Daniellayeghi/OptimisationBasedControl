@@ -129,7 +129,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/point_mass.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/planar_3link_point_mass.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -142,13 +142,6 @@ int main(int argc, const char** argv)
     if( !m ) {
         mju_error_s("Load model error: %s", error);
     }
-
-    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-    MujocoUtils::populate_obstacles(9, m->nbody*3-1, pos, m);
-
-    int i = mj_saveLastXML("../../../models/rand_point_mass.xml", m, error, 1000);
-    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
-    m = mj_loadXML("../../../models/rand_point_mass.xml", 0, error, 1000);
 
     // make data
     d = mj_makeData(m);
@@ -192,8 +185,8 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
+    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
+    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0;
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -202,7 +195,9 @@ int main(int argc, const char** argv)
     }
     x_terminal_gain *= 500;
     x_terminal_gain(0,0) *= 2;
-    x_terminal_gain(1,1) *= 0.5;
+    x_terminal_gain(1,1) *= 2*0.7;
+    x_terminal_gain(2,2) *= 2*0.5;
+
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -245,7 +240,8 @@ int main(int argc, const char** argv)
         t_state_reg.diagonal()[elem + n_jvel] = 10;
         t_state_reg.diagonal()[elem] = 1000;
     }
-    t_state_reg.diagonal()[1] = 1000 * 0.05;
+    t_state_reg.diagonal()[1] = 1000 * 0.35;
+    t_state_reg.diagonal()[2] = 1000 * 0.25;
 
 
     Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
@@ -257,12 +253,12 @@ int main(int argc, const char** argv)
 
     Eigen::Matrix<double, n_ctrl, 1> control_reg_vec;
 //    control_reg_vec << 1, 1, 1;
-    control_reg_vec << 1, 1;
+    control_reg_vec << 1, 1, 1;
 
     MPPIDDPParams<n_ctrl> params {10, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
             t_state_reg, r_state_reg, control_reg_vec.asDiagonal(), x_desired, u_desired, 0.001, params
-            );
+    );
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 

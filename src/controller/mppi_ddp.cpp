@@ -120,7 +120,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
     for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
     {
         auto func = [](const mjData* data, const mjModel *model){
-            std::array<int, 3> joint_list {{0, 1, 2}};
+            std::array<int, 4> joint_list {{0, 1, 2, 3}};
             for(auto i = 0; i < data->ncon; ++i)
             {
                 bool check_1 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());

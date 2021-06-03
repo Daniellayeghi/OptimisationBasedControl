@@ -45,19 +45,19 @@
                 <geom name="distal" size="0.008 0.05" pos="0 0 -0.05" type="capsule" material="self" />
             </body>
         </body>
-        <body name="k" pos="0.0524847 0.166134 0.02">
+        <body name="k" pos="0.0809635 -0.147474 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="0.187244 -0.1402 0.02">
+        <body name="a" pos="-0.000275394 -0.187213 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="-0.152408 0.0322695 0.02">
+        <body name="b" pos="0.120883 0.0173386 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="c" pos="0.130652 0.000113068 0.02">
+        <body name="c" pos="0.0572588 0.143764 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
