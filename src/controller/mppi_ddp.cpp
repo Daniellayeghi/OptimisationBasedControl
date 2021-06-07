@@ -86,7 +86,6 @@ void MPPIDDP<state_size, ctrl_size>::MPPIDDP::compute_control_trajectory()
         m_control[time] += ctrl_pert;
 
         // Temporal average for the mean and covariance
-//        clamp_control(m_control[time], m_m->actuator_ctrlrange);
         ctrl_vector test_1; test_1.setRandom();  ctrl_vector test_2; test_2.setRandom();
         new_mean_numerator += (ctrl_pert * (m_params.m_sim_time - time));
         temp_mean_denomenator += (m_params.m_sim_time - time);
@@ -115,7 +114,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
 //    m_normX_cholesk.setCovar(m_params.ctrl_variance);
     ctrl_vector benchmark; benchmark.setConstant(m_m->actuator_ctrlrange[1]);
 //    std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
-//    std::cout << "[COVAR]: " << m_params.ddp_variance(1,1) << "\n";
+//    std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
 
     for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
     {

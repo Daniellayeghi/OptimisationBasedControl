@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
         r_state_reg.diagonal()[elem] = 0;
     }
 
-    MPPIDDPParams<n_ctrl> params {15, 75, 1000, 0, 0, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {15, 75, 0.001, 0, 0, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
             t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 1, params
     );

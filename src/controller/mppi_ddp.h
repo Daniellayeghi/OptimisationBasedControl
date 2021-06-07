@@ -66,7 +66,7 @@ public:
                       const ctrl_vector& ddp_mean_control)
     {
         m_ddp_variance_inv = ((m_params.ddp_variance+r_matrix::Identity()*1e-6)/m_ddp_variance_reg).inverse();
-//        m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
+        m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
 
         ctrl_vector new_control = control + delta_control;
 
