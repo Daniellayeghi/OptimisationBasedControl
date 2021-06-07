@@ -20,7 +20,7 @@
 using namespace std;
 using namespace std::chrono;
 using namespace SimulationParameters;
-constexpr const bool show_gui =  true;
+constexpr const bool show_gui =  false;
 // local variables include
 
 // MuJoCo data structures
@@ -188,24 +188,24 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0,
+    StateVector x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0,
                                                                                   1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0;
     x_terminal_diag *= 100;
     x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0,
+    StateVector x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0,
                                                                                 10, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0;
     x_running_diag  *= 0;
     x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_running_gain; x_running_gain = x_running_diag.asDiagonal();
+    StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 0.001;
 
@@ -266,33 +266,33 @@ int main(int argc, const char** argv)
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
 
-        if constexpr (show_gui)
-        {
-
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-            // The same shit as below but with the opposite bool changed
-            for(unsigned int elem = 0; elem < matrix.size(); ++elem)
-            {
-                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem));
-                if(elem < matrix.size() - 1) ImGui::SameLine();
-            }
-
-            switch(gain_selection)
-            {
-                case Qp_f : generate_input(input, buff_size, cost_func._x_terminal_gain); break;
-                case Qv_f : generate_input(input, buff_size, cost_func._x_terminal_gain, n_jpos); break;
-                case Qp_r : generate_input(input, buff_size, cost_func._x_gain); break;
-                case Qv_r : generate_input(input, buff_size, cost_func._x_gain, n_jpos); break;
-                case R_r : generate_input(input, buff_size, cost_func._u_gain); break;
-                default: break;
-            }
-
-            if(ImGui::Button("Reset"))
-                gui_reset(d, m);
-        }
+//        if constexpr (show_gui)
+//        {
+//
+//            ImGui_ImplOpenGL3_NewFrame();
+//            ImGui_ImplGlfw_NewFrame();
+//            ImGui::NewFrame();
+//
+//            // The same shit as below but with the opposite bool changed
+//            for(unsigned int elem = 0; elem < matrix.size(); ++elem)
+//            {
+//                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem));
+//                if(elem < matrix.size() - 1) ImGui::SameLine();
+//            }
+//
+//            switch(gain_selection)
+//            {
+//                case Qp_f : generate_input(input, buff_size, cost_func._x_terminal_gain); break;
+//                case Qv_f : generate_input(input, buff_size, cost_func._x_terminal_gain, n_jpos); break;
+//                case Qp_r : generate_input(input, buff_size, cost_func._x_gain); break;
+//                case Qv_r : generate_input(input, buff_size, cost_func._x_gain, n_jpos); break;
+//                case R_r : generate_input(input, buff_size, cost_func._u_gain); break;
+//                default: break;
+//            }
+//
+//            if(ImGui::Button("Reset"))
+//                gui_reset(d, m);
+//        }
 
         mjtNum simstart = d->time;
 

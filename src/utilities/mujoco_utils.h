@@ -38,10 +38,9 @@ namespace MujocoUtils
     }
 
 
-    template<int rows, int cols>
-    Eigen::Matrix<mjtNum, rows, cols> clamp_control_r(Eigen::Matrix<mjtNum, rows, cols> &control, const mjtNum *limits)
+    inline CtrlVector clamp_control_r(CtrlVector &control, const mjtNum *limits)
     {
-        Eigen::Matrix<mjtNum, rows, cols> clamped_ctrl;
+        CtrlVector clamped_ctrl;
 
         for (auto row = 0; row < control.rows(); ++row)
         {
@@ -52,8 +51,7 @@ namespace MujocoUtils
     }
 
 
-    template<int rows, int cols>
-    void clamp_control(Eigen::Matrix<mjtNum, rows, cols> &control, const mjtNum *limits)
+    inline void clamp_control(CtrlVector &control, const mjtNum *limits)
     {
         for (auto row = 0; row < control.rows(); ++row)
         {
@@ -62,8 +60,7 @@ namespace MujocoUtils
     }
 
 
-    template<int ctrl_size>
-    void set_control_data(mjData *data, const Eigen::Matrix<double, ctrl_size, 1> &ctrl)
+    inline void set_control_data(const mjData *data, const CtrlVector &ctrl)
     {
         for (auto row = 0; row < ctrl.rows(); ++row)
         {
@@ -85,8 +82,7 @@ namespace MujocoUtils
     }
 
 
-    template<int state_size>
-    void fill_state_vector(const mjData *data, Eigen::Matrix<double, state_size, 1> &state)
+    inline void fill_state_vector(const mjData *data, StateVector &state)
     {
         for (auto row = 0; row < state.rows() / 2; ++row)
         {
@@ -94,5 +90,16 @@ namespace MujocoUtils
             state(row + state.rows() / 2, 0) = data->qvel[row];
         }
     }
+
+
+    inline void fill_ctrl_vector(const mjData *data, CtrlVector &ctrl)
+    {
+        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
+//        for(unsigned int row = 0; row < ctrl_size; ++row)
+//        {
+//            ctrl(row, 0) = data->ctrl[row];
+//        }
+    }
+
 }
 #endif //OPTCONTROL_MUJOCO_MUJOCO_UTILS_H

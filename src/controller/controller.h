@@ -3,6 +3,7 @@
 #define DRAKE_CMAKE_INSTALLED_CONTROLLER_H
 
 #include "mujoco.h"
+#include "../parameters/simulation_params.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 #include "ilqr.h"
@@ -25,7 +26,7 @@ public:
     void fill_control_buffer(const std::vector<Eigen::Matrix<double, ctrl_size, 1>> buffer);
 
 private:
-    std::vector<Eigen::Matrix<double, ctrl_size, 1>> ctrl_buffer;
+    std::vector<SimulationParameters::CtrlVector> ctrl_buffer;
     const T& controls;
     const mjModel* _m;
     mjData* _d;

@@ -49,7 +49,7 @@ template<typename T, int state_size, int ctrl_size>
 MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls) :
 controls(controls), _m(m), _d(d)
 {
-    ctrl_buffer.assign(10, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    ctrl_buffer.assign(10, CtrlVector::Zero());
 }
 
 
@@ -109,5 +109,5 @@ void MyController<T, state_size, ctrl_size>::fill_control_buffer(const std::vect
 }
 
 
-template class MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
-template class MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>;
+template class MyController<ILQR<state_size, n_ctrl>, state_size, n_ctrl>;
+template class MyController<MPPIDDP<state_size, n_ctrl>, state_size, n_ctrl>;

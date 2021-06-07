@@ -221,9 +221,24 @@ int main(int argc, const char** argv)
     }
 
 
-    MPPIDDPParams<n_ctrl> params {100, 100, 0.0001, 0, 1, ctrl_mean, ddp_var, ctrl_var};
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector){
+        StateVector state_error  = x_desired - state_vector;
+        CtrlVector ctrl_error = u_desired - ctrl_vector;
+
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
+                (0, 0);
+    };
+
+    const auto terminal_cost = [&](const StateVector &state_vector) {
+        StateVector state_error = x_desired - state_vector;
+
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+    };
+
+    MPPIDDPParams<n_ctrl> params {100, 100,0.0001, 0,1, ctrl_mean, ddp_var, ctrl_var};
+
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 25, params
+            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 25, params, running_cost, terminal_cost
             );
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 

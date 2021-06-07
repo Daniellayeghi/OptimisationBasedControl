@@ -3,8 +3,6 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/parameters/simulation_params.h"
-#include "../../src/utilities/basic_math.h"
 #include "../../src/utilities/buffer_utils.h"
 
 // for sleep timers
@@ -156,29 +154,29 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 2, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
+    StateVector x_desired; x_desired << 2, 0;
+    CtrlVector u_desired; u_desired << 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
+    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
     x_terminal_gain *= 25000;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
+    StateMatrix x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
     x_gain *= 0;
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 1;
 
-    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+    CtrlVector u_control_1;
+    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -189,8 +187,8 @@ int main(int argc, const char** argv)
     // initial position
     d->qpos[0] = 0; d->qvel[0] = 0;
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
+    CtrlMatrix R;
+    StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
@@ -200,14 +198,6 @@ int main(int argc, const char** argv)
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-
-//    ilqr.control(d);
-//    control.fill_control_buffer(ilqr._u_traj);
-//
-//    std::fstream data_file("/home/daniel/Repos/OptimisationBasedControl/Cartpole_offline.csv",
-//                           std::fstream::out | std::fstream::trunc);
-//
-//    BufferUtilities::save_to_file(data_file, control.ctrl_buffer);
 
 
     // use the first while condition if you want to simulate for a period.

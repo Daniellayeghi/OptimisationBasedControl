@@ -3,7 +3,6 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include <random>
@@ -161,10 +160,10 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
+    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
@@ -175,7 +174,7 @@ int main(int argc, const char** argv)
     x_terminal_gain (4, 4) = 0;
     x_terminal_gain (5, 5) = 5000000;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
+    StateMatrix x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0;
@@ -186,12 +185,12 @@ int main(int argc, const char** argv)
     x_gain (4, 4) = 1 * 0.01;
 
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 100000;
 
-    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+    CtrlVector u_control_1;
+    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
