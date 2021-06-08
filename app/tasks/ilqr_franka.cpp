@@ -3,7 +3,6 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 

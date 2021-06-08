@@ -187,7 +187,7 @@ int main(int argc, const char** argv)
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 100000;
+    u_gain *= 1;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -199,7 +199,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 1.5; d->qpos[1] = 0; d->qpos[2] = 1.5;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);

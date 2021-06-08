@@ -4,11 +4,8 @@
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../../src/controller/mppi_ddp.h"
-#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-#include "../../src/utilities/mujoco_utils.h"
-#include "torch/script.h"
 #include <chrono>
 #include <thread>
 
@@ -44,14 +41,6 @@ namespace {
     std::uniform_real_distribution<double> uniform_dist(-10, 10);
     int mean = uniform_dist(e1);
 
-
-// keyboard callback
-//    void keyboard(GLFWwindow *window, int key, int scancode, int act, int mods) {
-//        // backspace: reset simulation
-//        if (act == GLFW_PRESS && key == GLFW_KEY_END) {
-//            save_data = true;
-//        }
-//    }
 
     void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     {
@@ -121,7 +110,6 @@ namespace {
 // main function
 int main(int argc, const char** argv)
 {
-    using namespace MujocoUtils;
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
@@ -143,7 +131,7 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
-    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
 //    MujocoUtils::populate_obstacles(9, m->nbody*3-1, pos, m);
 //
 //    int i = mj_saveLastXML("../../../models/rand_point_mass.xml", m, error, 1000);
@@ -178,24 +166,10 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
+    StateVector x_desired; x_desired << M_PI, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0;
 
-    GenericCost<mjData, mjModel, bool>::cost func = [](const mjData* data, const mjModel *model){
-        std::array<int, 3> joint_list {{0, 1, 2}};
-        for(auto i = 0; i < data->ncon; ++i)
-        {
-            bool check_1 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
-            bool check_2 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
-
-            if (check_1 != check_2)
-                return true;
-        }
-        return false;
-    };
-
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << M_PI, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0, 0;
-
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
+    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
@@ -204,19 +178,19 @@ int main(int argc, const char** argv)
     x_terminal_gain(0,0) *= 2;
     x_terminal_gain(1,1) *= 0.5;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
+    StateMatrix x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
     x_gain *= 0;
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 1;
 
-    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+    CtrlVector u_control_1;
+    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -227,16 +201,16 @@ int main(int argc, const char** argv)
     // initial position
     d->qpos[0] =  0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
 
-    Eigen::Matrix<double, n_ctrl, 1> ctrl_mean; ctrl_mean.setZero();
-    Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
-    Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
+    CtrlVector ctrl_mean; ctrl_mean.setZero();
+    CtrlMatrix ddp_var; ddp_var.setIdentity();
+    CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> t_state_reg; t_state_reg.setIdentity();
+    StateMatrix t_state_reg; t_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
         t_state_reg.diagonal()[elem + n_jvel] = 10;
@@ -245,35 +219,64 @@ int main(int argc, const char** argv)
     t_state_reg.diagonal()[1] = 1000 * 0.05;
 
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
+    StateMatrix r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
         r_state_reg.diagonal()[elem + n_jvel] = 0;
         r_state_reg.diagonal()[elem] = 0;
     }
 
-    Eigen::Matrix<double, n_ctrl, 1> control_reg_vec;
-//    control_reg_vec << 1, 1, 1;
+    CtrlVector control_reg_vec;
     control_reg_vec << 1, 1;
+    CtrlMatrix control_reg = control_reg_vec.asDiagonal();
 
-    MPPIDDPParams<n_ctrl> params {10, 75, 0.001, 0, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg_vec.asDiagonal(), x_desired, u_desired, 0.001, params
-    );
+    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        std::array<int, 3> joint_list {{0, 1, 2}};
+
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                bool check_1 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+                bool check_2 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
+
+                if (check_1 != check_2)
+                    return true;
+            }
+        return false;
+    };
+
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+        StateVector state_error  = x_desired - state_vector;
+        CtrlVector ctrl_error = u_desired - ctrl_vector;
+
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
+                       (0, 0) + collision_cost(data, model) * 5000;
+    };
+
+    const auto terminal_cost = [&](const StateVector &state_vector) {
+        StateVector state_error = x_desired - state_vector;
+
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+    };
+
+    MPPIDDPParams<n_ctrl> params {10, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
+    CtrlMatrix R;
+    StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, m, 75, 1, d, nullptr);
 
     // install control callback
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DummyBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
@@ -297,11 +300,11 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-//            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-//            ilqr._u_traj = pi.m_control_cp;
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+            ilqr._u_traj = pi.m_control_cp;
+            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

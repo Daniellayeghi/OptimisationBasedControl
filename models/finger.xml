@@ -70,8 +70,8 @@
     </worldbody>
 
     <actuator>
-        <motor name="proximal" joint="proximal" gear="15"/>
-        <motor name="distal" joint="distal" gear="7.5"/>
+        <motor name="proximal" joint="proximal" gear="3"/>
+        <motor name="distal" joint="distal" gear="1.5"/>
     </actuator>
 
     <!-- All finger observations are functions of sensors. This is useful for finite-differencing. -->
@@ -80,9 +80,9 @@
         <jointpos name="distal" joint="distal"/>
         <jointvel name="proximal_velocity" joint="proximal"/>
         <jointvel name="distal_velocity" joint="distal"/>
-        <jointvel name="hinge_velocity" joint="hinge"/>
-        <framepos name="tip" objtype="site" objname="tip"/>
-        <framepos name="spinner" objtype="xbody" objname="spinner"/>
+<!--        <jointvel name="hinge_velocity" joint="hinge"/>-->
+<!--        <framepos name="tip" objtype="site" objname="tip"/>-->
+<!--        <framepos name="spinner" objtype="xbody" objname="spinner"/>-->
         <touch name="touchtop" site="touchtop"/>
         <touch name="touchbottom" site="touchbottom"/>
         <framepos name="touchtop_pos" objtype="site" objname="touchtop"/>

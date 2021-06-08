@@ -6,11 +6,8 @@
 #include "glfw3.h"
 #include "random"
 #include "../../src/controller/controller.h"
-#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-#include "../../src/controller/cost_function.h"
-//#include "../../src/controller/ilqr.h"
 #include "../../src/controller/mppi_ddp.h"
 
 // for sleep timers
@@ -218,31 +215,12 @@ int main(int argc, const char** argv)
         control_reg.diagonal()[elem] = 1000;
     }
 
-
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 4> joint_list {{0, 1, 2, 3}};
-
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                bool check_1 = (std::find(joint_list.begin(), joint_list.end(),
-                                          model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
-                bool check_2 = (std::find(joint_list.begin(), joint_list.end(),
-                                          model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
-
-                if (check_1 != check_2)
-                    return true;
-            }
-        return false;
-
-    };
-
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0) + collision_cost(data, model) * 0;
+                (0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector) {

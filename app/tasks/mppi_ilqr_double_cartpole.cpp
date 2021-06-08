@@ -6,11 +6,8 @@
 #include "glfw3.h"
 #include "random"
 #include "../../src/controller/controller.h"
-#include "../../src/parameters/simulation_params.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-#include "../../src/controller/cost_function.h"
-#include "../../src/controller/ilqr.h"
 #include "../../src/controller/mppi_ddp.h"
 
 // for sleep timers
@@ -156,10 +153,10 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_desired; x_desired << 0, 0, 0, 0, 0, 0;
-    Eigen::Matrix<double, n_ctrl, 1> u_desired; u_desired << 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_terminal_gain; x_terminal_gain.setIdentity();
+    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
@@ -168,19 +165,19 @@ int main(int argc, const char** argv)
     x_terminal_gain(0,0) *= 2;
 //    x_terminal_gain(2,2) *= 0.5;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> x_gain; x_gain.setIdentity();
+    StateMatrix x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
     x_gain *= 0;
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> u_gain;
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 0.02;
 
-    Eigen::Matrix<double, n_ctrl, 1> u_control_1;
-    Eigen::Matrix<double, n_jpos + n_jvel, 1> x_state_1;
+    CtrlVector u_control_1;
+    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -188,16 +185,16 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    Eigen::Matrix<double, n_ctrl, 1> ctrl_mean; ctrl_mean.setZero();
-    Eigen::Matrix<double, n_ctrl, n_ctrl> ddp_var; ddp_var.setIdentity();
-    Eigen::Matrix<double, n_ctrl, n_ctrl> ctrl_var; ctrl_var.setIdentity();
+    CtrlVector ctrl_mean; ctrl_mean.setZero();
+    CtrlMatrix ddp_var; ddp_var.setIdentity();
+    CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         ctrl_var.diagonal()[elem] = 1;
         ddp_var.diagonal()[elem] = 0.01;
     }
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> t_state_reg; t_state_reg.setIdentity();
+    StateMatrix t_state_reg; t_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
         t_state_reg.diagonal()[elem + n_jvel] = 50000;
@@ -206,7 +203,7 @@ int main(int argc, const char** argv)
     t_state_reg.diagonal()[n_jvel] = 500;
     t_state_reg.diagonal()[0] = 100000;
 
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> r_state_reg; r_state_reg.setIdentity();
+    StateMatrix r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
         r_state_reg.diagonal()[elem + n_jvel] = 0;
@@ -214,19 +211,19 @@ int main(int argc, const char** argv)
     }
 
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> control_reg; control_reg.setIdentity();
+    CtrlMatrix control_reg; control_reg.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
         control_reg.diagonal()[elem] = 0;
     }
 
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector){
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0);
+                       (0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector) {
@@ -237,16 +234,14 @@ int main(int argc, const char** argv)
 
     MPPIDDPParams<n_ctrl> params {100, 100,0.0001, 0,1, ctrl_mean, ddp_var, ctrl_var};
 
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(
-            t_state_reg, r_state_reg, control_reg, x_desired, u_desired, 25, params, running_cost, terminal_cost
-            );
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(25, params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-    Eigen::Matrix<double, n_ctrl, n_ctrl> R;
-    Eigen::Matrix<double, n_jpos + n_jvel, n_jpos + n_jvel> Q;
+    CtrlMatrix R;
+    StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
@@ -280,7 +275,6 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-//            pi.m_control = ilqr._u_traj;
             pi.control(d, ilqr._u_traj, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
