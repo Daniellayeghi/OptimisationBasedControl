@@ -9,6 +9,42 @@ using namespace MujocoUtils;
 using namespace SimulationParameters;
 
 
+//namespace
+//{
+//    template<int state_size, int ctrl_size>
+//    Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size>
+//    near_psd(const Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size>& matrix)
+//    {
+//        auto sym_mat = (matrix + matrix.transpose().eval())/2;
+//        Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix, Eigen::ComputeFullU|Eigen::ComputeFullV);
+//        auto sym_polar_factor = svd.matrixV() * svd.singularValues() * svd.matrixV();
+//        auto matrix_hat = (sym_mat + sym_polar_factor)/2;
+//        matrix_hat = (matrix_hat + matrix_hat.transpose())/2;
+//        auto k = 0; auto p = true;
+//
+//        while(p)
+//        {
+//            Eigen::LLT<Eigen::MatrixXd> lltOfA(matrix_hat);
+//            p = lltOfA.info() == Eigen::NumericalIssue;
+//            ++k;
+//            if (p)
+//            {
+//                Eigen::EigenSolver<Eigen::MatrixXf> es;
+//                es.compute(matrix_hat);
+//                auto* eigen_val = es.eigenvalues().data();
+//                std::complex min(0, 0); min.real(std::numeric_limits<float>::min());
+//                for (int elem = 0; elem < es.eigenvalues().size(); ++elem)
+//                {
+//                    auto min =
+//                }
+//
+//            }
+//
+//        }
+//    }
+//}
+
+
 template<int state_size, int ctrl_size>
 ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   CostFunction<state_size, ctrl_size>& cf,
@@ -160,18 +196,23 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 {
     Eigen::Matrix<double, state_size, 1> V_x = _l_x.back();
     Eigen::Matrix<double, state_size, state_size> V_xx = _l_xx.back();
-//    static Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
-
+    static Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
+//    Eigen::JacobiSVD<Eigen::MatrixXd> svd(hessian, Eigen::ComputeFullU | Eigen::ComputeFullV);
     for (auto time = _simulation_time - 1; time >= 0; --time)
     {
         const auto Qx = Q_x(time, V_x);    const auto Qu  = Q_u(time, V_x); const auto Qxu = Q_xu(time, V_xx);
         const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time, V_xx); const auto Qxx = Q_xx(time, V_xx);
         const ctrl_mat cov = 1/1*(Quu - Qux*Qxx.inverse()*Qxu).inverse();
-        if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val){return not std::isnan(val);}))
+        hessian << Qxx, Qxu, Qux, Quu;
+        Eigen::LLT<Eigen::MatrixXd> lltOfA(hessian);
+        auto p = lltOfA.info() == Eigen::NumericalIssue;
+        std::cout << "Is PSD: " << p << "\n";
+        if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val){return not std::isnan(val);})) {
             _covariance[time] = cov;
-        else
+        }
+        else {
             _covariance[time] = ctrl_mat::Identity();
-//        hessian << Qxx, Qxu, Qux, Quu;
+        }
 //        JacobiSVD<MatrixXd> svd(Quu);
 //        double cond = svd.singularValues()(0)/svd.singularValues()(svd.singularValues().size()-1);
 //        exp_cost_reduction[time] = (Q_u(time, V_x).transpose() * _ff_k[time]) - (0.5 * _ff_k[time].transpose() * (Q_uu(time, V_xx) * _ff_k[time]))(0, 0);
