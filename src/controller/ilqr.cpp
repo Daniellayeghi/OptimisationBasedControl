@@ -122,6 +122,14 @@ ILQR<state_size, ctrl_size>::Q_uu(int time, Eigen::Matrix<double, state_size, st
 
 
 template<int state_size, int ctrl_size>
+Eigen::Matrix<mjtNum, state_size, state_size>
+ILQR<state_size, ctrl_size>::Q_xx_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx)
+{
+    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose().eval() * _v_xx + _regularizer) * m_d_vector[time].fx;
+}
+
+
+template<int state_size, int ctrl_size>
 Eigen::Matrix<double, ctrl_size, state_size>
 ILQR<state_size, ctrl_size>::Q_ux_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx)
 {
@@ -185,14 +193,15 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             //General Approximations
             const auto Qx = Q_x(time, V_x); const auto Qu = Q_u(time, V_x); const auto Qxu = Q_xx(time, V_xx);
             const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time , V_xx); const auto Qxx = Q_xx(time, V_xx);
+
             m_Quu_traj[time] = Quu; m_Qu_traj[time] = Qu;
 
             //Regularised Approximations
             const auto Qxu_reg = Q_xu_reg(time, V_xx); const auto Quu_reg = Q_uu_reg(time, V_xx);
-            const auto Qux_reg = Q_ux_reg(time, V_xx);
+            const auto Qux_reg = Q_ux_reg(time, V_xx); const auto Qxx_reg = Q_xx_reg(time, V_xx);
 
             //Compute the covariance from hessian
-            const ctrl_mat cov = 1 / 1 * (Quu_reg - Qux_reg * Qxx.inverse() * Qxu_reg).inverse();
+            const ctrl_mat cov = 1 / 1 * (Quu_reg - Qux_reg * (Qxx_reg).inverse() * Qxu_reg).inverse();
             Eigen::LLT<Eigen::MatrixXd> lltOfA(Quu_reg);
             auto p = lltOfA.info() == Eigen::NumericalIssue;
             if (p) {non_pd_path = true; update_regularizer(true); break;}
@@ -299,8 +308,8 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
         }
     }
 
-    printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f Update = %s\n",
-           _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str());
+//    printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f Update = %s\n",
+//           _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str());
 }
 
 

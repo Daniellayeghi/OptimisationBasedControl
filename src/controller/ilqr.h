@@ -55,6 +55,7 @@ private:
     ctrl_state_mat Q_ux(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     state_ctrl_mat Q_xu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_mat       Q_uu(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
+    state_mat      Q_xx_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_state_mat Q_ux_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     state_ctrl_mat Q_xu_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
     ctrl_mat       Q_uu_reg(int time, Eigen::Matrix<double, state_size, state_size>& _v_xx);
@@ -74,8 +75,7 @@ private:
         CtrlStateMatrix lux;StateMatrix fx; StateCtrlMatrix fu;
     };
 
-    struct BackPassVars
-    {
+    struct BackPassVars{
         CtrlVector ff_k; CtrlStateMatrix fb_k;
     };
 
@@ -85,7 +85,6 @@ private:
     //HJB Approximation
     std::vector<CtrlVector> m_Qu_traj;
     std::vector<CtrlMatrix> m_Quu_traj;
-
     FiniteDifference<state_size, ctrl_size>& _fd;
     CostFunction<state_size, ctrl_size>&     _cf;
 

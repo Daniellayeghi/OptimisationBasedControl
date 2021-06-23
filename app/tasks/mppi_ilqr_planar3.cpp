@@ -126,7 +126,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_1.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -153,8 +153,8 @@ int main(int argc, const char** argv)
 //    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
 ////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
 //    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
-
-    d = mj_makeData(m);
+//
+//    d = mj_makeData(m);
 
     // Assert against model params (literals)
     using namespace SimulationParameters;
@@ -266,7 +266,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 5000;
+                       (0, 0) + collision_cost(data, model) * 50000;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector) {
@@ -276,7 +276,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams<n_ctrl> params {10, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {20, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
