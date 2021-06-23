@@ -159,7 +159,7 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 5000;
+    x_terminal_gain *= 50000;
     x_terminal_gain(0,0) *= 2;
 //    x_terminal_gain(2,2) *= 0.5;
 
@@ -173,7 +173,7 @@ int main(int argc, const char** argv)
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);

@@ -161,7 +161,7 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 5000;
+    x_terminal_gain *= 10000;
     x_terminal_gain(0,0) *= 2;
 
     StateMatrix x_gain; x_gain.setIdentity();
@@ -173,7 +173,7 @@ int main(int argc, const char** argv)
 
    CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 0.0001;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -212,7 +212,7 @@ int main(int argc, const char** argv)
     CtrlMatrix control_reg; control_reg.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        control_reg.diagonal()[elem] = 1000;
+        control_reg.diagonal()[elem] = 0;
     }
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){

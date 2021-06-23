@@ -6,6 +6,7 @@
 #include "../parameters/simulation_params.h"
 #include "Eigen/Core"
 #include "../utilities/eigen_norm_dist.h"
+#include <utility>
 #include <vector>
 #include <iostream>
 
@@ -32,13 +33,13 @@ class QRCostDDP
 public:
     QRCostDDP(const double ddp_variance_reg,
               const MPPIDDPParams<ctrl_size> &params,
-              const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)>& running_cost,
-              const std::function<double(const StateVector&)>& terminal_cost
+              std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
+              std::function<double(const StateVector&)> terminal_cost
     ):
             m_ddp_variance_reg(ddp_variance_reg),
             m_params(params),
-            m_running_cost(running_cost),
-            m_terminal_cost(terminal_cost)
+            m_running_cost(std::move(running_cost)),
+            m_terminal_cost(std::move(terminal_cost))
     {
         m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
         m_ddp_variance_inv = m_params.ddp_variance.inverse();

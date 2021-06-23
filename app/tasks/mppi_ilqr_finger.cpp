@@ -158,6 +158,7 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
+
     x_terminal_gain *= 0;
     x_terminal_gain (2, 2) = 1500000000;
     x_terminal_gain (3, 3) = 50000 * 0.01;
@@ -173,7 +174,6 @@ int main(int argc, const char** argv)
     x_gain *= 0;
     x_gain (3, 3) = 1 * 0.01;
     x_gain (4, 4) = 1 * 0.01;
-
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
@@ -202,19 +202,19 @@ int main(int argc, const char** argv)
     }
 
     StateVector state_reg_vec;
-    state_reg_vec << 0, 0, 500000, 5000, 5000, 5000;
+    state_reg_vec << 0, 0, 5000000, 50000, 50000, 50000;
     StateMatrix t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
 
 
     CtrlVector control_reg_vec;
-    control_reg_vec << 1000, 1000;
+    control_reg_vec << 0, 0;
     CtrlMatrix control_reg; control_reg = control_reg_vec.asDiagonal();
 
 
     StateMatrix r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        r_state_reg.diagonal()[elem + n_jvel] = 200;
+        r_state_reg.diagonal()[elem + n_jvel] = 200000;
         r_state_reg.diagonal()[elem] = 0;
     }
 
@@ -232,8 +232,8 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams<n_ctrl> params {20, 100, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
+    MPPIDDPParams<n_ctrl> params {20, 100, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(100, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 

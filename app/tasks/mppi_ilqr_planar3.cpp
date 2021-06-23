@@ -6,6 +6,7 @@
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/utilities/mujoco_utils.h"
 #include <chrono>
 #include <thread>
 
@@ -125,7 +126,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/planar_3link_point_mass.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_1.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -145,6 +146,15 @@ int main(int argc, const char** argv)
     // init GLFW
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
+
+//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
+////
+//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
+//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+
+    d = mj_makeData(m);
 
     // Assert against model params (literals)
     using namespace SimulationParameters;

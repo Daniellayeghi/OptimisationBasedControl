@@ -184,7 +184,6 @@ int main(int argc, const char** argv)
     x_gain (3, 3) = 1 * 0.01;
     x_gain (4, 4) = 1 * 0.01;
 
-
     CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 1;
@@ -213,7 +212,6 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DummyBuffer d_buff;
-//    ilqr.control(d);
 
 /* ============================================CSV Output Files=======================================================*/
     std::vector<double> cost_buffer;

@@ -50,19 +50,19 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="0.17668 -0.123262 0.02">
+        <body name="k" pos="0.0699453 0.105135 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="-0.183448 0.132567 0.02">
+        <body name="a" pos="0.173395 0.000675967 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="-0.0597142 -0.178802 0.02">
+        <body name="b" pos="-0.0119404 -0.218112 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="c" pos="-0.288064 0.229004 0.02">
+        <body name="c" pos="-0.176081 -0.107944 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
@@ -73,4 +73,3 @@
         <general name="distal2" joint="distal2" gear="0.6 0 0 0 0 0" />
     </actuator>
 </mujoco>
-

@@ -94,11 +94,11 @@ namespace MujocoUtils
 
     inline void fill_ctrl_vector(const mjData *data, CtrlVector &ctrl)
     {
-        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
-//        for(unsigned int row = 0; row < ctrl_size; ++row)
-//        {
-//            ctrl(row, 0) = data->ctrl[row];
-//        }
+//        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
+        for(unsigned int row = 0; row < ctrl.rows(); ++row)
+        {
+            ctrl(row, 0) = data->ctrl[row];
+        }
     }
 
 }
