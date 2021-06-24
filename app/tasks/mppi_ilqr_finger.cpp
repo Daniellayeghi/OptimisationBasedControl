@@ -232,7 +232,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams<n_ctrl> params {20, 100, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams<n_ctrl> params {50, 100, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(100, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

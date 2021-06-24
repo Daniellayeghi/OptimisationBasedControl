@@ -1,0 +1,10 @@
+%% Temporal Averaging
+
+
+vars   = linspace(1, 100, 100);
+result = zeros(1, 100);
+
+for i = 1:length(vars)
+    weight = (length(vars) - i)/length(vars);
+    result(i) =  s
+end

@@ -41,6 +41,7 @@ private:
     void update_regularizer(const bool increase);
     double compute_expected_cost(const double backtracker);
     void backward_pass();
+    void temporal_average_covariance();
 
     CtrlVector      Q_u(int time, StateVector& _v_x);
     StateVector     Q_x(int time, StateVector& _v_x);

@@ -1,3 +1,5 @@
+<!--COMPARE with no Gravity at 100 samples at 100 covariance reg-->
+
 <mujoco model="finger">
 
     <visual>

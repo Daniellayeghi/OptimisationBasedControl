@@ -177,12 +177,14 @@ void ILQR<state_size, ctrl_size>::backward_pass()
     auto non_pd_path = false;
     Eigen::Matrix<double, state_size, 1> V_x = m_d_vector.back().lx;
     Eigen::Matrix<double, state_size, state_size> V_xx = m_d_vector.back().lxx;
+    Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size> hessian;
+
     do{
         for (auto time = m_params.simulation_time - 1; time >= 0; --time){
             //General Approximations
-            const auto Qx = Q_x(time, V_x); const auto Qu = Q_u(time, V_x); const auto Qxu = Q_xx(time, V_xx);
+            const auto Qx = Q_x(time, V_x); const auto Qu = Q_u(time, V_x); const auto Qxu = Q_xu(time, V_xx);
             const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time , V_xx); const auto Qxx = Q_xx(time, V_xx);
-
+//            hessian << Qxx, Qxu, Qux, Quu;
             m_Quu_traj[time] = Quu; m_Qu_traj[time] = Qu;
 
             //Regularised Approximations
@@ -197,6 +199,7 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 
             if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val) {return not std::isnan(val);}))
             {
+//                std::cout << "COV: "  << hessian << "\n";
                 _covariance[time] = cov;
             } else {
                 std::cout << "Replacing NAN" << std::endl;
@@ -216,6 +219,23 @@ void ILQR<state_size, ctrl_size>::backward_pass()
         }
     }while(non_pd_path);
     update_regularizer(false);
+//    temporal_average_covariance();
+}
+
+
+template<int state_size, int ctrl_size>
+void ILQR<state_size, ctrl_size>::temporal_average_covariance()
+{
+    auto iter = 0.0; auto weight_den = 0.0; CtrlMatrix weight_sum_num = CtrlMatrix::Zero();
+
+    for(auto& cov :_covariance)
+    {
+        double weight = (m_params.simulation_time - iter)/m_params.simulation_time;
+        weight_den += weight;
+        weight_sum_num += (weight_sum_num + (weight * cov));
+        cov = weight_sum_num/weight_den;
+        ++iter;
+    }
 }
 
 

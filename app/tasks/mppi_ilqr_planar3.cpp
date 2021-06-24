@@ -147,14 +147,14 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-////
-//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
 //
-//    d = mj_makeData(m);
+    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+//    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
+    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+
+    d = mj_makeData(m);
 
     // Assert against model params (literals)
     using namespace SimulationParameters;
