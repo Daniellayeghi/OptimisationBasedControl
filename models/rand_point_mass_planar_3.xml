@@ -50,19 +50,19 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="-0.0957218 0.202033 0.02">
+        <body name="k" pos="-0.131858 -0.276371 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="-0.0052976 -0.20165 0.02">
+        <body name="a" pos="0.222557 -0.130311 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="0.21084 0.291416 0.02">
+        <body name="b" pos="-0.194176 0.12042 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="c" pos="0.272291 -0.290779 0.02">
+        <body name="c" pos="-0.0958096 0.223737 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>

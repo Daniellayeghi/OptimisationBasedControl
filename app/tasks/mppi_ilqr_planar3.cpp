@@ -266,7 +266,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 50000;
+                       (0, 0) + collision_cost(data, model) * 5000;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector) {
@@ -276,7 +276,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams<n_ctrl> params {20, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {50, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

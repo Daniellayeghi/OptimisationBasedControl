@@ -11,7 +11,7 @@ using namespace MujocoUtils;
 template<int state_size, int ctrl_size>
 MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
                                         QRCostDDP<state_size, ctrl_size>& cost,
-                                        MPPIDDPParams<ctrl_size>& params):
+                                        MPPIDDPParams& params):
         m_params(params),
         m_cost_func(cost),
         m_m(m),
@@ -36,7 +36,7 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 
 
 template<int state_size, int ctrl_size>
-std::pair<CtrlVector, CtrlMatrix>
+GenericUtils::FastPair<CtrlVector, CtrlMatrix>
 MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost) const
 {
 

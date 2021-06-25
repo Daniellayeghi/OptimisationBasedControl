@@ -4,8 +4,9 @@
 
 #include "mujoco.h"
 #include "../parameters/simulation_params.h"
-#include "Eigen/Core"
 #include "../utilities/eigen_norm_dist.h"
+#include "../utilities/generic_utils.h"
+#include "Eigen/Core"
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -14,7 +15,6 @@
 using namespace SimulationParameters;
 
 
-template<int ctrl_size>
 struct MPPIDDPParams{
     int m_k_samples  = 0;
     int m_sim_time   = 0;
@@ -32,7 +32,7 @@ class QRCostDDP
 {
 public:
     QRCostDDP(const double ddp_variance_reg,
-              const MPPIDDPParams<ctrl_size> &params,
+              const MPPIDDPParams &params,
               std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
               std::function<double(const StateVector&)> terminal_cost
     ):
@@ -75,7 +75,7 @@ public:
 
 private:
     const double m_ddp_variance_reg;
-    const MPPIDDPParams<ctrl_size>& m_params;
+    const MPPIDDPParams& m_params;
     CtrlMatrix m_ddp_variance_inv;
     CtrlMatrix m_ctrl_variance_inv;
     const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;
@@ -89,7 +89,7 @@ template<int state_size, int ctrl_size>
 class MPPIDDP
 {
 public:
-    explicit MPPIDDP(const mjModel* m, QRCostDDP<state_size, ctrl_size>& cost, MPPIDDPParams<ctrl_size>& params);
+    explicit MPPIDDP(const mjModel* m, QRCostDDP<state_size, ctrl_size>& cost, MPPIDDPParams& params);
 
     ~MPPIDDP();
 
@@ -103,9 +103,9 @@ public:
 private:
 
     void compute_control_trajectory();
-    std::pair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost) const;
+    GenericUtils::FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost) const;
 
-    MPPIDDPParams<ctrl_size>& m_params;
+    MPPIDDPParams& m_params;
     std::vector<CtrlMatrix> covariance;
     QRCostDDP<state_size, ctrl_size>& m_cost_func;
 

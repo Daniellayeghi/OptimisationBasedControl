@@ -2,6 +2,7 @@
 #define OPTCONTROL_MUJOCO_MUJOCO_UTILS_H
 
 #include "Eigen/Core"
+#include "../parameters/simulation_params.h"
 #include <random>
 
 namespace MujocoUtils
@@ -28,7 +29,8 @@ namespace MujocoUtils
         auto total_obs = end_id - start_id + 1;
         auto num_geoms = static_cast<int>(total_obs / geo_dims);
         auto bodies = 0;
-        for (auto id = 0; id < num_geoms + 1; id++) {
+        for (auto id = 0; id < num_geoms + 1; id++)
+        {
             bodies = id * geo_dims;
             random_iid_array(random_pos, bounds);
             model->body_pos[start_id + bodies] = random_pos[0];
@@ -101,5 +103,27 @@ namespace MujocoUtils
         }
     }
 
+
+    inline double wrap_to_max(double x, double max)
+    {
+        return fmod(max + fmod(x, max), max);
+    }
+
+
+    inline double wrap_to_min_max(double x, double min, double max)
+    {
+        if (x == max) return max;
+        return min + wrap_to_max(x - min, max - min);
+    }
+
+
+    inline double wrap_to_2pi(double x)
+    {
+//        Comment wrapping for cartpole uncomment for acrobot
+//        auto angle = (2*M_PI - x) < 1e-7 ?  0 :  x - 2 * M_PI * floor( x / (2 * M_PI));
+//        return angle;
+        return x;
+    }
 }
+
 #endif //OPTCONTROL_MUJOCO_MUJOCO_UTILS_H
