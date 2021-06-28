@@ -126,7 +126,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_5.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -146,7 +146,7 @@ int main(int argc, const char** argv)
     // init GLFW
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
-
+//
 //    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
 //    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
 ////
@@ -276,7 +276,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams params {50, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {20, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

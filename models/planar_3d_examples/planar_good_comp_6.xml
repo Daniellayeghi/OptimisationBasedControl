@@ -1,3 +1,4 @@
+<!--Compare at 100 and 50 samples with 5000 collision cost-->
 <mujoco model="planar point mass">
     <compiler angle="radian" />
     <option timestep="0.01" cone="elliptic" iterations="200" />
@@ -50,19 +51,19 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="-0.141539 -0.0780727 0.02">
+        <body name="k" pos="-0.267129 0.269174 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="0.156889 -0.233467 0.02">
+        <body name="a" pos="-0.0363087 0.153137 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="-0.0875874 -0.113156 0.02">
+        <body name="b" pos="-0.0271336 0.255822 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="c" pos="0.0468263 -0.265793 0.02">
+        <body name="c" pos="-0.0383808 -0.135569 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>

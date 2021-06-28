@@ -1,4 +1,4 @@
-<!--Compare at 50 samples with 5000 collision cost-->
+<!--Compare at 50 samples with 5000 or 1000 collision cost-->
 
 <mujoco model="planar point mass">
     <compiler angle="radian" />
