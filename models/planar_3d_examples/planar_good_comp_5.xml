@@ -1,3 +1,5 @@
+<!--Compare at 50 samples with 5000 collision cost-->
+
 <mujoco model="planar point mass">
     <compiler angle="radian" />
     <option timestep="0.01" cone="elliptic" iterations="200" />
