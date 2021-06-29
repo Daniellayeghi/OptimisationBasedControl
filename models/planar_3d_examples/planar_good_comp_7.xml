@@ -1,3 +1,5 @@
+<!--At 35 samples also 0.5 importance (100 samples)-->
+
 <mujoco model="planar point mass">
     <compiler angle="radian" />
     <option timestep="0.01" cone="elliptic" iterations="200" />
@@ -50,19 +52,19 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="0.155478 0.21219 0.02">
+        <body name="k" pos="0.165683 -0.152488 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="-0.00745687 0.0275017 0.02">
+        <body name="a" pos="-0.117479 -0.160611 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="0.134292 0.180275 0.02">
+        <body name="b" pos="0.0765026 -0.107879 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="c" pos="0.0645265 -0.221917 0.02">
+        <body name="c" pos="0.200519 -0.196923 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>

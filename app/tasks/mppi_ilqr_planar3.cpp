@@ -146,13 +146,13 @@ int main(int argc, const char** argv)
     // init GLFW
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
+
+    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
 //
-//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-////
-//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+//    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
+    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 
     d = mj_makeData(m);
 
@@ -266,17 +266,17 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 5000;
+                       (0, 0) + collision_cost(data, model) * 1000;
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector) {
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
 
-    MPPIDDPParams params {20, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {35, 75, 0.001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

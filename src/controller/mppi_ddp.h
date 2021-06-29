@@ -34,7 +34,7 @@ public:
     QRCostDDP(const double ddp_variance_reg,
               const MPPIDDPParams &params,
               std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
-              std::function<double(const StateVector&)> terminal_cost
+              std::function<double(const StateVector&, const mjData* data, const mjModel *model)> terminal_cost
     ):
             m_ddp_variance_reg(ddp_variance_reg),
             m_params(params),
@@ -81,7 +81,7 @@ private:
     const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;
 
 public:
-    const std::function<double(const StateVector&)> m_terminal_cost;
+    const std::function<double(const StateVector&, const mjData* data, const mjModel *model)> m_terminal_cost;
 };
 
 

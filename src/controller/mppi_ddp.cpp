@@ -146,7 +146,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
         m_ctrl_samples_time.block(sample, (m_params.m_sim_time-1)*n_ctrl, 1, n_ctrl) =
                 samples.block(0, m_params.m_sim_time-1, n_ctrl, 1).transpose().eval();
 
-        m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state.back());
+        m_delta_cost_to_go[sample] = m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state.back(), m_d_cp, m_m);
         traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0
                 )/m_delta_cost_to_go.size();
     }

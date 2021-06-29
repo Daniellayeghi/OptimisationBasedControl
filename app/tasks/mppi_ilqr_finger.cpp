@@ -189,7 +189,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
+    d->qpos[0] = 1.57; d->qpos[1] = 0; d->qpos[2] = -.8;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     CtrlVector ctrl_mean; ctrl_mean.setZero();
@@ -202,7 +202,7 @@ int main(int argc, const char** argv)
     }
 
     StateVector state_reg_vec;
-    state_reg_vec << 0, 0, 5000000, 50000, 50000, 50000;
+    state_reg_vec << 0, 0, 5000000, 500, 500, 50000;
     StateMatrix t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
 
 
@@ -214,9 +214,26 @@ int main(int argc, const char** argv)
     StateMatrix r_state_reg; r_state_reg.setIdentity();
     for(auto elem = 0; elem < n_jpos; ++elem)
     {
-        r_state_reg.diagonal()[elem + n_jvel] = 200000;
+        r_state_reg.diagonal()[elem + n_jvel] = 2000;
         r_state_reg.diagonal()[elem] = 0;
     }
+
+    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        std::array<int, 3> joint_list {{0, 1, 2}};
+
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                bool check_1 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+                bool check_2 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
+
+                if (check_1 != check_2)
+                    return true;
+            }
+        return false;
+    };
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
@@ -226,14 +243,14 @@ int main(int argc, const char** argv)
                 (0, 0);
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector) {
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 1000;
     };
 
-    MPPIDDPParams params {50, 100, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(100, params, running_cost, terminal_cost);
+    MPPIDDPParams params {150, 100, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
