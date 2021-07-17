@@ -8,7 +8,10 @@
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
+#include <zmqpp/zmqpp.hpp>
+
 
 // for sleep timers
 #include <chrono>
@@ -39,7 +42,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_ENTER)
+    if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
     {
         save_data = true;
     }
@@ -105,6 +108,7 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // main function
 int main(int argc, const char** argv)
 {
+
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
@@ -161,8 +165,9 @@ int main(int argc, const char** argv)
     {
         x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_terminal_gain *= 10000;
+    x_terminal_gain *= 50000;
     x_terminal_gain(0,0) *= 2;
+//    x_terminal_gain(2,2) *= 0.5;
 
     StateMatrix x_gain; x_gain.setIdentity();
     for(auto element = 0; element < n_jpos; ++element)
@@ -171,9 +176,10 @@ int main(int argc, const char** argv)
     }
     x_gain *= 0;
 
-   CtrlMatrix u_gain;
+
+    CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.0001;
+    u_gain *= 5;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -190,7 +196,7 @@ int main(int argc, const char** argv)
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 1;
+        ctrl_var.diagonal()[elem] = 0.0015;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -229,10 +235,8 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-
-    MPPIDDPParams params {10, 75, 0.0001, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
-
+    MPPIDDPParams params {10, 75, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(2500, params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position
@@ -253,19 +257,26 @@ int main(int argc, const char** argv)
     DummyBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
-    std::vector<CtrlVector> pi_ctrl;
-    std::vector<CtrlVector> ddp_ctrl;
-    pi_ctrl.reserve(1000);
-    ddp_ctrl.reserve(1000);
-
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream pi_ctrl_file(path + ("pi_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ddp_ctrl_file(path + ("ddp_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-
     std::fstream cost_mpc(path + ("cartpole_pi_ddp_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("cartpole_pi_ddp_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("cartpole_pi_ddp_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("cartpole_pi_ddp_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::vector<CtrlVector> ctrl_buffer_ilqr; std::fill(ctrl_buffer_ilqr.begin(), ctrl_buffer_ilqr.begin(), CtrlVector::Zero());
+    std::vector<CtrlVector> ctrl_buffer_pi; std::fill(ctrl_buffer_pi.begin(), ctrl_buffer_pi.begin(), CtrlVector::Zero());
+
+/* ==================================================IPC=======================================================*/
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
+    std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    BufferUtilities::save_to_file(ctrl_data_pi, ilqr._u_traj_cp);
+    std::cout << "computed trajectory" << "\n";
+/* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
     while(!glfwWindowShouldClose(window))
@@ -280,8 +291,16 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
+//            ctrl_buffer_ilqr = ilqr._u_traj_cp;
+//            pi.m_control = ilqr._u_traj;
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control_cp;
+            ctrl_buffer_pi = pi.m_control_cp;
+            ilqr._u_traj = pi.m_control;
+//          Send control for visualisation
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+            zmq_buffer.send_buffers();
+//            Step this env
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
@@ -300,16 +319,17 @@ int main(int argc, const char** argv)
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
-    }
-
-    if(save_data)
-    {
-        BufferUtilities::save_to_file(ddp_ctrl_file, ddp_ctrl);
-        BufferUtilities::save_to_file(pi_ctrl_file, pi_ctrl);
-        d_buff.save_buffer(pos_data, vel_data, ctrl_data);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        std::cout << "Saved!" << std::endl;
-        save_data = false;
+        if(save_data)
+        {
+            std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
+            std::fstream ctrl_data_ilqr(path + ("planar_3_ctrl_ilqr.csv"), std::fstream::out | std::fstream::trunc);
+            BufferUtilities::save_to_file(ctrl_data_pi, ctrl_buffer_pi);
+            BufferUtilities::save_to_file(ctrl_data_ilqr, ctrl_buffer_ilqr);
+            d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::cout << "Saved!" << std::endl;
+            save_data = false;
+        }
     }
 
     // free visualization storage
@@ -320,6 +340,10 @@ int main(int argc, const char** argv)
     mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
+
+    // terminate ipc
+//    zmq_close (requester);
+//    zmq_ctx_destroy (context);
 
     // terminate GLFW (crashes with Linux NVidia drivers)
 #if defined(__APPLE__) || defined(_WIN32)

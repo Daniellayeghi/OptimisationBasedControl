@@ -7,18 +7,28 @@
 namespace SimulationParameters
 {
     /* Environment Dimensions */
-    constexpr const int n_ctrl = 2;
-    constexpr const int n_jpos = 3;
-    constexpr const int n_jvel = 3;
+    using SimScalarType = double;
+    constexpr const int n_ctrl = 1;
+    constexpr const int n_jpos = 2;
+    constexpr const int n_jvel = 2;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
-    using CtrlVector  = Eigen::Matrix<double, n_ctrl, 1>;
-    using CtrlMatrix  = Eigen::Matrix<double, n_ctrl, n_ctrl>;
-    using StateVector = Eigen::Matrix<double, state_size, 1>;
-    using StateMatrix = Eigen::Matrix<double, state_size, state_size>;
-    using CtrlStateMatrix = Eigen::Matrix<double, n_ctrl, state_size>;
-    using StateCtrlMatrix = Eigen::Matrix<double, state_size, n_ctrl>;
+    using CtrlVector  = Eigen::Matrix<SimScalarType, n_ctrl, 1>;
+    using CtrlMatrix  = Eigen::Matrix<SimScalarType, n_ctrl, n_ctrl>;
+    using StateVector = Eigen::Matrix<SimScalarType, state_size, 1>;
+    using StateMatrix = Eigen::Matrix<SimScalarType, state_size, state_size>;
+    using CtrlStateMatrix = Eigen::Matrix<SimScalarType, n_ctrl, state_size>;
+    using StateCtrlMatrix = Eigen::Matrix<SimScalarType, state_size, n_ctrl>;
+
+    /* Raw Types Used */
+    template<typename T>
+    struct RawType {};
+
+    template<>
+    struct RawType<CtrlVector>{
+        using type = CtrlVector::Scalar[n_ctrl];
+    };
 
 }
 

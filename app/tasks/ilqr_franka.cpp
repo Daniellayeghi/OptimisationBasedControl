@@ -5,10 +5,7 @@
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-
-#include "../third_party/imgui/imgui.h"
-#include "../third_party/imgui/examples/imgui_impl_glfw.h"
-#include "../third_party/imgui/examples/imgui_impl_opengl3.h"
+#include "../../src/controller/mppi_ddp.h"
 
 // for sleep timers
 #include <chrono>
@@ -33,7 +30,7 @@ mjrContext con;                     // custom GPU context
 bool button_left   = false;
 bool button_middle = false;
 bool button_right  = false;
-bool save_data     = false;
+bool save_data     = true;
 double lastx = 0;
 double lasty = 0;
 
@@ -42,7 +39,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END)
+    if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
     {
         save_data = true;
     }
@@ -113,28 +110,6 @@ static void gui_reset(mjData *data, const mjModel *model)
 }
 
 
-template<int square_size>
-void generate_input(char * input, int buff_size, Eigen::Matrix<double, square_size, square_size>& gain, int offset = 0)
-{
-    ImGui::InputText("Input", input, buff_size);
-    if(ImGui::Button("SET"))
-    {
-        std::stringstream ss (input);
-        int iteration = 0 + offset;
-        for (double value; ss >> value;)
-        {
-            if (iteration < square_size)
-                gain(iteration, iteration) = value;
-            if (ss.peek() == ',')
-                ss.ignore();
-            if (ss.peek() == ']')
-                    break;
-            ++iteration;
-        }
-    }
-}
-
-
 // main function
 int main(int argc, const char** argv)
 {
@@ -186,24 +161,79 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0,
-                                                                                  1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0;
-    x_terminal_diag *= 100;
-    x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
+    StateVector x_terminal_diag; x_terminal_diag << 100000, 100000, 100000, 100000, 100000, 100000, 100000,
+                                                    1000, 1000, 1000, 1000, 1000, 10000, 1000;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    StateVector x_running_diag; x_running_diag << 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10;
-    x_running_diag  *= 0;
-    x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
+    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0,
+                                                  0, 0, 0, 0, 0, 0, 0;
+//    x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.001;
+    u_gain *= 0.0000001;
+
+    CtrlVector ctrl_mean; ctrl_mean.setZero();
+    CtrlMatrix ddp_var; ddp_var.setIdentity();
+    CtrlMatrix ctrl_var; ctrl_var.setIdentity();
+    for(auto elem = 0; elem < n_ctrl; ++elem)
+    {
+        ctrl_var.diagonal()[elem] = 0.01;
+        ddp_var.diagonal()[elem] = 0.001;
+    }
+
+    StateMatrix t_state_reg; t_state_reg.setIdentity();
+    for(auto elem = 0; elem < n_jpos; ++elem)
+    {
+        t_state_reg.diagonal()[elem + n_jvel] = 1e7;
+        t_state_reg.diagonal()[elem] = 10000;
+    }
+
+    StateMatrix r_state_reg; r_state_reg.setIdentity();
+    for(auto elem = 0; elem < n_jpos; ++elem)
+    {
+        r_state_reg.diagonal()[elem + n_jvel] = 10;
+        r_state_reg.diagonal()[elem] = 0;
+    }
+
+    CtrlVector control_reg_vec;
+    control_reg_vec.setOnes() * 0;
+    CtrlMatrix control_reg = control_reg_vec.asDiagonal();
+
+    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        std::array<int, 3> joint_list {{0, 1, 2}};
+
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                bool check_1 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+                bool check_2 = (std::find(joint_list.begin(), joint_list.end(),
+                                          model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
+
+                if (check_1 != check_2)
+                    return true;
+            }
+        return false;
+    };
+
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+        StateVector state_error  = x_desired - state_vector;
+        CtrlVector ctrl_error = u_desired - ctrl_vector;
+
+        return (state_error.transpose() * r_state_reg * state_error)(0, 0);
+    };
+
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+        StateVector state_error = x_desired - state_vector;
+
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+    };
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -212,37 +242,24 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
    // initial position
-    d->qpos[0] = 0; d->qpos[1] = -M_PI/4; d->qpos[2] = 0; d->qpos[3] = -3*M_PI/4; d->qpos[4] = 0; d->qpos[5] = M_PI_2; d->qpos[6] = 0;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
+//    d->qpos[0] = 0; d->qpos[1] = -M_PI/4; d->qpos[2] = 0; d->qpos[3] = -3*M_PI/4; d->qpos[4] = 0; d->qpos[5] = M_PI_2; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
+
+    MPPIDDPParams params_pi {200, 100, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1e8, params_pi, running_cost, terminal_cost);
+    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params_pi);
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 20, 1};
+    ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
     // install control callback
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DataBuffer d_buff;
-
-/* ==================================================GUI Setup=======================================================*/
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(nullptr);
-    ImGui::StyleColorsDark();
-
-    enum QuadMat {Qp_r = 0, Qv_r, Qp_f, Qv_f, R_r};
-    std::array<const char *, 5> gain_names {{"Qp_r", "Qv_r","Qp_f","Qv_f", "R_r"}};
-
-    std::array<std::pair<QuadMat, int>, 5> matrix{{{Qp_r, n_jpos},{Qv_r, n_jvel},{Qp_f, n_jpos},{Qv_f, n_jvel},{R_r, n_ctrl}}};
-
-    static int gain_selection = 0;
-    constexpr const int buff_size = 5*n_jpos+n_jpos*2;
-    char input[buff_size];
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -251,6 +268,11 @@ int main(int argc, const char** argv)
     std::fstream ctrl_data(path + ("franka_ilqr_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("franka_ilqr_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("franka_ilqr_vel.csv"), std::fstream::out | std::fstream::trunc);
+
+    std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data_ilqr(path + ("planar_3_ctrl_ilqr.csv"), std::fstream::out | std::fstream::trunc);
+    std::vector<CtrlVector> ctrl_buffer_ilqr; std::fill(ctrl_buffer_ilqr.begin(), ctrl_buffer_ilqr.begin(), CtrlVector::Zero());
+    std::vector<CtrlVector> ctrl_buffer_pi; std::fill(ctrl_buffer_pi.begin(), ctrl_buffer_pi.begin(), CtrlVector::Zero());
 
 /* ==================================================Simulation=======================================================*/
 
@@ -262,42 +284,18 @@ int main(int argc, const char** argv)
         //  this loop will finish on time for the next frame to be rendered at 60 fps.
         //  Otherwise add a cpu timer and exit this loop when it is time to render.
 
-//        if constexpr (show_gui)
-//        {
-//
-//            ImGui_ImplOpenGL3_NewFrame();
-//            ImGui_ImplGlfw_NewFrame();
-//            ImGui::NewFrame();
-//
-//            // The same shit as below but with the opposite bool changed
-//            for(unsigned int elem = 0; elem < matrix.size(); ++elem)
-//            {
-//                ImGui::RadioButton(gain_names[elem], &gain_selection, static_cast<int>(elem));
-//                if(elem < matrix.size() - 1) ImGui::SameLine();
-//            }
-//
-//            switch(gain_selection)
-//            {
-//                case Qp_f : generate_input(input, buff_size, cost_func._x_terminal_gain); break;
-//                case Qv_f : generate_input(input, buff_size, cost_func._x_terminal_gain, n_jpos); break;
-//                case Qp_r : generate_input(input, buff_size, cost_func._x_gain); break;
-//                case Qv_r : generate_input(input, buff_size, cost_func._x_gain, n_jpos); break;
-//                case R_r : generate_input(input, buff_size, cost_func._u_gain); break;
-//                default: break;
-//            }
-//
-//            if(ImGui::Button("Reset"))
-//                gui_reset(d, m);
-//        }
-
         mjtNum simstart = d->time;
 
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            ctrl_buffer_ilqr = ilqr._u_traj_cp;
+            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+            ctrl_buffer_pi = pi.m_control_cp;
+            ilqr._u_traj = pi.m_control_cp;
+            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
          }
 
@@ -311,12 +309,6 @@ int main(int argc, const char** argv)
         mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
         mjr_render(viewport, &scn, &con);
 
-        if constexpr (show_gui)
-        {
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        }
-
         // swap OpenGL buffers (blocking call due to v-sync)
         glfwSwapBuffers(window);
 
@@ -325,6 +317,8 @@ int main(int argc, const char** argv)
 
         if(save_data)
         {
+            BufferUtilities::save_to_file(ctrl_data_pi, ctrl_buffer_pi);
+            BufferUtilities::save_to_file(ctrl_data_ilqr, ctrl_buffer_ilqr);
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             save_data = false;
@@ -345,7 +339,6 @@ int main(int argc, const char** argv)
     mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
-    ImGui_ImplGlfw_Shutdown();
     // terminate GLFW (crashes with Linux NVidia drivers)
 #if defined(__APPLE__) || defined(_WIN32)
     glfwTerminate();

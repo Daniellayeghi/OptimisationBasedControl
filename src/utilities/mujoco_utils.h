@@ -40,6 +40,19 @@ namespace MujocoUtils
     }
 
 
+    template<typename T>
+    void copy_data(const mjModel *model, const mjData *data, T *data_cp)
+    {
+        data_cp->time = data->time;
+        mju_copy(data_cp->qpos, data->qpos, model->nq);
+        mju_copy(data_cp->qvel, data->qvel, model->nv);
+        mju_copy(data_cp->qacc, data->qacc, model->nv);
+        mju_copy(data_cp->qfrc_applied, data->qfrc_applied, model->nv);
+        mju_copy(data_cp->xfrc_applied, data->xfrc_applied, 6 * model->nbody);
+        mju_copy(data_cp->ctrl, data->ctrl, model->nu);
+    }
+
+
     inline CtrlVector clamp_control_r(CtrlVector &control, const mjtNum *limits)
     {
         CtrlVector clamped_ctrl;
@@ -64,23 +77,7 @@ namespace MujocoUtils
 
     inline void set_control_data(const mjData *data, const CtrlVector &ctrl)
     {
-        for (auto row = 0; row < ctrl.rows(); ++row)
-        {
-            data->ctrl[row] = ctrl(row, 0);
-        }
-    }
-
-
-    template<typename T>
-    void copy_data(const mjModel *model, const mjData *data, T *data_cp)
-    {
-        data_cp->time = data->time;
-        mju_copy(data_cp->qpos, data->qpos, model->nq);
-        mju_copy(data_cp->qvel, data->qvel, model->nv);
-        mju_copy(data_cp->qacc, data->qacc, model->nv);
-        mju_copy(data_cp->qfrc_applied, data->qfrc_applied, model->nv);
-        mju_copy(data_cp->xfrc_applied, data->xfrc_applied, 6 * model->nbody);
-        mju_copy(data_cp->ctrl, data->ctrl, model->nu);
+        std::copy(ctrl.data(), ctrl.data()+ctrl.size(), data->ctrl);
     }
 
 
@@ -96,33 +93,27 @@ namespace MujocoUtils
 
     inline void fill_ctrl_vector(const mjData *data, CtrlVector &ctrl)
     {
-//        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
-        for(unsigned int row = 0; row < ctrl.rows(); ++row)
+        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
+    }
+
+
+    inline void apply_ctrl_update_state(const CtrlVector& ctrl, StateVector& state, mjData* d, const mjModel* m)
+    {
+        set_control_data(d, ctrl);
+        mj_step(m, d);
+        fill_state_vector(d, state);
+    }
+
+
+    inline void rollout_dynamics(const std::vector<CtrlVector>& ctrls, std::vector<StateVector>& states, mjData *d, const mjModel *m)
+    {
+        fill_state_vector(d, states.front());
+        for(auto iteration = 0; iteration < ctrls.size(); ++iteration)
         {
-            ctrl(row, 0) = data->ctrl[row];
+            set_control_data(d, ctrls[iteration]);
+            mj_step(m, d);
+            fill_state_vector(d, states[iteration+ 1]);
         }
-    }
-
-
-    inline double wrap_to_max(double x, double max)
-    {
-        return fmod(max + fmod(x, max), max);
-    }
-
-
-    inline double wrap_to_min_max(double x, double min, double max)
-    {
-        if (x == max) return max;
-        return min + wrap_to_max(x - min, max - min);
-    }
-
-
-    inline double wrap_to_2pi(double x)
-    {
-//        Comment wrapping for cartpole uncomment for acrobot
-//        auto angle = (2*M_PI - x) < 1e-7 ?  0 :  x - 2 * M_PI * floor( x / (2 * M_PI));
-//        return angle;
-        return x;
     }
 }
 

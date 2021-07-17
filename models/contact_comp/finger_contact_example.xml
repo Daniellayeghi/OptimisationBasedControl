@@ -1,4 +1,4 @@
-<!--Compare at 150 samples 1000 encouragement of collision and 100ms-->
+<!--Compare at 150 samples 1000 encouragement of collision and 100ms Cov Reg: 1-->
 
 <mujoco model="finger">
 

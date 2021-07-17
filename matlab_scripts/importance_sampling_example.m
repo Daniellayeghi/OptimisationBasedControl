@@ -15,6 +15,7 @@ w_ctrl  = weights.* ctrl_sample;
 ctrl_avg = sum(w_ctrl);
 r = normrnd(sum(w_ctrl), 0.5, 1, K);
 % ctrl_sample .- w_ctrl;
+
 % Add covariance adaption
 new_variance = sum((ctrl_sample - ctrl_avg).^2 .* w_ctrl);
 y = gaussmf(-1:0.01:1, [sqrt(new_variance), ctrl_avg]);

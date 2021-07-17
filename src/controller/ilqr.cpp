@@ -34,7 +34,7 @@ _fd(fd) ,_cf(cf), _m(m), m_params(params)
     _x_traj.assign(m_params.simulation_time + 1, StateVector::Zero());
     _u_traj_new.assign(m_params.simulation_time, CtrlVector::Zero());
     _u_traj_cp.assign(m_params.simulation_time,CtrlVector::Zero());
-    _covariance.assign(m_params.simulation_time, CtrlMatrix::Zero());
+    _covariance.assign(m_params.simulation_time, CtrlMatrix::Identity());
     m_Qu_traj.assign(m_params.simulation_time, CtrlVector::Zero());
     m_Quu_traj.assign(m_params.simulation_time, CtrlMatrix::Zero());
 
@@ -62,7 +62,7 @@ _fd(fd) ,_cf(cf), _m(m), m_params(params)
                        6.83013455e-01, 4.24097618e-01,
                        2.17629136e-01, 9.22959982e-02,
                        3.23491843e-02, 9.37040641e-03,
-                       2.24320079e-03, 4.43805318e-04}};
+                       2.24320079e-03, 4.43805318e-04, 0.00000001}};
 }
 
 
@@ -184,7 +184,7 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             //General Approximations
             const auto Qx = Q_x(time, V_x); const auto Qu = Q_u(time, V_x); const auto Qxu = Q_xu(time, V_xx);
             const auto Quu = Q_uu(time, V_xx); const auto Qux = Q_ux(time , V_xx); const auto Qxx = Q_xx(time, V_xx);
-//            hessian << Qxx, Qxu, Qux, Quu;
+            hessian << Qxx, Qxu, Qux, Quu;
             m_Quu_traj[time] = Quu; m_Qu_traj[time] = Qu;
 
             //Regularised Approximations
@@ -192,17 +192,24 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             const auto Qux_reg = Q_ux_reg(time, V_xx); const auto Qxx_reg = Q_xx_reg(time, V_xx);
 
             //Compute the covariance from hessian
-            const CtrlMatrix cov = 1 / 1 * (Quu_reg - Qux_reg * (Qxx_reg).inverse() * Qxu_reg).inverse();
+            hessian << Qxx_reg, Qxu_reg, Qux_reg, Quu_reg;
+            const auto hessian_inverse = hessian.llt().solve(
+                    Eigen::Matrix<double, state_size+ctrl_size, state_size+ctrl_size>::Identity()
+                    );
+
+            const CtrlMatrix cov = hessian_inverse.block(
+                    state_size, state_size, ctrl_size, ctrl_size
+                    );
+//            const CtrlMatrix cov = 1 / 1 * (Quu_reg - Qux_reg * (Qxx_reg).inverse() * Qxu_reg).inverse();
+
             Eigen::LLT<Eigen::MatrixXd> lltOfA(Quu_reg);
             auto p = lltOfA.info() == Eigen::NumericalIssue;
             if (p) {non_pd_path = true; update_regularizer(true); break;}
 
             if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val) {return not std::isnan(val);}))
             {
-//                std::cout << "COV: "  << hessian << "\n";
                 _covariance[time] = cov;
             } else {
-                std::cout << "Replacing NAN" << std::endl;
                 _covariance[time] = CtrlMatrix::Identity();
             }
 
@@ -283,6 +290,9 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
     static std::string status = "N";
     auto expected_cost_red = 0.0; auto new_total_cost = 0.0; auto cost_red_ratio = 0.0;
 
+//    std::vector<std::vector<CtrlVector>> u_nominees; u_nominees.reserve(10);
+//    u_nominees.assign(10, std::vector<CtrlVector>(m_params.simulation_time, CtrlVector::Zero()));
+//    std::array<double, 10> costreds; costreds.fill(-1);
     //TODO Regularize the Quu inversion instead
     for (const auto &backtracker : _backtrackers)
     {
@@ -303,13 +313,16 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
         expected_cost_red = compute_expected_cost(backtracker);
         new_total_cost = _cf.trajectory_running_cost(_x_traj_new, _u_traj_new);
         cost_red_ratio = (_prev_total_cost - new_total_cost)/expected_cost_red;
-
+//        costreds[iteration] = cost_red_ratio;
+//        u_nominees[iteration] = _u_traj_new;
 
         // NOTE: Not doing this and updating regardless of the cost can lead to better performance!
-        if(cost_red_ratio > m_params.min_cost_red) {
+        if(cost_red_ratio >= m_params.min_cost_red) {
             status = "Y";
             _u_traj = _u_traj_new;
             _x_traj = _x_traj_new;
+            printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f, Update = %s, last_position = %f\n",
+                   _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str(), _x_traj_new.front()(0, 0));
             break;
         }
         else if (cost_red_ratio < 0){
@@ -317,8 +330,9 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
         }
     }
 
-//    printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f Update = %s\n",
-//           _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str());
+//    const auto element = std::max_element(costreds.begin(), costreds.end()) - costreds.begin();
+//    if(costreds[element] > 0)
+//        _u_traj = u_nominees[element];
 }
 
 
@@ -327,6 +341,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
 {
     for(auto iteration = 0; iteration < m_params.iteration; ++iteration)
     {
+        m_params.min_cost_red = 0;
         m_params.delta = m_params.delta_init;
         _regularizer.setIdentity();
         fill_state_vector(d, _x_traj.front());

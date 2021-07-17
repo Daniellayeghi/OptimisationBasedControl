@@ -13,6 +13,7 @@
 
 
 using namespace SimulationParameters;
+using namespace GenericUtils;
 
 
 struct MPPIDDPParams{
@@ -21,6 +22,7 @@ struct MPPIDDPParams{
     float m_lambda   = 0;
     float importance = 0;
     int m_scale      = 0;
+    int iteration    = 0;
     CtrlVector pi_ctrl_mean;
     CtrlMatrix ddp_variance;
     CtrlMatrix ctrl_variance;
@@ -51,36 +53,46 @@ public:
                       const CtrlVector& ddp_mean_control,
                       const mjData* data, const mjModel *model)
     {
-        m_ddp_variance_inv = ((m_params.ddp_variance+CtrlMatrix::Identity()*1e-6)/m_ddp_variance_reg).inverse();
+        m_ddp_variance_inv = ((m_params.ddp_variance)/m_ddp_variance_reg).inverse();
         m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
 
         CtrlVector new_control = control + delta_control;
 
-        auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
-                2 * new_control.transpose() * m_ddp_variance_inv * ddp_mean_control
+        auto ddp_noise_term = (new_control.transpose().eval() * m_ddp_variance_inv * new_control -
+                2 * new_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control
                 ) * 1;
 
-        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
-                (1 + m_params.m_scale) * new_control.transpose() * m_ctrl_variance_inv * new_control
+        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control -
+                (1 + m_params.m_scale) * new_control.transpose().eval() * m_ctrl_variance_inv * new_control
                 )(0, 0) * m_params.importance/(m_params.importance + 1);
 
-        double pi_bias = (2 * new_control.transpose() * m_ctrl_variance_inv * control -
-                control.transpose() * m_ctrl_variance_inv * control
+        double pi_bias = (2 * new_control.transpose().eval() * m_ctrl_variance_inv * control -
+                control.transpose().eval() * m_ctrl_variance_inv * control
                 )(0, 0);
 
-        const double cost_power = std::pow(1/(m_params.importance + 1), m_params.m_scale);
+        const double cost_power = 1; //std::pow(1/(m_params.importance + 1), m_params.m_scale);
         return (ddp_bias + pi_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
     }
 
-
-private:
     const double m_ddp_variance_reg;
     const MPPIDDPParams& m_params;
     CtrlMatrix m_ddp_variance_inv;
     CtrlMatrix m_ctrl_variance_inv;
-    const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;
 
 public:
+
+    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state, mjData *d, const mjModel *m) const
+    {
+        auto total_cost = 0.0;
+        for(auto time = 0; time < m_params.m_sim_time-1; ++time)
+        {
+            total_cost += m_running_cost(state[time + 1], ctrl[time], d, m);
+        }
+        total_cost += m_terminal_cost(state.back(), d, m);
+        return total_cost;
+    }
+
+    const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;
     const std::function<double(const StateVector&, const mjData* data, const mjModel *model)> m_terminal_cost;
 };
 
@@ -97,12 +109,17 @@ public:
 
     CtrlVector _cached_control;
     std::vector<CtrlVector> m_control;
+    std::vector<CtrlVector> m_control_new;
     std::vector<CtrlVector> m_control_cp;
     double traj_cost{};
 
 private:
 
-    void compute_control_trajectory();
+    FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
+    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
+    void prepare_control_mpc();
+    bool accepted_trajectory();
+
     GenericUtils::FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost) const;
 
     MPPIDDPParams& m_params;
@@ -110,17 +127,16 @@ private:
     QRCostDDP<state_size, ctrl_size>& m_cost_func;
 
     //  Data
-    std::vector<StateVector> m_state;
+    std::vector<StateVector> m_state_new;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
     std::vector<std::vector<double>> m_cost_to_go_sample_time;
-    std::vector<std::vector<CtrlVector>> m_delta_control;
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
     Eigen::Matrix<CtrlVector, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samp_time;
 
-    // Models
+    double m_prev_cost = 0;
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;
     Eigen::EigenMultivariateNormal<double> m_normX_cholesk;

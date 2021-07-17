@@ -12,12 +12,12 @@
 
 struct ILQRParams
 {
-    const double min_reg = 1e-6;
-    const double delta_init = 2.0;
+    double min_reg = 1e-6;
+    double delta_init = 2.0;
     double delta = delta_init;
-    double min_cost_red = 5;
-    const int simulation_time = 0;
-    const int iteration = 0;
+    double min_cost_red = 0;
+    int simulation_time = 0;
+    int iteration = 0;
 };
 
 
@@ -82,7 +82,7 @@ private:
     ILQRParams& m_params;
     mjData* _d_cp = nullptr;
 
-    std::array<double, 10> _backtrackers{};
+    std::array<double, 11> _backtrackers{};
     StateMatrix _regularizer;
 
 public:

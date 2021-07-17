@@ -16,8 +16,8 @@
         <motor name="panda0_joint5" joint="panda0_joint5" class="panda" ctrllimited="true" ctrlrange="-12 12" forcerange="-12 12"/>
         <motor name="panda0_joint6" joint="panda0_joint6" class="panda" ctrllimited="true" ctrlrange="-12 12" forcerange="-12 12"/>
         <motor name="panda0_joint7" joint="panda0_joint7" class="panda" ctrllimited="true" ctrlrange="-12 12" forcerange="-12 12"/>
-        <motor name="r_gripper_finger_joint" joint="panda0_finger_joint1" class="panda_finger" ctrllimited="true" ctrlrange="-70 70" forcerange="-70 70"/>
-        <motor name="l_gripper_finger_joint" joint="panda0_finger_joint2" class="panda_finger" ctrllimited="true" ctrlrange="-70 70" forcerange="-70 70"/>
+<!--        <motor name="r_gripper_finger_joint" joint="panda0_finger_joint1" class="panda_finger" ctrllimited="true" ctrlrange="-70 70" forcerange="-70 70"/>-->
+<!--        <motor name="l_gripper_finger_joint" joint="panda0_finger_joint2" class="panda_finger" ctrllimited="true" ctrlrange="-70 70" forcerange="-70 70"/>-->
     </actuator>
 
 </mujocoinclude>

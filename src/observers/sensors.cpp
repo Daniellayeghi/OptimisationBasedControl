@@ -1,4 +1,3 @@
-#include "../utilities/basic_math.h"
 #include "sensors.h"
 
 static Sensors *static_sensor;

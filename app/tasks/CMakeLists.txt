@@ -1,5 +1,5 @@
 
-set(BINARIES
+set(SOURCE_FILES
         ilqr_cartpole.cpp
         ilqr_control.cpp
         ilqr_double_integrator.cpp
@@ -13,22 +13,27 @@ set(BINARIES
         mppi_ilqr_finger.cpp
         )
 
-include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
+include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZMQPP_INCLUDES} ${ZeroMQ_INCLUDE_DIR})
+message(STATUS "include dir: ${ZeroMQ_INCLUDE_DIR}")
+#set(HEADER_FILES /usr/local/include/zmqpp)
 
-foreach(bin_file ${BINARIES})
-    string(REPLACE ".cpp" "" BIN_NAME ${bin_file})
-    add_executable(${BIN_NAME} ${bin_file})
+foreach(source ${SOURCE_FILES})
+    string(REPLACE ".cpp" "" BIN_NAME ${source})
+    add_executable(${BIN_NAME} ${source})
     target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
     #Standard libraries for GL
     target_link_libraries(${BIN_NAME} glut)
     target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
     # Additional libraries from mujoco package
     target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
-    # Additional libraries imgui_1 package
+    # Additional libraries imgui package
     target_link_libraries(${BIN_NAME} imgui)
     # General implementation packages
     target_link_libraries(${BIN_NAME} control_lib)
     target_link_libraries(${BIN_NAME} util_lib)
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
     target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
-endforeach(bin_file ${BINARIES})
+    target_link_libraries(${BIN_NAME} /usr/local/lib/libzmq.so.5)
+    target_link_libraries(${BIN_NAME} ${ZMQPP})
+    ## add the include directory to our compile directives
+endforeach(source ${SOURCE_FILES})
