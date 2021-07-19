@@ -11,6 +11,8 @@ libraries
 *.mat
 *.m~
 *.png
+*Pip*
+*.lock
 data/
 figures/
 third_party/
