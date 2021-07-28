@@ -174,6 +174,11 @@ int main(int argc, const char** argv)
     u_gain.setIdentity();
     u_gain *= 10;
 
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 1000000;
+
+
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -187,11 +192,10 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 100};
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
 
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
-    ilqr.control(d);
     params.iteration = 1;
 
     // install control callback
@@ -208,7 +212,6 @@ int main(int argc, const char** argv)
     std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
 /* ==================================================Simulation=======================================================*/
-    ilqr.control(d);
     BufferUtilities::save_to_file(ctrl_data, ilqr._u_traj_cp);
 
     // use the first while condition if you want to simulate for a period.

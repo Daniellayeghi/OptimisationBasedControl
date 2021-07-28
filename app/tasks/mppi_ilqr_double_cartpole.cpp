@@ -156,25 +156,20 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 5000;
-    x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 250000, 500000, 80000, 5000, 2500, 800;
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
+
+    StateVector x_gain_vec; x_gain_vec <<.250000, .500000, .80000, .5000, .2500, .800;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.02;
+    u_gain *= 40;
+
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -244,13 +239,13 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 150, 1};
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DummyBuffer d_buff;
 
@@ -273,11 +268,11 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+//            pi.control(d, ilqr._u_traj, ilqr._covariance);
+//            ilqr._u_traj = pi.m_control;
+            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

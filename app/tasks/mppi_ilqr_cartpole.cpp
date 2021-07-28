@@ -181,6 +181,10 @@ int main(int argc, const char** argv)
     u_gain.setIdentity();
     u_gain *= 5;
 
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
+
     CtrlVector u_control_1;
     StateVector x_state_1;
 
@@ -196,7 +200,7 @@ int main(int argc, const char** argv)
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.0015;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -235,8 +239,8 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams params {10, 75, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(2500, params, running_cost, terminal_cost);
+    MPPIDDPParams params {5, 75, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position
@@ -246,7 +250,7 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
@@ -272,10 +276,10 @@ int main(int argc, const char** argv)
     ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
+    // Data params
     std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     BufferUtilities::save_to_file(ctrl_data_pi, ilqr._u_traj_cp);
-    std::cout << "computed trajectory" << "\n";
 /* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
@@ -291,16 +295,13 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-//            ctrl_buffer_ilqr = ilqr._u_traj_cp;
-//            pi.m_control = ilqr._u_traj;
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ctrl_buffer_pi = pi.m_control_cp;
             ilqr._u_traj = pi.m_control;
 //          Send control for visualisation
             ctrl_buffer.update(ilqr._cached_control.data(), true);
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
-//            Step this env
+//          Step this env
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

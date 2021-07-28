@@ -36,20 +36,13 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 
 template<int state_size, int ctrl_size>
 GenericUtils::FastPair<CtrlVector, CtrlMatrix>
-MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost) const
+MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost, const double normaliser) const
 {
 
     // Computing the new covariance is taken from:
     // "Path Integral Policy Improvement with Covariance Matrix Adaptation"
     CtrlVector numerator_mean = CtrlVector::Zero();
     CtrlMatrix numerator_cov  = CtrlMatrix::Zero();
-    double denomenator =  0;
-
-    for (auto& sample_cost: m_delta_cost_to_go)
-    {
-        auto cost_diff = sample_cost - min_cost;
-        denomenator += (std::exp(-(1 / m_params.m_lambda) * (cost_diff)));
-    }
 
     // Swap the order of samples and time
     auto ctrl_time_samples = m_ctrl_samples_time.transpose();
@@ -57,7 +50,7 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
 
     for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
     {
-        numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /denomenator;
+        numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /normaliser;
         auto ctrl_sample = ctrl_time_samples.block(time*ctrl_size, col, ctrl_size, 1);
         numerator_mean += (numerator_weight * ctrl_sample);
         numerator_cov += (
@@ -67,7 +60,7 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
     }
 
 //    const auto den_pow = std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale;
-    return {numerator_mean, numerator_cov/denomenator};
+    return {numerator_mean, numerator_cov/normaliser};
 }
 
 
@@ -101,18 +94,26 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
     CtrlVector new_mean_numerator = CtrlVector::Zero(); CtrlMatrix new_cov_numerator = CtrlMatrix::Zero();
     Eigen::Matrix<double, n_ctrl, n_ctrl> new_variance; new_variance.setZero();
 
+    // Compute the normalisation constant
+    double normaliser =  0;
+    for (auto& sample_cost: m_delta_cost_to_go)
+    {
+        auto cost_diff = sample_cost - *min_cost;
+        normaliser += (std::exp(-(1 / m_params.m_lambda) * (cost_diff)));
+    }
+
+    // Compute wighted samples
     for (auto time = 0; time < m_params.m_sim_time; ++time)
     {
-        const auto [ctrl_pert, ctrl_variance] = (total_entropy(time, *min_cost));
+        const auto [ctrl_pert, ctrl_variance] = (total_entropy(time, *min_cost, normaliser));
         m_control[time] += ctrl_pert;
 //        clamp_control(m_control[time], m_m->actuator_ctrlrange);
 
         // Temporal average for the mean and covariance
-        new_mean_numerator += (ctrl_pert * (m_params.m_sim_time - time));
-        temp_mean_denomenator += (m_params.m_sim_time - time);
-        new_variance += (ctrl_variance * (m_params.m_sim_time - time));
+        new_mean_numerator += (ctrl_pert * ((m_params.m_sim_time - 1) - time));
+        temp_mean_denomenator += ((m_params.m_sim_time - 1) - time);
+        new_variance += (ctrl_variance * ((m_params.m_sim_time - 1) - time));
     }
-
     return {new_mean_numerator / temp_mean_denomenator, new_variance / temp_mean_denomenator};
 }
 
@@ -131,20 +132,19 @@ template<int state_size, int ctrl_size>
 void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl,
                                              const std::vector<CtrlMatrix>& ddp_variance) {
 
-//    copy_data(m_m, d, m_d_cp);
-//    MujocoUtils::rollout_dynamics(m_control, m_state_new, m_d_cp, m_m);
-//    m_prev_cost = compute_trajectory_cost(m_control, m_state_new);
-
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     for (auto iteration = 0; iteration < m_params.iteration; ++iteration) {
         CtrlVector instant_control;
         fill_state_vector(d, m_state_new.front());
         std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
-        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
-//        m_normX_cholesk.setCovar(m_params.ctrl_variance);
-//        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
-//        std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
 
+/*
+ *      Update distribution params.
+        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
+        m_normX_cholesk.setCovar(m_params.ctrl_variance);
+        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
+        std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
+*/
         for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
             // Variance not adapted in this case
             // dU ~ N(mean, variance). Generate samples = to the number of time steps
@@ -159,7 +159,6 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
                 m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample;
                 CtrlVector instant_pert = pert_sample.transpose().eval();
                 instant_control = m_control[time] + instant_pert;
-//            clamp_control(instant_control, m_m->actuator_ctrlrange);
 
                 // Forward simulate controls and compute running costl
                 MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
@@ -184,18 +183,8 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
         }
 
         traj_cost /= m_params.m_k_samples;
-//        std::cout << "Trajectory Cost" << traj_cost << "\n";
-
         const auto [new_mean, new_variance] = compute_control_trajectory();
-
-        // Prepare data for rollout
-//        copy_data(m_m, d, m_d_cp);
-//        if (accepted_trajectory())
-//        {
-//            m_control = m_control_new;
-            m_params.pi_ctrl_mean = new_mean;
-            m_params.ctrl_variance = new_variance;
-//        }
+        m_params.pi_ctrl_mean = new_mean;
     }
     prepare_control_mpc();
 }

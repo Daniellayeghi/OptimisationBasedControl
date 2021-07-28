@@ -38,8 +38,8 @@ public:
 private:
     void forward_simulate(const mjData* d);
     void forward_pass(const mjData* d);
-    void update_regularizer(const bool increase);
-    double compute_expected_cost(const double backtracker);
+    void update_regularizer(bool increase);
+    double compute_expected_cost(double backtracker);
     void backward_pass();
     void temporal_average_covariance();
 
@@ -55,7 +55,7 @@ private:
     CtrlMatrix      Q_uu_reg(int time, StateMatrix& _v_xx);
 
     struct Derivatives{
-        double l; StateVector lx; StateMatrix lxx; CtrlVector lu; CtrlMatrix luu;
+        double l{}; StateVector lx; StateMatrix lxx; CtrlVector lu; CtrlMatrix luu;
         CtrlStateMatrix lux;StateMatrix fx; StateCtrlMatrix fu;
     };
 

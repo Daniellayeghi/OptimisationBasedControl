@@ -208,6 +208,10 @@ int main(int argc, const char** argv)
     u_gain.setIdentity();
     u_gain *= 0.001;
 
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
+
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -219,7 +223,7 @@ int main(int argc, const char** argv)
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, x_terminal_gain, m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 20, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
     // install control callback

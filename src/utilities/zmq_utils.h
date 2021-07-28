@@ -24,9 +24,8 @@ public:
     // https://stackoverflow.com/questions/34439284/c-function-returning-reference-to-array
     // Buffer type returns by reference and buffers takes in a copy which is emplace back;
 
-    ZMQUBuffer(int socket_type, std::string addr)
+    ZMQUBuffer(int socket_type, std::string addr) : m_requester(zmq_socket(m_context, socket_type))
     {
-        m_requester = zmq_socket(m_context, socket_type);
         zmq_connect (m_requester, addr.c_str());
     }
 

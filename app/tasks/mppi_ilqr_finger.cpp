@@ -5,8 +5,9 @@
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
-
+#include <zmqpp/zmqpp.hpp>
 // for sleep timers
 #include <chrono>
 #include <thread>
@@ -153,31 +154,21 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
 
-    x_terminal_gain *= 0;
-    x_terminal_gain (2, 2) = 1500000000;
-    x_terminal_gain (3, 3) = 50000 * 0.01;
-    x_terminal_gain (4, 4) = 50000 * 0.01;
-    x_terminal_gain (5, 5) = 5000000;
+    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000000, 5000, 5000, 50000;
+    StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
 
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
 
-    x_gain *= 0;
-    x_gain (3, 3) = 1 * 0.01;
-    x_gain (4, 4) = 1 * 0.01;
+    StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 0.01, 0.01, 0;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 1;
+    u_gain *= 20;
+
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -189,7 +180,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 1.57; d->qpos[1] = 0; d->qpos[2] = -.8;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     CtrlVector ctrl_mean; ctrl_mean.setZero();
@@ -197,26 +188,20 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 1;
+        ctrl_var.diagonal()[elem] = 0.10;
         ddp_var.diagonal()[elem] = 0.0001;
     }
 
-    StateVector state_reg_vec;
-    state_reg_vec << 0, 0, 5000000, 500, 500, 50000;
+    StateVector state_reg_vec; state_reg_vec << 0, 0, 50, .5, .5, 50;
     StateMatrix t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
-
 
     CtrlVector control_reg_vec;
     control_reg_vec << 0, 0;
     CtrlMatrix control_reg; control_reg = control_reg_vec.asDiagonal();
 
+    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 50, 0, 0, 0;
+    StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
-    StateMatrix r_state_reg; r_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        r_state_reg.diagonal()[elem + n_jvel] = 2000;
-        r_state_reg.diagonal()[elem] = 0;
-    }
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 3> joint_list {{0, 1, 2}};
@@ -240,24 +225,24 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0);
+                (0, 0) + not collision_cost(data, model) * 15;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 1000;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 0;
     };
 
-    MPPIDDPParams params {150, 100, 0.0001, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
+    MPPIDDPParams params {2, 75, 1,  1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(50, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 100, 1};
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
     MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
@@ -268,17 +253,21 @@ int main(int argc, const char** argv)
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
     std::fstream cost_mpc(path + ("finger_cost_mpc_pi_ddp_0.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("finger_vel.csv"), std::fstream::out | std::fstream::trunc);
     std::vector<double> cost_buffer;
-
 /* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
+    while(!glfwWindowShouldClose(window))
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
@@ -291,6 +280,9 @@ int main(int argc, const char** argv)
             ilqr.control(d);
             pi.control(d, ilqr._u_traj, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

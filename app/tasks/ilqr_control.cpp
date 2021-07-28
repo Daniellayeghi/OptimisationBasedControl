@@ -166,11 +166,15 @@ int main(int argc, const char** argv)
     {
         x_gain(element + n_jpos,element + n_jpos) = 0.01;
     }
-    x_gain *= 20;
+    x_gain *= 0;
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 50;
+    u_gain *= 10;
+
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -187,7 +191,7 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
 

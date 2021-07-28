@@ -11,6 +11,7 @@ set(SOURCE_FILES
         mppi_ilqr_cartpole.cpp
         mppi_ilqr_double_cartpole.cpp
         mppi_ilqr_finger.cpp
+        mppi_ilqr_planar_push.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZMQPP_INCLUDES} ${ZeroMQ_INCLUDE_DIR})

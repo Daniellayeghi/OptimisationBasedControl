@@ -3,9 +3,12 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/utilities/mujoco_utils.h"
+#include "../../src/utilities/zmq_utils.h"
+#include "../../src/controller/mppi_ddp.h"
+#include <zmqpp/zmqpp.hpp>
 #include <chrono>
 #include <thread>
 
@@ -41,6 +44,14 @@ namespace {
     std::uniform_real_distribution<double> uniform_dist(-10, 10);
     int mean = uniform_dist(e1);
 
+
+// keyboard callback
+//    void keyboard(GLFWwindow *window, int key, int scancode, int act, int mods) {
+//        // backspace: reset simulation
+//        if (act == GLFW_PRESS && key == GLFW_KEY_END) {
+//            save_data = true;
+//        }
+//    }
 
     void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     {
@@ -117,7 +128,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/point_mass.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/contact_comp/planar_push.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -131,13 +142,6 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
-//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-//    MujocoUtils::populate_obstacles(9, m->nbody*3-1, pos, m);
-//
-//    int i = mj_saveLastXML("../../../models/rand_point_mass.xml", m, error, 1000);
-//    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
-    m = mj_loadXML("../../../models/point_mass_examples/rand_point_mass_good_comp.xml", 0, error, 1000);
-
     // make data
     d = mj_makeData(m);
 
@@ -148,7 +152,6 @@ int main(int argc, const char** argv)
     // Assert against model params (literals)
     using namespace SimulationParameters;
 
-    std::cout << m->nv << m->nq << m->nu << std::endl;
     assert(m->nv == n_jvel);
     assert(m->nq == n_jpos);
     assert(m->nu == n_ctrl);
@@ -166,32 +169,26 @@ int main(int argc, const char** argv)
     mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
-    StateVector x_desired; x_desired << M_PI, 0, 0, 0;
-    CtrlVector u_desired; u_desired << 0, 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 500;
-    x_terminal_gain(0,0) *= 2;
-    x_terminal_gain(1,1) *= 0.5;
+    StateVector x_desired; x_desired << 0, 0, 0, 0.15536, 0.1585, 0.0223, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
+    StateVector x_terminal_gain_vec;
+    x_terminal_gain_vec << 0, 0, 0, 10000, 10000, 10000, 0, 0, 0, 0, 500, 500, 500, 500, 500, 500, 500, 500, 500;
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
+
+
+    StateVector x_gain_vec;
+    x_gain_vec << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0;
+    u_gain *= 1;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
-    du_gain *= 1;
+    du_gain *= 0;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -203,39 +200,27 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] =  0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
-
+    StateVector initial_state; initial_state <<  0.48, 0, 0, 0.21, 0, 0.012, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
+    std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 1;
+        ctrl_var.diagonal()[elem] = 0.4;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        t_state_reg.diagonal()[elem + n_jvel] = 10;
-        t_state_reg.diagonal()[elem] = 1000;
-    }
-    t_state_reg.diagonal()[1] = 1000 * 0.05;
-
-
-    StateMatrix r_state_reg; r_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        r_state_reg.diagonal()[elem + n_jvel] = 0;
-        r_state_reg.diagonal()[elem] = 0;
-    }
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
+    StateMatrix r_state_reg; r_state_reg = x_gain;
 
     CtrlVector control_reg_vec;
-    control_reg_vec << 1, 1;
+    control_reg_vec << 0, 0, 0;
     CtrlMatrix control_reg = control_reg_vec.asDiagonal();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 3> joint_list {{0, 1, 2}};
+        std::array<int, 4> joint_list {{0,1, 2, 3}};
 
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
@@ -256,7 +241,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 5000;
+                       (0, 0) and not collision_cost(data, model) * 0;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -265,8 +250,9 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams params {10, 75, 0.001, 0, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
+
+    MPPIDDPParams params {150, 75, 1, 0, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.5, params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -285,11 +271,16 @@ int main(int argc, const char** argv)
     DummyBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-
     std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
 
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
@@ -307,9 +298,13 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control_cp;
+            ilqr._u_traj = pi.m_control;
+//            ctrl_buffer.update(ilqr._cached_control.data(), true);
+//            pi_buffer.update(pi._cached_control.data(), false);
+//            zmq_buffer.send_buffers();
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            std::cout << collision_cost(d, m) << "\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

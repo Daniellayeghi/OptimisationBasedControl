@@ -6,6 +6,8 @@
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/controller/mppi_ddp.h"
+#include "../../src/utilities/zmq_utils.h"
+#include <zmqpp/zmqpp.hpp>
 
 // for sleep timers
 #include <chrono>
@@ -178,6 +180,10 @@ int main(int argc, const char** argv)
     u_gain.setIdentity();
     u_gain *= 0.0000001;
 
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
+
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
@@ -251,7 +257,7 @@ int main(int argc, const char** argv)
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params_pi);
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, x_terminal_gain, m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
     // install control callback
@@ -271,9 +277,13 @@ int main(int argc, const char** argv)
 
     std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data_ilqr(path + ("planar_3_ctrl_ilqr.csv"), std::fstream::out | std::fstream::trunc);
-    std::vector<CtrlVector> ctrl_buffer_ilqr; std::fill(ctrl_buffer_ilqr.begin(), ctrl_buffer_ilqr.begin(), CtrlVector::Zero());
-    std::vector<CtrlVector> ctrl_buffer_pi; std::fill(ctrl_buffer_pi.begin(), ctrl_buffer_pi.begin(), CtrlVector::Zero());
 
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
 /* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
@@ -291,10 +301,11 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            ctrl_buffer_ilqr = ilqr._u_traj_cp;
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ctrl_buffer_pi = pi.m_control_cp;
-            ilqr._u_traj = pi.m_control_cp;
+            ilqr._u_traj = pi.m_control;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
          }
@@ -317,8 +328,6 @@ int main(int argc, const char** argv)
 
         if(save_data)
         {
-            BufferUtilities::save_to_file(ctrl_data_pi, ctrl_buffer_pi);
-            BufferUtilities::save_to_file(ctrl_data_ilqr, ctrl_buffer_ilqr);
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             save_data = false;

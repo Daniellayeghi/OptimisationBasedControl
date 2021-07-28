@@ -57,13 +57,7 @@ template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
     for (auto row = 0; row < ctrl_size; ++row)
-    {
-//        if(fabs(controls._cached_control(row, 0) > 1))
-//            std::cout << controls._cached_control(row, 0) << "\n";
-
         _d->ctrl[row] = controls._cached_control(row, 0);
-    }
-//    std::cout << "CTRL: " << controls._cached_control << std::endl;
 }
 
 

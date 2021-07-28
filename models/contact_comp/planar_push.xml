@@ -11,8 +11,8 @@
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1" />
     </visual>
     <default class="main">
-        <geom solimp="0 0.9 0.01 0.5 2" solref="0.005 0.6" margin="0.001" condim="4"/>
-        <general ctrllimited="true" ctrlrange="-1 1"/>
+        <geom solimp="0 0.9 0.01 0.5 2" solref="0.002 0.6" margin="0.001" friction="0.5 0.5 0.5"/>
+        <general ctrllimited="true" ctrlrange="-1 1" />
     </default>
     <asset>
         <texture type="skybox" name="skybox" builtin="gradient" mark="random" rgb1="0.4 0.6 0.8" rgb2="0 0 0" markrgb="1 1 1" width="800" height="4800" />
@@ -47,25 +47,16 @@
                 <inertial pos="0 0 -0.05" mass="0.0217147" diaginertia="2.14541e-05 2.14541e-05 6.9487e-07" />
                 <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.3" />
                 <geom name="distal" size="0.008 0.05" pos="0 0 -0.05" type="capsule" material="self" />
-                <body name="distal2" pos="0 0 -0.1">sd
+                <body name="distal2" pos="0 0 -0.1">
                     <inertial pos="0 0 -0.05" mass="0.00522761" diaginertia="4.73273e-06 4.73273e-06 4.18209e-08" />
                     <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.4" />
-                    <geom name="distal2" size="0.006 0.05" pos="0 0 -0.05" type="capsule" material="self" />
+                    <geom name="distal2" size="0.006 0.05" pos="0 0 -0.05" type="capsule" material="self"/>
                 </body>
             </body>
         </body>
-
-        <body name="k" pos="0.0870229 0.259853 0.02">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.02" rgba="1 0 0 1"/>
-        </body>
-        <body name="a" pos="0.29284 0.0701363 0.02">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.02" rgba="1 0 0 1" />
-        </body>
-        <body name="b" pos="0.12615 -0.0358488 0.02">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.02" rgba="1 0 0 1" />
+        <body>
+            <freejoint/>
+            <geom type="box" pos="0 0 0" size="0.025 0.025 0.025"/>
         </body>
     </worldbody>
     <actuator>

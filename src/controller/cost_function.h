@@ -20,6 +20,7 @@ public:
                  const CtrlVector& u_desired,
                  const StateMatrix& x_gain,
                  const CtrlMatrix& u_gain,
+                 const CtrlMatrix& u_diff_gain,
                  const StateMatrix& x_terminal_gain,
                  const mjModel* model);
 
@@ -35,21 +36,23 @@ public:
     mjtNum terminal_cost(const mjData *d);
     mjtNum trajectory_running_cost(std::vector<StateVector> & x_trajectory, std::vector<CtrlVector> & u_trajectory);
 
-    const CtrlMatrix& _u_gain;
-    const StateMatrix& _x_gain;
-    const StateMatrix& _x_terminal_gain;
-
+    const CtrlMatrix& m_u_gain;
+    const CtrlMatrix& m_u_diff_gain;
+    const StateMatrix& m_x_gain;
+    const StateMatrix& m_x_terminal_gain;
+    CtrlVector m_u_prev = CtrlVector::Zero();
 private:
     void update_errors(const mjData *d);
-    void update_errors(StateVector &state, CtrlVector &ctrl);
 
-    CtrlVector _u;
-    StateVector _x;
-    CtrlVector _u_error;
-    StateVector _x_error;
-    const CtrlVector& _u_desired;
-    const StateVector& _x_desired;
-    const mjModel* _m;
+    void update_errors(StateVector &state, CtrlVector &ctrl);
+    CtrlVector m_u = CtrlVector::Zero();
+    StateVector m_x = StateVector::Zero();
+    CtrlVector m_u_error = CtrlVector::Zero();
+    CtrlVector m_du_error = CtrlVector::Zero();
+    StateVector m_x_error = StateVector::Zero();
+    const CtrlVector& m_u_desired;
+    const StateVector& m_x_desired;
+    const mjModel* m_m;
 };
 
 #endif //OPTCONTROL_MUJOCO_COST_FUNCTION_H

@@ -9,7 +9,7 @@ static int _mark = 0;
 namespace
 {
     template<int state_size, int ctrl_size>
-    mjtNum* select_original_ptr(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt, mjData* d)
+    mjtNum* select_original_ptr(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt, const mjData* d)
     {
         switch (wrt)
         {
@@ -90,24 +90,20 @@ FiniteDifference<state_size, ctrl_size>::f_x()
 template<int state_size, int ctrl_size>
 void FiniteDifference<state_size, ctrl_size>::f_x_f_u(mjData *d)
 {
-    ctrl_jacobian ctrl_deriv     = diff_wrt_ctrl(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
-    partial_state_jacobian f_pos = diff_wrt_state(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
-    partial_state_jacobian f_vel = diff_wrt_state(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
-    _full_jacobian << f_pos, f_vel, ctrl_deriv;
+   diff_wrt(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
+   diff_wrt(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
+   diff_wrt(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
+   _full_jacobian << sp_jac, sv_jac, ctrl_jac;
 }
 
 
 template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
-FiniteDifference<state_size, ctrl_size>::diff_wrt_ctrl(mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
+GenericUtils::FastPair<mjtNum*, mjtNum *>
+FiniteDifference<state_size, ctrl_size>::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
 
     if (do_copy)
         copy_state(_m, d, _d_cp);
-
-#ifdef NDEBUG
-    std::cout << "FD addr " << _m << std::endl;
-#endif
 
     mj_step(_m, _d_cp);
     auto skip = skip_stage<state_size, ctrl_size>(id);
@@ -132,120 +128,47 @@ FiniteDifference<state_size, ctrl_size>::diff_wrt_ctrl(mjData *d, mjtNum *wrt, W
     mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
 
     copy_state(_m, d, _d_cp);
-
-    // select target vector and original vector for force or acceleration derivative
-    mjtNum* target = wrt;
-    const mjtNum* original = select_original_ptr<state_size, ctrl_size>(id, d);
-    return finite_diff_wrt_ctrl(target, original, centre_pos, centre_vel, d, id);
+    return {centre_pos, centre_vel};
 }
 
 
+
 template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::partial_state_jacobian
-FiniteDifference<state_size, ctrl_size>::diff_wrt_state(mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
+void FiniteDifference<state_size, ctrl_size>::diff_wrt(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
-    mj_step(_m, _d_cp);
-    auto skip = skip_stage<state_size, ctrl_size>(id);
-
-    // extra solver iterations to improve warmstart (qacc) at center point
-    for(int rep = 1; rep < 3; ++rep)
-        mj_forwardSkip(_m, _d_cp, skip, 1);
-
-    const mjtNum* output_pos = _d_cp->qpos;
-    const mjtNum* output_vel = _d_cp->qvel;
-
-    _mark = _d_cp->pstack;
-    mjtNum * centre_pos = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(centre_pos, output_pos, _m->nv);
-
-    mjtNum * centre_vel = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(centre_vel, output_vel, _m->nv);
-
-    mjtNum * warmstart = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(warmstart, _d_cp->qacc_warmstart, _m->nv);
-
-    mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
-    copy_state(_m, d, _d_cp);
+    const auto [centre_pos, centre_vel] = set_finite_diff_arguments(d, wrt, id, do_copy);
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
     const mjtNum* original = select_original_ptr<state_size, ctrl_size>(id, d);
-    return finite_diff_wrt_state(target, original, centre_pos, centre_vel, d, id);
-}
+    const FDFuncArgs fd_args {target, original, centre_pos, centre_vel};
 
-
-template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
-FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(mjtNum *target,
-                                                              const mjtNum *original,
-                                                              const mjtNum *centre_pos,
-                                                              const mjtNum *centre_vel,
-                                                              const mjData *d,
-                                                              const WithRespectTo id)
-{
-    static const auto row_ctrl = _m->nu;
-    static const auto row_partial_state = _m->nv;
-    ctrl_jacobian result;
-    auto pos_diff = 0.0;
-
-    for(int i = 0; i < row_ctrl; ++i)
-    {
-        // perturb selected target
-        target[i] += eps;
-
-        // evaluate dynamics, with center warmstart
-        mj_step(_m, _d_cp);
-
-        // compute column i of derivative 2
-        for(int j = 0; j < row_partial_state; ++j)
-        {
-            // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
-            // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
-            pos_diff = _d_cp->qpos[j] - centre_pos[j];
-
-            result(j, i) = (pos_diff)/eps;
-            result(j + row_partial_state, i) = (_d_cp->qvel[j] - centre_vel[j]) / eps;
-        }
-        // undo perturbation
-        copy_state(_m, d, _d_cp);
-        target[i] = original[i];
+    switch(id) {
+        case WithRespectTo::CTRL: ctrl_jac = finite_diff_wrt_ctrl(fd_args, d, id); break;
+        case WithRespectTo::VEL: sv_jac = finite_diff_wrt_state_vel(fd_args, d, id); break;
+        case WithRespectTo::POS: sp_jac = finite_diff_wrt_state_pos(fd_args, d, id); break;
     }
-#if NDEBUG
-    std::cout << "Printing Jacobian Matrix" << "\n";
-    std::cout << result << "\n";
-#endif
-    myFREESTACK
-    return result;
 }
 
 
 template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::partial_state_jacobian
-FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
-                                                               const mjtNum *original,
-                                                               const mjtNum *centre_pos,
-                                                               const mjtNum* centre_vel,
-                                                               const mjData *d,
-                                                               const WithRespectTo id)
+void FiniteDifference<state_size, ctrl_size>::perturb_target(mjtNum *target, const WithRespectTo id, const int state_iter)
 {
-    partial_state_jacobian result;
-    auto row = _m->nv;
-    auto pos_diff = 0.0;
     int jid = 0;
-
-    for(int i = 0; i < row; i++)
+    if(id == WithRespectTo::POS)
     {
+        jid = _m->dof_jntid[state_iter];
         // get joint id for this dof
         // get quaternion address and dof position within quaternion (-1: not in quaternion)
         int quatadr = -1, dofpos = 0;
         if(_m->jnt_type[jid] == mjJNT_BALL and id == WithRespectTo::POS)
         {
             quatadr = _m->jnt_qposadr[jid];
-            dofpos = i - _m->jnt_dofadr[jid];
+            dofpos = state_iter - _m->jnt_dofadr[jid];
         }
-        else if(_m->jnt_type[jid] == mjJNT_FREE && i >= _m->jnt_dofadr[jid]+3 and id == WithRespectTo::POS)
+        else if(_m->jnt_type[jid] == mjJNT_FREE && state_iter >= _m->jnt_dofadr[jid]+3 and id == WithRespectTo::POS)
         {
             quatadr = _m->jnt_qposadr[jid] + 3;
-            dofpos = i - _m->jnt_dofadr[jid] - 3;
+            dofpos = state_iter - _m->jnt_dofadr[jid] - 3;
         }
 
         // apply quaternion or simple perturbation
@@ -256,21 +179,122 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
             mju_quatIntegrate(target+quatadr, angvel, 1);
         }
         else
-            target[_m->jnt_qposadr[jid] + i - _m->jnt_dofadr[jid]] += eps;
+            target[_m->jnt_qposadr[jid] + state_iter - _m->jnt_dofadr[jid]] += eps;
 
+    }else{
+        target[state_iter] += eps;
+    }
+
+}
+
+
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
+FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
+{
+    static const auto row_ctrl = _m->nu;
+    ctrl_jacobian result;
+    auto pos_diff = 0.0;
+
+    for(int i = 0; i < row_ctrl; ++i)
+    {
+        perturb_target(fd_args.target, id, i);
         // evaluate dynamics, with center warmstart
         mj_step(_m, _d_cp);
         // compute column i of derivative 0
-        for(int j = 0; j < row; j++)
+        for(int j = 0; j < _m->nq; ++j)
         {
-            pos_diff = _d_cp->qpos[j] - centre_pos[j];
+            // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
+            // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
+            pos_diff = _d_cp->qpos[j] - fd_args.centre_pos[j];
+            result(j, i) = (pos_diff)/eps;
+        }
 
-            result(j, i) = pos_diff/eps;
-            result(j+row, i) = (_d_cp->qvel[j] - centre_vel[j])/eps;
+        for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
+        {
+            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
         }
         // undo perturbation
         copy_state(_m, d, _d_cp);
-        mju_copy(target, original, _m->nq);
+        mju_copy(fd_args.target, fd_args.original, _m->nq);
+    }
+#if NDEBUG
+    std::cout << "Printing Jacobian Matrix" << "\n";
+    std::cout << result << "\n";
+#endif
+    myFREESTACK
+    return result;
+}
+
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::state_vel_jacobian
+FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
+{
+    state_vel_jacobian result;
+    auto row = _m->nv;
+    auto pos_diff = 0.0;
+    for(int i = 0; i < row; i++)
+    {
+        perturb_target(fd_args.target, id, i);
+        // evaluate dynamics, with center warmstart
+        mj_step(_m, _d_cp);
+        // compute column i of derivative 0
+        for(int j = 0; j < _m->nq; ++j)
+        {
+            // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
+            // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
+            pos_diff = _d_cp->qpos[j] - fd_args.centre_pos[j];
+            result(j, i) = (pos_diff)/eps;
+        }
+
+        for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
+        {
+            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
+        }
+        // undo perturbation
+        copy_state(_m, d, _d_cp);
+        mju_copy(fd_args.target, fd_args.original, _m->nq);
+    }
+#if NDEBUG
+    std::cout << "Printing Jacobian Matrix" << "\n";
+    std::cout << result << "\n";
+#endif
+    myFREESTACK
+    return result;
+
+}
+
+
+template<int state_size, int ctrl_size>
+typename FiniteDifference<state_size, ctrl_size>::state_pos_jacobian
+FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
+                                                                   const mjData *d,
+                                                                   const WithRespectTo id)
+{
+    state_pos_jacobian result;
+    auto row = _m->nq;
+    auto pos_diff = 0.0;
+    for(int i = 0; i < row; i++)
+    {
+        perturb_target(fd_args.target, id, i);
+        // evaluate dynamics, with center warmstart
+        mj_step(_m, _d_cp);
+        // compute column i of derivative 0
+        for(int j = 0; j < _m->nq; ++j)
+        {
+            // The output of the system is w.r.t the x_dd of the 3 DOF. target which indexes on the outer loop
+            // is u w.r.t of the 3DOF... This loop computes columns of the Jacobian, outer loop fills rows.
+            pos_diff = _d_cp->qpos[j] - fd_args.centre_pos[j];
+            result(j, i) = (pos_diff)/eps;
+        }
+
+        for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
+        {
+            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
+        }
+        // undo perturbation
+        copy_state(_m, d, _d_cp);
+        mju_copy(fd_args.target, fd_args.original, _m->nq);
     }
 #if NDEBUG
     std::cout << "Printing Jacobian Matrix" << "\n";
@@ -284,3 +308,6 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state(mjtNum *target,
 
 using namespace SimulationParameters;
 template class FiniteDifference<n_jpos + n_jvel, n_ctrl>;
+
+
+

@@ -32,7 +32,7 @@
 
     <default>
         <default class="pole">
-            <joint type="hinge" axis="0 1 0"  damping="2e-6"/>
+            <joint type="hinge" axis="0 1 0"  damping="2e-4"/>
             <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" material="self" mass=".1"/>
         </default>
     </default>
@@ -41,7 +41,7 @@
         <light name="light" pos="0 0 6"/>
         <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
         <camera name="lookatcart" mode="targetbody" target="cart" pos="0 -2 2"/>
-        <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/>
+<!--        <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/>-->
         <geom name="rail1" type="capsule" pos="0  .07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
         <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4" material="decoration" />
         <body name="cart" pos="0 0 1">
@@ -51,7 +51,7 @@
                 <joint name="hinge_1"/>
                 <geom name="pole_1"/>
                 <body name="pole_2" pos="0 0 1" childclass="pole">
-                    <joint name="hinge_2"/>
+                    <joint name="hinge_2"  damping="6e-3"/>
                     <geom name="pole_2"/>
                 </body>
             </body>
@@ -59,7 +59,7 @@
     </worldbody>
 
     <actuator>
-        <motor name="slide" joint="slider" gear="10" ctrllimited="true" ctrlrange="-1 1" />
+        <motor name="slide" joint="slider" gear="10" ctrllimited="true" ctrlrange="-1.5 1.5" />
     </actuator>
 
 </mujoco>

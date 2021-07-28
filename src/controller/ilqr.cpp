@@ -150,7 +150,6 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
     {
         set_control_data(_d_cp, _u_traj[time]);
         _fd.f_x_f_u(_d_cp);
-        _prev_total_cost += _cf.running_cost(_d_cp);
         m_d_vector[time].l = _cf.running_cost(_d_cp);
         m_d_vector[time].lx = _cf.L_x(_d_cp);
         m_d_vector[time].lxx = _cf.L_xx(_d_cp);
@@ -159,9 +158,9 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
         m_d_vector[time].lux = _cf.L_ux(_d_cp);
         m_d_vector[time].fx = _fd.f_x();
         m_d_vector[time].fu = _fd.f_u();
+        _prev_total_cost += m_d_vector[time].l;
         mj_step(_m, _d_cp);
     }
-
     _prev_total_cost += _cf.terminal_cost(_d_cp);
     m_d_vector.back().l = _cf.terminal_cost(_d_cp);
     m_d_vector.back().lx = _cf.Lf_x(_d_cp);
@@ -348,6 +347,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
         forward_simulate(d);
         backward_pass();
         forward_pass(d);
+        _cf.m_u_prev = _u_traj.front();
     }
     _cached_control = _u_traj.front();
     std::copy(_u_traj.begin(), _u_traj.end(), _u_traj_cp.begin());

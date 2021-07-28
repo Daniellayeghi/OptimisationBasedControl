@@ -3,10 +3,12 @@
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
-#include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/mujoco_utils.h"
+#include "../../src/utilities/zmq_utils.h"
+#include "../../src/controller/mppi_ddp.h"
+#include <zmqpp/zmqpp.hpp>
 #include <chrono>
 #include <thread>
 
@@ -126,7 +128,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_complex.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -147,14 +149,14 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
+//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+////    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
+////
+//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
+//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 //
-    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-//    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
-    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
-
-    d = mj_makeData(m);
+//    d = mj_makeData(m);
 
     // Assert against model params (literals)
     using namespace SimulationParameters;
@@ -180,27 +182,19 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1000, 700, 500, 10, 7, 5;
     StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 500;
-    x_terminal_gain(0,0) *= 2;
-    x_terminal_gain(1,1) *= 2*0.7;
-    x_terminal_gain(2,2) *= 2*0.5;
 
-
+    StateVector x_running_gain_vec; x_running_gain_vec << 1000, 700, 500, 0, 0, 0;
     StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
     u_gain *= 1;
+
+    CtrlMatrix du_gain;
+    du_gain.setIdentity();
+    du_gain *= 0;
 
     CtrlVector u_control_1;
     StateVector x_state_1;
@@ -219,29 +213,17 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 1;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        t_state_reg.diagonal()[elem + n_jvel] = 10;
-        t_state_reg.diagonal()[elem] = 1000;
-    }
-    t_state_reg.diagonal()[1] = 1000 * 0.35;
-    t_state_reg.diagonal()[2] = 1000 * 0.25;
+    StateVector t_state_reg_vec; t_state_reg_vec << 1000, 1000, 1000, 10, 10, 10;
+    StateMatrix t_state_reg; t_state_reg = t_state_reg_vec.asDiagonal();
+    StateVector r_state_reg_vec; r_state_reg_vec << 10, 3, 2, 0, 0, 0;
+    StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
 
-    StateMatrix r_state_reg; r_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        r_state_reg.diagonal()[elem + n_jvel] = 0;
-        r_state_reg.diagonal()[elem] = 0;
-    }
-
-    CtrlVector control_reg_vec;
-    control_reg_vec << 1, 1, 1;
+    CtrlVector control_reg_vec; control_reg_vec << 1, 1, 1;
     CtrlMatrix control_reg = control_reg_vec.asDiagonal();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
@@ -266,7 +248,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 1000;
+                       (0, 0) + collision_cost(data, model) * 5000;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -276,8 +258,8 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams params {35, 75, 0.001, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.001, params, running_cost, terminal_cost);
+    MPPIDDPParams params {100, 75, 0.001, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.5 , params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -285,7 +267,7 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, x_terminal_gain, m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
@@ -296,11 +278,16 @@ int main(int argc, const char** argv)
     DummyBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-
     std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
 
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
@@ -318,7 +305,10 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control_cp;
+            ilqr._u_traj = pi.m_control;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

@@ -27,7 +27,7 @@
         <material name="target_highlight" rgba=".6 .3 .3 .4"/>
     </asset>
 
-    <option timestep="0.01" cone="elliptic" iterations="20">
+    <option timestep="0.01" cone="elliptic" iterations="200">
         <flag gravity="disable"/>
     </option>
 

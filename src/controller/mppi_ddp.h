@@ -120,7 +120,7 @@ private:
     void prepare_control_mpc();
     bool accepted_trajectory();
 
-    GenericUtils::FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost) const;
+    GenericUtils::FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost, double normaliser) const;
 
     MPPIDDPParams& m_params;
     std::vector<CtrlMatrix> covariance;

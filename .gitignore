@@ -18,3 +18,4 @@ figures/
 third_party/
 venv/
 
+/positions.txt
