@@ -13,6 +13,7 @@ set(SOURCE_FILES
         mppi_ilqr_finger.cpp
         mppi_ilqr_planar_push.cpp
         mppi_ilqr_planar_push_2d.cpp
+        mppi_ilqr_sh_hand.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZMQPP_INCLUDES} ${ZeroMQ_INCLUDE_DIR})
@@ -30,6 +31,8 @@ foreach(source ${SOURCE_FILES})
     target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
     # Additional libraries imgui package
     target_link_libraries(${BIN_NAME} imgui)
+    # link fic
+    target_link_libraries(${BIN_NAME} fic_lib)
     # General implementation packages
     target_link_libraries(${BIN_NAME} control_lib)
     target_link_libraries(${BIN_NAME} util_lib)

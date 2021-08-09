@@ -230,25 +230,25 @@
     </sensor>
 
     <actuator>
-        <position name="robot0:A_WRJ1" class="robot0:asset_class" user="2038" joint="robot0:WRJ1" ctrlrange="-0.489 0.14" kp="5" forcerange="-4.785 4.785"></position>
-        <position name="robot0:A_WRJ0" class="robot0:asset_class" user="2036" joint="robot0:WRJ0" ctrlrange="-0.698 0.489" kp="5" forcerange="-2.175 2.175"></position>
-        <position name="robot0:A_FFJ3" class="robot0:asset_class" user="2004" joint="robot0:FFJ3" ctrlrange="-0.349 0.349" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_FFJ2" class="robot0:asset_class" user="2002" joint="robot0:FFJ2" ctrlrange="0 1.571" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_FFJ1" class="robot0:asset_class" user="2000" joint="robot0:FFJ1" ctrlrange="0 1.571" kp="1" forcerange="-0.7245 0.7245"></position>
-        <position name="robot0:A_MFJ3" class="robot0:asset_class" user="2010" joint="robot0:MFJ3" ctrlrange="-0.349 0.349" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_MFJ2" class="robot0:asset_class" user="2008" joint="robot0:MFJ2" ctrlrange="0 1.571" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_MFJ1" class="robot0:asset_class" user="2006" joint="robot0:MFJ1" ctrlrange="0 1.571" kp="1" forcerange="-0.7245 0.7245"></position>
-        <position name="robot0:A_RFJ3" class="robot0:asset_class" user="2016" joint="robot0:RFJ3" ctrlrange="-0.349 0.349" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_RFJ2" class="robot0:asset_class" user="2014" joint="robot0:RFJ2" ctrlrange="0 1.571" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_RFJ1" class="robot0:asset_class" user="2012" joint="robot0:RFJ1" ctrlrange="0 1.571" kp="1" forcerange="-0.7245 0.7245"></position>
-        <position name="robot0:A_LFJ4" class="robot0:asset_class" user="2024" joint="robot0:LFJ4" ctrlrange="0 0.785" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_LFJ3" class="robot0:asset_class" user="2022" joint="robot0:LFJ3" ctrlrange="-0.349 0.349" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_LFJ2" class="robot0:asset_class" user="2020" joint="robot0:LFJ2" ctrlrange="0 1.571" kp="1" forcerange="-0.9 0.9"></position>
-        <position name="robot0:A_LFJ1" class="robot0:asset_class" user="2018" joint="robot0:LFJ1" ctrlrange="0 1.571" kp="1" forcerange="-0.7245 0.7245"></position>
-        <position name="robot0:A_THJ4" class="robot0:asset_class" user="2034" joint="robot0:THJ4" ctrlrange="-1.047 1.047" kp="1" forcerange="-2.3722 2.3722"></position>
-        <position name="robot0:A_THJ3" class="robot0:asset_class" user="2032" joint="robot0:THJ3" ctrlrange="0 1.222" kp="1" forcerange="-1.45 1.45"></position>
-        <position name="robot0:A_THJ2" class="robot0:asset_class" user="2030" joint="robot0:THJ2" ctrlrange="-0.209 0.209" kp="1" forcerange="-0.99 0.99"></position>
-        <position name="robot0:A_THJ1" class="robot0:asset_class" user="2028" joint="robot0:THJ1" ctrlrange="-0.524 0.524" kp="1" forcerange="-0.99 0.99"></position>
-        <position name="robot0:A_THJ0" class="robot0:asset_class" user="2026" joint="robot0:THJ0" ctrlrange="-1.571 0" kp="1" forcerange="-0.81 0.81"></position>
+        <motor name="robot0:A_WRJ1" class="robot0:asset_class" user="2038" joint="robot0:WRJ1" ctrllimited="true" ctrlrange="-4.785 4.785"   forcerange="-4.785 4.785"  ></motor>
+        <motor name="robot0:A_WRJ0" class="robot0:asset_class" user="2036" joint="robot0:WRJ0" ctrllimited="true" ctrlrange="-2.175 2.175"   forcerange="-2.175 2.175"  ></motor>
+        <motor name="robot0:A_FFJ3" class="robot0:asset_class" user="2004" joint="robot0:FFJ3" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_FFJ2" class="robot0:asset_class" user="2002" joint="robot0:FFJ2" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_FFJ1" class="robot0:asset_class" user="2000" joint="robot0:FFJ1" ctrllimited="true" ctrlrange="-0.7245 0.7245" forcerange="-0.7245 0.7245"></motor>
+        <motor name="robot0:A_MFJ3" class="robot0:asset_class" user="2010" joint="robot0:MFJ3" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_MFJ2" class="robot0:asset_class" user="2008" joint="robot0:MFJ2" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_MFJ1" class="robot0:asset_class" user="2006" joint="robot0:MFJ1" ctrllimited="true" ctrlrange="-0.7245 0.7245" forcerange="-0.7245 0.7245"></motor>
+        <motor name="robot0:A_RFJ3" class="robot0:asset_class" user="2016" joint="robot0:RFJ3" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_RFJ2" class="robot0:asset_class" user="2014" joint="robot0:RFJ2" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_RFJ1" class="robot0:asset_class" user="2012" joint="robot0:RFJ1" ctrllimited="true" ctrlrange="-0.7245 0.7245" forcerange="-0.7245 0.7245"></motor>
+        <motor name="robot0:A_LFJ4" class="robot0:asset_class" user="2024" joint="robot0:LFJ4" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_LFJ3" class="robot0:asset_class" user="2022" joint="robot0:LFJ3" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_LFJ2" class="robot0:asset_class" user="2020" joint="robot0:LFJ2" ctrllimited="true" ctrlrange="-0.9 0.9"       forcerange="-0.9 0.9"      ></motor>
+        <motor name="robot0:A_LFJ1" class="robot0:asset_class" user="2018" joint="robot0:LFJ1" ctrllimited="true" ctrlrange="-0.7245 0.7245" forcerange="-0.7245 0.7245"></motor>
+        <motor name="robot0:A_THJ4" class="robot0:asset_class" user="2034" joint="robot0:THJ4" ctrllimited="true" ctrlrange="-2.3722 2.3722" forcerange="-2.3722 2.3722"></motor>
+        <motor name="robot0:A_THJ3" class="robot0:asset_class" user="2032" joint="robot0:THJ3" ctrllimited="true" ctrlrange="-1.45 1.45"     forcerange="-1.45 1.45"    ></motor>
+        <motor name="robot0:A_THJ2" class="robot0:asset_class" user="2030" joint="robot0:THJ2" ctrllimited="true" ctrlrange="-0.99 0.99"     forcerange="-0.99 0.99"    ></motor>
+        <motor name="robot0:A_THJ1" class="robot0:asset_class" user="2028" joint="robot0:THJ1" ctrllimited="true" ctrlrange="-0.99 0.99"     forcerange="-0.99 0.99"    ></motor>
+        <motor name="robot0:A_THJ0" class="robot0:asset_class" user="2026" joint="robot0:THJ0" ctrllimited="true" ctrlrange="-0.81 0.81"     forcerange="-0.81 0.81"    ></motor>
     </actuator>
 </mujoco>
