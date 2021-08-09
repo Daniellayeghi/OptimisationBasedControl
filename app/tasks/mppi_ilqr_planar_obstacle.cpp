@@ -128,7 +128,7 @@ int main(int argc, const char** argv)
 
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_complex.xml", 0, error, 1000);
+        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_2.xml", 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -158,7 +158,7 @@ int main(int argc, const char** argv)
 //
 //    d = mj_makeData(m);
 
-    // Assert against model params (literals)
+    // Assert against model params (literals)100
     using namespace SimulationParameters;
 
     assert(m->nv == n_jvel);
@@ -182,15 +182,15 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1000, 700, 500, 10, 7, 5;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100, 25, 25, 10, 1, 1;
     StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 1000, 700, 500, 0, 0, 0;
+    StateVector x_running_gain_vec; x_running_gain_vec << 0.1, .1, .1, 0, 0, 0;
     StateMatrix x_gain; x_gain.setIdentity();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 1;
+    u_gain *= 10;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -213,31 +213,30 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
+        ctrl_var.diagonal()[elem] = 0.15;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateVector t_state_reg_vec; t_state_reg_vec << 1000, 1000, 1000, 10, 10, 10;
+    StateVector t_state_reg_vec; t_state_reg_vec << 100, 25, 25, 10, 1, 1;
     StateMatrix t_state_reg; t_state_reg = t_state_reg_vec.asDiagonal();
-    StateVector r_state_reg_vec; r_state_reg_vec << 10, 3, 2, 0, 0, 0;
+    StateVector r_state_reg_vec; r_state_reg_vec << 0.1, .1, .1, 0, 0, 0;
     StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
-
-    CtrlVector control_reg_vec; control_reg_vec << 1, 1, 1;
+    CtrlVector control_reg_vec; control_reg_vec << 0, 0, 0;
     CtrlMatrix control_reg = control_reg_vec.asDiagonal();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 4> joint_list {{0, 1, 2, 3}};
+        std::array<int, 4> body_list {{0, 1, 2, 3}};
 
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
             {
-                bool check_1 = (std::find(joint_list.begin(), joint_list.end(),
-                                          model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
-                bool check_2 = (std::find(joint_list.begin(), joint_list.end(),
-                                          model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
-
-                if (check_1 != check_2)
+                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                std::cout << "w_con " << world_contact << " plan_con " << (check_1 not_eq check_2) << "\n";
+                if (check_1 != check_2 and not world_contact)
                     return true;
             }
         return false;
@@ -254,12 +253,12 @@ int main(int argc, const char** argv)
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 5000;
     };
 
 
-    MPPIDDPParams params {100, 75, 0.001, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(0.5 , params, running_cost, terminal_cost);
+    MPPIDDPParams params {10, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -271,9 +270,10 @@ int main(int argc, const char** argv)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DummyBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
@@ -302,14 +302,14 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);
-            zmq_buffer.send_buffers();
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+//            ctrl_buffer.update(ilqr._cached_control.data(), true);
+//            pi_buffer.update(pi._cached_control.data(), false);
+//            zmq_buffer.send_buffers();
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

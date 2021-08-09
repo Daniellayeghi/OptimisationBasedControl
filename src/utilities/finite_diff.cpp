@@ -93,6 +93,7 @@ void FiniteDifference<state_size, ctrl_size>::f_x_f_u(mjData *d)
    diff_wrt(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
    diff_wrt(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
    diff_wrt(d, _wrt[WithRespectTo::VEL], WithRespectTo::VEL);
+//   std::cout << ctrl_jac << std::endl;
    _full_jacobian << sp_jac, sv_jac, ctrl_jac;
 }
 

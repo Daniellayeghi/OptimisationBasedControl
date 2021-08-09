@@ -13,26 +13,26 @@
     <size nuser_actuator="5"/>
 
     <asset>
-        <mesh name="link0_col" file="../../OptimisationBasedControl/models/meshes/collision/link0.stl"/>
-        <mesh name="link1_col" file="../../OptimisationBasedControl/models/meshes/collision/link1.stl"/>
-        <mesh name="link2_col" file="../../OptimisationBasedControl/models/meshes/collision/link2.stl"/>
-        <mesh name="link3_col" file="../../OptimisationBasedControl/models/meshes/collision/link3.stl"/>
-        <mesh name="link4_col" file="../../OptimisationBasedControl/models/meshes/collision/link4.stl"/>
-        <mesh name="link5_col" file="../../OptimisationBasedControl/models/meshes/collision/link5.stl"/>
-        <mesh name="link6_col" file="../../OptimisationBasedControl/models/meshes/collision/link6.stl"/>
-        <mesh name="link7_col" file="../../OptimisationBasedControl/models/meshes/collision/link7.stl"/>
-        <mesh name="hand_col" file="../../OptimisationBasedControl/models/meshes/collision/hand.stl"/>
-        <mesh name="finger_col" file="../../OptimisationBasedControl/models/meshes/collision/finger.stl" scale='1.75 1.0 1.75'/>
-        <mesh name="link0_viz" file="../../OptimisationBasedControl/models/meshes/visual/link0.stl"/>
-        <mesh name="link1_viz" file="../../OptimisationBasedControl/models/meshes/visual/link1.stl"/>
-        <mesh name="link2_viz" file="../../OptimisationBasedControl/models/meshes/visual/link2.stl"/>
-        <mesh name="link3_viz" file="../../OptimisationBasedControl/models/meshes/visual/link3.stl"/>
-        <mesh name="link4_viz" file="../../OptimisationBasedControl/models/meshes/visual/link4.stl"/>
-        <mesh name="link5_viz" file="../../OptimisationBasedControl/models/meshes/visual/link5.stl"/>
-        <mesh name="link6_viz" file="../../OptimisationBasedControl/models/meshes/visual/link6.stl"/>
-        <mesh name="link7_viz" file="../../OptimisationBasedControl/models/meshes/visual/link7.stl"/>
-        <mesh name="hand_viz" file="../../OptimisationBasedControl/models/meshes/visual/hand.stl"/>
-        <mesh name="finger_viz" file="../../OptimisationBasedControl/models/meshes/collision/finger.stl" scale='1.75 1.0 1.75'/>
+        <mesh name="link0_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link0.stl"/>
+        <mesh name="link1_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link1.stl"/>
+        <mesh name="link2_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link2.stl"/>
+        <mesh name="link3_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link3.stl"/>
+        <mesh name="link4_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link4.stl"/>
+        <mesh name="link5_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link5.stl"/>
+        <mesh name="link6_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link6.stl"/>
+        <mesh name="link7_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/link7.stl"/>
+        <mesh name="hand_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/hand.stl"/>
+        <mesh name="finger_col" file="../../OptimisationBasedControl/models/franka_meshes/collision/finger.stl" scale='1.75 1.0 1.75'/>
+        <mesh name="link0_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link0.stl"/>
+        <mesh name="link1_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link1.stl"/>
+        <mesh name="link2_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link2.stl"/>
+        <mesh name="link3_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link3.stl"/>
+        <mesh name="link4_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link4.stl"/>
+        <mesh name="link5_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link5.stl"/>
+        <mesh name="link6_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link6.stl"/>
+        <mesh name="link7_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/link7.stl"/>
+        <mesh name="hand_viz" file="../../OptimisationBasedControl/models/franka_meshes/visual/hand.stl"/>
+        <mesh name="finger_viz" file="../../OptimisationBasedControl/models/franka_meshes/collision/finger.stl" scale='1.75 1.0 1.75'/>
     </asset>
 
     <default>

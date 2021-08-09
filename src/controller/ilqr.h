@@ -42,6 +42,7 @@ private:
     double compute_expected_cost(double backtracker);
     void backward_pass();
     void temporal_average_covariance();
+    bool minimal_grad();
 
     CtrlVector      Q_u(int time, StateVector& _v_x);
     StateVector     Q_x(int time, StateVector& _v_x);
@@ -75,6 +76,7 @@ private:
     std::vector<CtrlMatrix> m_Quu_traj;
     std::vector<double> exp_cost_reduction;
     double _prev_total_cost = 0;
+    bool m_good_backpass = true;
 
     FiniteDifference<state_size, ctrl_size>& _fd;
     CostFunction<state_size, ctrl_size>& _cf;

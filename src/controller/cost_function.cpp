@@ -21,16 +21,14 @@ CostFunction<state_size, ctrl_size>::CostFunction(const StateVector& x_desired,
                                                   m_u_desired(u_desired),
                                                   m_x_desired(x_desired),
                                                   m_m(m)
-{
-
-}
+{}
 
 
 template<int state_size, int ctrl_size>
 void CostFunction<state_size, ctrl_size>::update_errors(const mjData *d)
 {
-    MujocoUtils::fill_state_vector(d, m_x);
-    MujocoUtils::fill_ctrl_vector(d, m_u);
+    MujocoUtils::fill_state_vector(d, m_x, m_m);
+    MujocoUtils::fill_ctrl_vector(d, m_u, m_m);
     m_x_error = m_x - m_x_desired;
     m_u_error = m_u;
     m_du_error = m_u - m_u_prev;
@@ -39,13 +37,12 @@ void CostFunction<state_size, ctrl_size>::update_errors(const mjData *d)
 
 
 template<int state_size, int ctrl_size>
-inline void CostFunction<state_size, ctrl_size>::update_errors(StateVector& state,
-                                                               CtrlVector& ctrl)
+inline void CostFunction<state_size, ctrl_size>::update_errors(const StateVector& state, const CtrlVector& ctrl)
 {
-    for(unsigned int row = 0; row < state_size/2; ++row)
-    {
-        state(row, 0) = state(row, 0);
-    }
+//    for(unsigned int row = 0; row < state_size/2; ++row)
+//    {
+//        state(row, 0) = state(row, 0);
+//    }
     m_x_error = state - m_x_desired;
     m_u_error = ctrl;
 }
@@ -62,8 +59,8 @@ mjtNum CostFunction<state_size, ctrl_size>::running_cost(const mjData *d)
 
 
 template<int state_size, int ctrl_size>
-inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::vector<StateVector>& x_trajectory,
-                                                                           std::vector<CtrlVector>& u_trajectory)
+inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(const std::vector<StateVector>& x_trajectory,
+                                                                           const std::vector<CtrlVector>& u_trajectory)
 {
     auto cost = 0.0;
     m_u_prev = u_trajectory.front();
@@ -77,12 +74,12 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(std::
     }
 
     //Compute terminal cost
-    for(unsigned int row = 0; row < state_size/2; ++row)
-    {
-        int jid = m_m->dof_jntid[row];
-        if(m_m->jnt_type[jid] == mjJNT_HINGE)
-            x_trajectory.back()(row, 0) = x_trajectory.back()(row, 0);
-    }
+//    for(unsigned int row = 0; row < state_size/2; ++row)
+//    {
+//        int jid = m_m->dof_jntid[row];
+//        if(m_m->jnt_type[jid] == mjJNT_HINGE)
+//            x_trajectory.back()(row, 0) = x_trajectory.back()(row, 0);
+//    }
     m_x_error = m_x_desired - x_trajectory.back();
     //Running cost + terminal cost
     return cost + (m_x_error.transpose().eval() * m_x_terminal_gain * m_x_error)(0, 0);

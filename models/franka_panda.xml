@@ -8,24 +8,18 @@
 ====================================================== -->
 
 
-    <include file="assets/basic_scene.xml"/>
-    <include file="assets/assets.xml"/>
+    <include file="assets_franka/basic_scene.xml"/>
+    <include file="assets_franka/assets.xml"/>
     <compiler meshdir=""/>
-
     <worldbody>
-        <include file="assets/chain0.xml"/>
-
-
-                <body name="spinner" pos="0.5 0.0 0.2" quat="0.707107 0.707107 0 0">
-            <joint name="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".35" limited="false"/>
-            <geom name="cap1" type="capsule" size=".04 .20" pos=".02 0 0" />
-            <geom name="cap2" type="capsule" size=".04 .20" pos="-.02 0 0"/>
-            <site name="tip" type="sphere"  size=".02" pos="0 0 .13"/>
-            <geom name="spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" />
-        </body>
-
+        <include file="assets_franka/chain0.xml"/>
+<!--        <body name="spinner" pos="0.5 0.0 0.2" quat="0.707107 0.707107 0 0">-->
+<!--            <joint name="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".35" limited="false"/>-->
+<!--            <geom name="cap1" type="capsule" size=".04 .20" pos=".02 0 0" />-->
+<!--            <geom name="cap2" type="capsule" size=".04 .20" pos="-.02 0 0"/>-->
+<!--            <site name="tip" type="sphere"  size=".02" pos="0 0 .13"/>-->
+<!--            <geom name="spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" />-->
+<!--        </body>-->
     </worldbody>
-
-    <include file='assets/frc_actuator0.xml'/>
-
+    <include file='assets_franka/frc_actuator0.xml'/>
 </mujoco>

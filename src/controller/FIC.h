@@ -326,7 +326,7 @@ namespace uoe {
          * Compute and return planned desired position from given
          * target position and time step in seconds
          */
-        Eigen::Vector3d plan(const Eigen::Vector3d& posDesired, double dt)
+        Eigen::Vector3d plan(const Eigen::Vector1d& posDesired, double dt)
         {
             Eigen::Vector3d error = posDesired - _posPlanner;
 

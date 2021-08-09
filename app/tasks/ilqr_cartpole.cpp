@@ -153,31 +153,18 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 50000;
-    x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
-
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
-
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
+    StateVector x_gain_vec; x_gain_vec << 100000, 50000, 0, 0;
+    StateMatrix x_gain; x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 10;
+    u_gain *= 0.01;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
-    du_gain *= 1000000;
-
+    du_gain *= 0;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);

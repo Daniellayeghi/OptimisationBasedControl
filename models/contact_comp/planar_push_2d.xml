@@ -61,9 +61,10 @@
             </body>
         </body>
 
-        <body>
-            <geom type="box" pos="0.0, 0.0, 0.0" size="0.025 0.025 0.025"/>
-            <joint name="object:joint" type="free" damping="0.01"></joint>
+        <body name="box0" pos=".0 0 .022" childclass="object">
+            <joint name="box0_x" type="slide" axis="1 0 0" ref="0" frictionloss=".00" damping=".7"/>
+            <joint name="box0_y" type="slide" axis="0 1 0" ref="0" frictionloss=".00" damping=".7"/>
+            <geom  name="box0" type="box" size=".022 .022 .022" mass="10"/>
         </body>
     </worldbody>
     <actuator>

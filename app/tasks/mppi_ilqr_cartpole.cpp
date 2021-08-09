@@ -160,26 +160,14 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 50000;
-    x_terminal_gain(0,0) *= 2;
-//    x_terminal_gain(2,2) *= 0.5;
-
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
-
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
+    StateVector x_gain_vec; x_gain_vec << 100000, 50000, 0, 0;
+    StateMatrix x_gain; x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 5;
+    u_gain *= 0.01;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -204,20 +192,8 @@ int main(int argc, const char** argv)
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        t_state_reg.diagonal()[elem + n_jvel] = 100;
-        t_state_reg.diagonal()[elem] = 10000;
-    }
-
-    StateMatrix r_state_reg; r_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        r_state_reg.diagonal()[elem + n_jvel] = 0;
-        r_state_reg.diagonal()[elem] = 0;
-    }
-
+    StateMatrix t_state_reg = x_terminal_gain;
+    StateMatrix r_state_reg = x_gain;
 
     CtrlMatrix control_reg; control_reg.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
@@ -239,8 +215,9 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams params {5, 75, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1, params, running_cost, terminal_cost);
+//    To show difference in sampling try 5 samples
+    MPPIDDPParams params {3, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position

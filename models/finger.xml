@@ -31,7 +31,7 @@
         <flag gravity="disable"/>
     </option>
 
-    <default>
+    <default>`
         <geom solimp="0 0.9 0.01" solref=".02 1"/>
         <joint type="hinge" axis="0 -1 0"/>
         <motor ctrllimited="true" ctrlrange="-1 1"/>

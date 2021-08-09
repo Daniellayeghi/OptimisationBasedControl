@@ -36,18 +36,19 @@ ylabel("Samples")
 figure();
 plot(-1:0.01:1, y)
 %% Distributoion Examples:
+values = -2:0.01:2;
 variance = 0.25;
 mean = 0.5;
-prob = zeros(100, 1);
+prob = zeros(length(values), 1);
 iter = 1;
-k = 0.0001;
+k = 1;
+pow =0.5;
 
-for var = 0:0.01:1
-    prob(iter, 1) = 1/sqrt(2*pi*variance^2/k^2)*exp(-(var - mean)^2/(2*variance^2));
+for var = values
+    prob(iter, 1) = (1/sqrt(2*pi*variance^2/k^2))^pow*exp((-1/2*((var - mean)/variance)^2)*pow);
     iter = iter + 1;
 end
 
 norm = sum(prob);
 prob = prob./norm;
-
-plot(0:0.01:1, prob)
+plot(values, prob)

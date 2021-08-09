@@ -7,11 +7,12 @@ set(SOURCE_FILES
         ilqr_franka.cpp
         ilqr_franka_sparse.cpp
         ilqr_planar.cpp
-        mppi_ilqr_planar3.cpp
+        mppi_ilqr_planar_obstacle.cpp
         mppi_ilqr_cartpole.cpp
         mppi_ilqr_double_cartpole.cpp
         mppi_ilqr_finger.cpp
         mppi_ilqr_planar_push.cpp
+        mppi_ilqr_planar_push_2d.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZMQPP_INCLUDES} ${ZeroMQ_INCLUDE_DIR})

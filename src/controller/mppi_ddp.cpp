@@ -2,7 +2,6 @@
 #include "mppi_ddp.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/mujoco_utils.h"
-#include "../../src/utilities/generic_utils.h"
 #include <iostream>
 #include <numeric>
 
@@ -27,6 +26,7 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
     m_control_new.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_control_cp.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
 
+    m_ddp_cov_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
     m_ctrl_samp_time.resize(m_params.m_k_samples, m_params.m_sim_time);
     m_ctrl_samples_time.resize(m_params.m_k_samples, m_params.m_sim_time * n_ctrl);
@@ -35,8 +35,8 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 
 
 template<int state_size, int ctrl_size>
-GenericUtils::FastPair<CtrlVector, CtrlMatrix>
-MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost, const double normaliser) const
+FastPair<CtrlVector, CtrlMatrix>
+MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost, const double normaliser)
 {
 
     // Computing the new covariance is taken from:
@@ -47,9 +47,9 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
     // Swap the order of samples and time
     auto ctrl_time_samples = m_ctrl_samples_time.transpose();
     auto numerator_weight = 0.0;
-
     for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
     {
+
         numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /normaliser;
         auto ctrl_sample = ctrl_time_samples.block(time*ctrl_size, col, ctrl_size, 1);
         numerator_mean += (numerator_weight * ctrl_sample);
@@ -58,8 +58,6 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
                 (ctrl_sample - m_params.pi_ctrl_mean).transpose()
                 );
     }
-
-//    const auto den_pow = std::pow(denomenator, - m_params.importance/(1+ m_params.importance)* m_params.m_scale;
     return {numerator_mean, numerator_cov/normaliser};
 }
 
@@ -107,7 +105,6 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
     {
         const auto [ctrl_pert, ctrl_variance] = (total_entropy(time, *min_cost, normaliser));
         m_control[time] += ctrl_pert;
-//        clamp_control(m_control[time], m_m->actuator_ctrlrange);
 
         // Temporal average for the mean and covariance
         new_mean_numerator += (ctrl_pert * ((m_params.m_sim_time - 1) - time));
@@ -127,22 +124,33 @@ void MPPIDDP<state_size, ctrl_size>::prepare_control_mpc()
     m_control.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
 }
 
+template<int state_size, int ctrl_size>
+void MPPIDDP<state_size, ctrl_size>::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
+{
+    for (auto elem = 0; elem < m_params.m_sim_time; ++elem)
+    {
+        m_ddp_cov_vec[elem] = ddp_variance[elem] / m_params.ddp_cov_reg;
+    }
+}
+
+
 
 template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl,
-                                             const std::vector<CtrlMatrix>& ddp_variance) {
+void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance) {
 
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
+    regularise_ddp_variance(ddp_variance);
     for (auto iteration = 0; iteration < m_params.iteration; ++iteration) {
         CtrlVector instant_control;
-        fill_state_vector(d, m_state_new.front());
+        fill_state_vector(d, m_state_new.front(), m_m);
         std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
+//        m_normX_cholesk.setMean(m_params.pi_ctrl_mean/10);
+//        m_normX_cholesk.setCovar(m_params.ctrl_variance);
+//        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
 
 /*
  *      Update distribution params.
-        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
         m_normX_cholesk.setCovar(m_params.ctrl_variance);
-        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
         std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
 */
         for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
@@ -151,19 +159,15 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
             copy_data(m_m, d, m_d_cp);
             const auto samples = m_normX_cholesk.samples_vector();
             for (auto time = 0; time < m_params.m_sim_time - 1; ++time) {
-                // Set the DDP hessian inverse as the sample variance;
-                m_params.ddp_variance = ddp_variance[time];
-
                 // Set sampled perturbation
                 auto pert_sample = samples.block(0, time, n_ctrl, 1).transpose().eval();
                 m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample;
                 CtrlVector instant_pert = pert_sample.transpose().eval();
                 instant_control = m_control[time] + instant_pert;
-
                 // Forward simulate controls and compute running costl
                 MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
                 m_delta_cost_to_go[sample] += m_cost_func(
-                        m_state_new[time + 1], m_control[time], instant_pert, ddp_ctrl[time], m_d_cp, m_m
+                        m_state_new[time + 1], m_control[time], instant_pert, ddp_ctrl[time], m_ddp_cov_vec[time], m_d_cp, m_m
                 );
             }
 
@@ -185,6 +189,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
         traj_cost /= m_params.m_k_samples;
         const auto [new_mean, new_variance] = compute_control_trajectory();
         m_params.pi_ctrl_mean = new_mean;
+//        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
     }
     prepare_control_mpc();
 }

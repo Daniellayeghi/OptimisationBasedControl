@@ -32,7 +32,7 @@ mjrContext con;                     // custom GPU context
 bool button_left   = false;
 bool button_middle = false;
 bool button_right  = false;
-bool save_data     = true;
+bool save_data     = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -163,22 +163,20 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0.0, 0.0, -0, -0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 100000, 100000, 100000, 100000, 100000, 100000, 100000,
-                                                    1000, 1000, 1000, 1000, 1000, 10000, 1000;
+    StateVector x_terminal_diag; x_terminal_diag << 1000000, 1000000, 1000000, 1000000, 1000000, 1000000, 1000000,
+                                                    10000, 10000, 10000, 10000, 10000, 10000, 10000;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0,
+    StateVector x_running_diag; x_running_diag << 1000, 1000, 1000, 1000, 1000, 1000, 1000,
                                                   0, 0, 0, 0, 0, 0, 0;
-//    x_running_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
-    CtrlMatrix u_gain;
-    u_gain.setIdentity();
-    u_gain *= 0.0000001;
+    CtrlVector u_gain_vec; u_gain_vec << 1, 0.0005, 1, 0.0005, 1, 1, 1;
+    CtrlMatrix u_gain; u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -189,23 +187,16 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.01;
+        ctrl_var.diagonal()[elem] = 1;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        t_state_reg.diagonal()[elem + n_jvel] = 1e7;
-        t_state_reg.diagonal()[elem] = 10000;
-    }
-
-    StateMatrix r_state_reg; r_state_reg.setIdentity();
-    for(auto elem = 0; elem < n_jpos; ++elem)
-    {
-        r_state_reg.diagonal()[elem + n_jvel] = 10;
-        r_state_reg.diagonal()[elem] = 0;
-    }
+    StateVector t_state_reg_vec; t_state_reg_vec << 10000, 50000000, 10000, 10000000, 10000, 10000000, 10000,
+                                                    1000, 100000, 1000, 1000, 1000, 1000, 1000;
+    StateVector r_state_reg_vec; r_state_reg_vec << 10000, 50000000, 10000, 10000000, 10000, 10000000, 10000,
+                                                    0, 0, 0, 0, 0, 0, 0;
+    StateMatrix t_state_reg; t_state_reg = t_state_reg_vec.asDiagonal();
+    StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
     CtrlVector control_reg_vec;
     control_reg_vec.setOnes() * 0;
@@ -249,21 +240,22 @@ int main(int argc, const char** argv)
 
    // initial position
     d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
-//    d->qpos[0] = 0; d->qpos[1] = -M_PI/4; d->qpos[2] = 0; d->qpos[3] = -3*M_PI/4; d->qpos[4] = 0; d->qpos[5] = M_PI_2; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
-    MPPIDDPParams params_pi {200, 100, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(1e8, params_pi, running_cost, terminal_cost);
+    MPPIDDPParams params_pi {20, 100, 1, 1, 1, 1, 1,ctrl_mean, ddp_var, ctrl_var};
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params_pi, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params_pi);
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
+
     // install control callback
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     DataBuffer d_buff;
 
@@ -299,14 +291,14 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
             ctrl_buffer.update(ilqr._cached_control.data(), true);
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
          }
 

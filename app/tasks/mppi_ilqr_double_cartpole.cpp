@@ -9,6 +9,7 @@
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/controller/mppi_ddp.h"
+#include "../../src/utilities/zmq_utils.h"
 
 // for sleep timers
 #include <chrono>
@@ -156,16 +157,16 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 250000, 500000, 80000, 5000, 2500, 800;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 700, 500, 250, 10, 200, 300;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
 
-    StateVector x_gain_vec; x_gain_vec <<.250000, .500000, .80000, .5000, .2500, .800;
+    StateVector x_gain_vec; x_gain_vec << 700, 500, 250, 0, 0, 0;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 40;
+    u_gain *= 20;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -227,9 +228,9 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    MPPIDDPParams params {100, 100,0.0001, 0, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {100, 100,0.0001, 0, 1, 1, 25, ctrl_mean, ddp_var, ctrl_var};
 
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(25, params, running_cost, terminal_cost);
+    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     // initial position
@@ -240,18 +241,27 @@ int main(int argc, const char** argv)
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 100, 1};
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 180, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+    MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    ilqr_params.iteration = 100;
+    ilqr.control(d);
+    ilqr_params.iteration = 1;
 
     DummyBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-
+    printf ("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ctrl_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
     std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
@@ -268,11 +278,12 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             d_buff.fill_buffer(d);
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-//            pi.control(d, ilqr._u_traj, ilqr._covariance);
-//            ilqr._u_traj = pi.m_control;
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+//            zmq_buffer.send_buffers();
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

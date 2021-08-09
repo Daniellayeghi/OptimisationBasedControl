@@ -14,7 +14,6 @@ template<int state_size, int ctrl_size>
 class CostFunction
 {
 public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // TODO: Pass cost as functor
     CostFunction(const StateVector& x_desired,
                  const CtrlVector& u_desired,
@@ -34,22 +33,25 @@ public:
 
     mjtNum running_cost(const mjData *d);
     mjtNum terminal_cost(const mjData *d);
-    mjtNum trajectory_running_cost(std::vector<StateVector> & x_trajectory, std::vector<CtrlVector> & u_trajectory);
-
-    const CtrlMatrix& m_u_gain;
-    const CtrlMatrix& m_u_diff_gain;
-    const StateMatrix& m_x_gain;
-    const StateMatrix& m_x_terminal_gain;
+    mjtNum trajectory_running_cost(const std::vector<StateVector>& x_trajectory, const std::vector<CtrlVector> & u_trajectory);
     CtrlVector m_u_prev = CtrlVector::Zero();
+
 private:
     void update_errors(const mjData *d);
+    void update_errors(const StateVector &state, const CtrlVector &ctrl);
 
-    void update_errors(StateVector &state, CtrlVector &ctrl);
+    // State and state errors
     CtrlVector m_u = CtrlVector::Zero();
     StateVector m_x = StateVector::Zero();
     CtrlVector m_u_error = CtrlVector::Zero();
     CtrlVector m_du_error = CtrlVector::Zero();
     StateVector m_x_error = StateVector::Zero();
+
+    // Cost gains
+    const CtrlMatrix& m_u_gain;
+    const CtrlMatrix& m_u_diff_gain;
+    const StateMatrix& m_x_gain;
+    const StateMatrix& m_x_terminal_gain;
     const CtrlVector& m_u_desired;
     const StateVector& m_x_desired;
     const mjModel* m_m;

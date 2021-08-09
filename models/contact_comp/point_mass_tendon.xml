@@ -1,10 +1,4 @@
-<!--NOTE:-->
-<!--COMPARE AT 30 and 100 SAMPLES with cov reg as 0.5 with 0.9 importance lambda 0.001-->
-<!--0.9 importance and 1 cov reg fro 100 samples-->
-
 <mujoco model="planar point mass">
-    <compiler angle="radian" />
-    <option timestep="0.01" cone="elliptic"/>
     <visual>
         <quality shadowsize="2048" />
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1" />
@@ -36,15 +30,18 @@
         <material name="target_default" rgba="0.6 0.3 0.3 1" />
         <material name="target_highlight" rgba="0.6 0.3 0.3 0.4" />
     </asset>
+
+    <option timestep="0.005"> </option>
+
     <worldbody>
-        <geom name="ground" size="0.35 0.35 0.1" pos="-0.0 0 0.0" type="plane" />
-        <geom name="wall_x" size="0.02 0.3 0.02" pos="-0.35 0 0.02" quat="0.707107 0 0.707107 0" type="plane" />
-        <geom name="wall_y" size="0.3 0.02 0.02" pos="0 -0.35 0.02" quat="0.707107 -0.707107 0 0" type="plane" />
-        <geom name="wall_neg_x" size="0.02 0.3 0.02" pos="0.35 0 0.02" quat="0.707107 0 -0.707107 0" type="plane" />
-        <geom name="wall_neg_y" size="0.3 0.02 0.02" pos="0 0.35 0.02" quat="0.707107 0.707107 0 0" type="plane" />
+        <geom name="ground" size="0.31 0.31 0.1" pos="-0.0 0 0.0" type="plane" />
+        <geom name="wall_x" size="0.02 0.3 0.02" pos="-0.31 0 0.02" quat="0.707107 0 0.707107 0" type="plane" />
+        <geom name="wall_y" size="0.3 0.02 0.02" pos="0 -0.31 0.02" quat="0.707107 -0.707107 0 0" type="plane" />
+        <geom name="wall_neg_x" size="0.02 0.3 0.02" pos="0.31 0 0.02" quat="0.707107 0 -0.707107 0" type="plane" />
+        <geom name="wall_neg_y" size="0.3 0.02 0.02" pos="0 0.31 0.02" quat="0.707107 0.707107 0 0" type="plane" />
         <camera name="fixed" pos="0 0 0.75" />
         <light name="light" pos="0 0 1" dir="0 0 -1" />
-        <body pos="0 0 0.02" quat="0.707107 0.707107 0 0">
+        <body pos="0 0 0.022" quat="0.707107 0.707107 0 0">
             <inertial pos="0 0 -0.0291932" mass="0.0591876" diaginertia="7.61519e-05 7.40747e-05 6.21876e-06" />
             <joint name="proximal" pos="0 0 0" axis="0 -1 0" ref="-1.5708" range="-130 -60" damping="0.25" />
             <geom name="proximal_decoration" size="0.024 0.02" quat="0.707107 0.707107 0 0" type="cylinder" material="decoration" />
@@ -60,15 +57,30 @@
                 </body>
             </body>
         </body>
-
-        <body>
-            <geom type="box" pos="0.0, 0.0, 0.0" size="0.025 0.025 0.025"/>
-            <joint name="object:joint" type="free" damping="0.01"></joint>
+        <body name="pointmass" pos="-.0 .0 .022">
+            <camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
+            <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" damping="3"/>
+            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" damping="3"/>
+            <geom name="pointmass" type="sphere" size=".022" material="self" mass=".6" condim="4"/>
         </body>
+
+        <geom name="target" pos="-0.13 0 0.022" material="target" type="sphere" rgba="0.5 0 1 0.25"  size=".025" contype="0" conaffinity="0"/>
     </worldbody>
+
+    <tendon>
+        <fixed name="t1">
+            <joint joint="root_x" coef="1"/>
+            <joint joint="root_y" coef="0"/>
+        </fixed>
+        <fixed name="t2">
+            <joint joint="root_x" coef="0"/>
+            <joint joint="root_y" coef="1"/>
+        </fixed>
+    </tendon>
+
     <actuator>
-        <general name="proximal" joint="proximal" gear="0.35 0 0 0 0 0" />
-        <general name="distal" joint="distal" gear="0.5 0 0 0 0 0" />
-        <general name="distal2" joint="distal2" gear="0.6 0 0 0 0 0" />
+        <general name="proximal" joint="proximal" gear="0.8 0 0 0 0 0" />
+        <general name="distal" joint="distal" gear="0.8 0 0 0 0 0" />
+        <general name="distal2" joint="distal2" gear="0.8 0 0 0 0 0" />
     </actuator>
 </mujoco>

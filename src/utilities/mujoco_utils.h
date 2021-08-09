@@ -75,44 +75,46 @@ namespace MujocoUtils
     }
 
 
-    inline void set_control_data(const mjData *data, const CtrlVector &ctrl)
+    inline void set_control_data(const mjData *data, const CtrlVector &ctrl, const mjModel* m)
     {
-        std::copy(ctrl.data(), ctrl.data()+ctrl.size(), data->ctrl);
+        std::copy(ctrl.data(), ctrl.data()+m->nu, data->ctrl);
     }
 
 
-    inline void fill_state_vector(const mjData *data, StateVector &state)
+    inline void fill_state_vector(const mjData *data, StateVector &state, const mjModel* m)
     {
-        for (auto row = 0; row < state.rows() / 2; ++row)
-        {
-            state(row, 0) = data->qpos[row];
-            state(row + state.rows() / 2, 0) = data->qvel[row];
-        }
+        std::copy(data->qpos, data->qpos+m->nq, state.data());
+        std::copy(data->qvel, data->qvel+m->nv, state.data()+SimulationParameters::n_jpos);
+//        for (auto row = 0; row < state.rows() / 2; ++row)
+//        {
+//            state(row, 0) = data->qpos[row];
+//            state(row + state.rows() / 2, 0) = data->qvel[row];
+//        }
     }
 
 
-    inline void fill_ctrl_vector(const mjData *data, CtrlVector &ctrl)
+    inline void fill_ctrl_vector(const mjData *data, CtrlVector &ctrl, const mjModel* m)
     {
-        std::copy(data->ctrl, data->ctrl + ctrl.size(), ctrl.data());
+        std::copy(data->ctrl, data->ctrl+m->nu, ctrl.data());
     }
 
 
     inline void apply_ctrl_update_state(const CtrlVector& ctrl, StateVector& state, mjData* d, const mjModel* m)
     {
-        set_control_data(d, ctrl);
+        set_control_data(d, ctrl, m);
         mj_step(m, d);
-        fill_state_vector(d, state);
+        fill_state_vector(d, state, m);
     }
 
 
     inline void rollout_dynamics(const std::vector<CtrlVector>& ctrls, std::vector<StateVector>& states, mjData *d, const mjModel *m)
     {
-        fill_state_vector(d, states.front());
+        fill_state_vector(d, states.front(), m);
         for(auto iteration = 0; iteration < ctrls.size(); ++iteration)
         {
-            set_control_data(d, ctrls[iteration]);
+            set_control_data(d, ctrls[iteration], m);
             mj_step(m, d);
-            fill_state_vector(d, states[iteration+ 1]);
+            fill_state_vector(d, states[iteration+ 1], m);
         }
     }
 }
