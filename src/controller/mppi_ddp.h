@@ -107,6 +107,7 @@ public:
 
     CtrlVector _cached_control;
     std::vector<CtrlVector> m_control;
+    std::vector<CtrlVector> m_control_filtered;
     std::vector<CtrlVector> m_control_new;
     std::vector<CtrlVector> m_control_cp;
     double traj_cost{};

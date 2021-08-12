@@ -250,8 +250,6 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             ++iter;
         }
     }while(non_pd_path and m_good_backpass and iter < max_iter);
-//    update_regularizer(false);
-//    temporal_average_covariance();
 }
 
 

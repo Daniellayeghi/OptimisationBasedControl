@@ -23,6 +23,7 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 
     m_state_new.assign(m_params.m_sim_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
     m_control.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    m_control_filtered.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_control_new.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_control_cp.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
 
@@ -111,6 +112,9 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
         temp_mean_denomenator += ((m_params.m_sim_time - 1) - time);
         new_variance += (ctrl_variance * ((m_params.m_sim_time - 1) - time));
     }
+
+//    sg_filter(m_control, m_control_filtered);
+//    m_control = m_control_filtered;
     return {new_mean_numerator / temp_mean_denomenator, new_variance / temp_mean_denomenator};
 }
 

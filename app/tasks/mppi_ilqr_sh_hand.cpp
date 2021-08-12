@@ -50,9 +50,7 @@ namespace {
         // backspace: reset simulation
         if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
         {
-            auto k = false;
-            d->qacc[0] = uniform_dist(e1);
-            d->qacc[1] = uniform_dist(e1);
+            save_data = true;
         }
     }
 
@@ -162,7 +160,7 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
 
-    StateVector x_desired = StateVector::Zero(); x_desired(n_jpos - 1, 0) = 2.56;
+    StateVector x_desired = StateVector::Zero(); x_desired(n_jpos - 1, 0) = 3.14;
     CtrlVector u_desired = CtrlVector::Zero();
 
     StateVector x_terminal_gain_vec = StateVector::Zero(); x_terminal_gain_vec(n_jpos - 1, 0) = 1000000;
@@ -199,7 +197,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.15;
+        ctrl_var.diagonal()[elem] = 0.025;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -209,11 +207,31 @@ int main(int argc, const char** argv)
     CtrlVector control_reg_vec = CtrlVector::Zero();
     CtrlMatrix control_reg = control_reg_vec.asDiagonal();
 
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
-                                        9, 10, 11, 12,13,14, 15, 1,
-                                        17,18, 19,20, 21, 22, 23, 24, 25,26, 27}};
 
+    const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
+                                                        9, 10, 11, 12,13,14, 15, 1,
+                                                        17,18,19,20, 21, 22, 23, 24, 25,26, 27}};
+        auto iteration = 0;
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                // Contact with world body (0) is always there so ignore that.
+                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                if (check_1 != check_2 and not world_contact)
+                    ++iteration;
+            }
+        return (iteration == 0)?1:1.0/(iteration+1);
+    };
+
+
+    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
+                                                        9, 10, 11, 12,13,14, 15, 1,
+                                                        17,18, 19,20, 21, 22, 23, 24, 25,26, 27}};
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
             {
@@ -233,7 +251,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + not collision_cost(data, model) * 100000; //(state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
+        (0, 0) + (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1 * not collision_cost(data, model) ; //* (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -244,7 +262,7 @@ int main(int argc, const char** argv)
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {20, 75, 1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 1, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -262,13 +280,13 @@ int main(int argc, const char** argv)
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
     /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + ("hand_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + ("hand_ctrl.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + ("hand_pos.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + ("hand_vel.csv"), std::fstream::out | std::fstream::trunc);
     printf ("Connecting to viewer server…\n");
     Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
     Buffer<RawType<CtrlVector>::type> pi_buffer{};
