@@ -7,7 +7,6 @@
 #include "../../src/utilities/buffer.h"
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/zmq_utils.h"
-#include <zmqpp/zmqpp.hpp>
 
 // for sleep timers
 #include <chrono>

@@ -8,7 +8,6 @@
 #include "../../src/utilities/mujoco_utils.h"
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
-#include <zmqpp/zmqpp.hpp>
 #include <chrono>
 #include <thread>
 

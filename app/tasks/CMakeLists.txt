@@ -16,7 +16,7 @@ set(SOURCE_FILES
         mppi_ilqr_sh_hand.cpp
         )
 
-include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZMQPP_INCLUDES} ${ZeroMQ_INCLUDE_DIR})
+include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZeroMQ_INCLUDE_DIR})
 message(STATUS "include dir: ${ZeroMQ_INCLUDE_DIR}")
 #set(HEADER_FILES /usr/local/include/zmqpp)
 
@@ -37,8 +37,8 @@ foreach(source ${SOURCE_FILES})
     target_link_libraries(${BIN_NAME} control_lib)
     target_link_libraries(${BIN_NAME} util_lib)
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
-    target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
+    #target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
     target_link_libraries(${BIN_NAME} /usr/local/lib/libzmq.so.5)
-    target_link_libraries(${BIN_NAME} ${ZMQPP})
+#    target_link_libraries(${BIN_NAME} ${ZMQPP})
     ## add the include directory to our compile directives
 endforeach(source ${SOURCE_FILES})
