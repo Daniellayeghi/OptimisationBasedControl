@@ -8,7 +8,6 @@
 #include "../../src/utilities/mujoco_utils.h"
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
-#include <zmqpp/zmqpp.hpp>
 #include <chrono>
 #include <thread>
 
@@ -210,7 +209,7 @@ int main(int argc, const char** argv)
 
     const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
-                                                        9, 10, 11, 12,13,14, 15, 1,
+                                                        9, 10, 11, 12,13,14, 15, 16,
                                                         17,18,19,20, 21, 22, 23, 24, 25,26, 27}};
         auto iteration = 0;
         if(data and model)
@@ -230,8 +229,8 @@ int main(int argc, const char** argv)
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
-                                                        9, 10, 11, 12,13,14, 15, 1,
-                                                        17,18, 19,20, 21, 22, 23, 24, 25,26, 27}};
+                                                        9, 10, 11, 12,13,14, 15, 16,
+                                                        17, 18, 19,20, 21, 22, 23, 24, 25,26, 27}};
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
             {
@@ -246,13 +245,15 @@ int main(int argc, const char** argv)
         return false;
     };
 
+
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1 * not collision_cost(data, model) ; //* (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
+        (0, 0) + not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
     };
+
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
@@ -260,9 +261,10 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + 100000; //not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
     };
 
+
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {30, 75, 1, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 

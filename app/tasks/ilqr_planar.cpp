@@ -6,10 +6,10 @@
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
-#include <chrono>
-#include <thread>
 
 // for sleep timers
+#include <chrono>
+#include <thread>
 #include <chrono>
 #include <thread>
 #include <random>

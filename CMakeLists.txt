@@ -7,14 +7,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 include(FetchContent)
 
-#add_compile_options(-Wall -Wextra)
+add_compile_options(-Wall -Wextra)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
-find_package(Torch REQUIRED)
+#find_package(Torch REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(ZeroMQ REQUIRED)
-find_path(ZMQPP_INCLUDES NAMES zmqpp/zmqpp.hpp)
+#find_path(ZMQPP_INCLUDES NAMES zmqpp/zmqpp.hpp)
 
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
