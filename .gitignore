@@ -16,7 +16,6 @@ libraries
 *.lock
 data/
 figures/
-third_party/
 venv/
 
 /positions.txt
