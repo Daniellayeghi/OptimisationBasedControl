@@ -33,6 +33,7 @@ _fd(fd) ,_cf(cf), _m(m), m_params(params)
     _u_traj_new.assign(m_params.simulation_time, CtrlVector::Zero());
     _u_traj_cp.assign(m_params.simulation_time,CtrlVector::Zero());
     _covariance.assign(m_params.simulation_time, CtrlMatrix::Identity());
+    _covariance_new.assign(m_params.simulation_time, CtrlMatrix::Identity());
     m_Qu_traj.assign(m_params.simulation_time, CtrlVector::Zero());
     m_Quu_traj.assign(m_params.simulation_time, CtrlMatrix::Zero());
 
@@ -191,7 +192,7 @@ template<int state_size, int ctrl_size>
 void ILQR<state_size, ctrl_size>::backward_pass()
 {
     m_good_backpass = true;
-    const auto max_iter = 100; auto iter = 0;
+    const auto max_iter = 20; auto iter = 0;
     auto non_pd_path = false;
     Eigen::Matrix<double, state_size, 1> V_x = m_d_vector.back().lx;
     Eigen::Matrix<double, state_size, state_size> V_xx = m_d_vector.back().lxx;
@@ -229,9 +230,9 @@ void ILQR<state_size, ctrl_size>::backward_pass()
 
             if (std::any_of(cov.data(), cov.data() + cov.size(), [](double val) {return not std::isnan(val);}))
             {
-                _covariance[time] = cov;
+                _covariance_new[time] = cov;
             } else {
-                _covariance[time] = CtrlMatrix::Identity();
+                _covariance_new[time] = CtrlMatrix::Identity();
             }
 
 ////            if (time ==  m_params.simulation_time - 1)
@@ -341,9 +342,12 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             status = "Y";
             update_regularizer(false);
             _u_traj = _u_traj_new;
+            _u_traj_cp = _u_traj;
             _x_traj = _x_traj_new;
+            _covariance = _covariance_new;
             printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f, Update = %s, last_position = %f\n",
                    _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str(), _x_traj_new.front()(0, 0));
+
             break;
         }
         else if (cost_red_ratio < 0){
@@ -369,7 +373,6 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d)
         _cf.m_u_prev = _u_traj.front();
     }
     _cached_control = _u_traj.front();
-    std::copy(_u_traj.begin(), _u_traj.end(), _u_traj_cp.begin());
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
 //    std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
 

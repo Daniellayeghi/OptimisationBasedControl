@@ -234,7 +234,6 @@ int main(int argc, const char** argv)
                 auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
                 bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
                 bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                std::cout << "w_con " << world_contact << " plan_con " << (check_1 not_eq check_2) << "\n";
                 if (check_1 != check_2 and not world_contact)
                     return true;
             }
@@ -256,7 +255,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams params {10, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);

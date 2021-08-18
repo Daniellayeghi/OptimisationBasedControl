@@ -59,7 +59,7 @@ void MyController<T, state_size, ctrl_size>::controller()
     for (auto row = 0; row < ctrl_size; ++row)
         _d->ctrl[row] = controls._cached_control(row, 0);
 
-//    std::cout << controls._cached_control << "\n";
+//    std::cout << "CTRL " << controls._cached_control << "\n";
 }
 
 

@@ -57,11 +57,11 @@ public:
 
         CtrlVector new_control = control + delta_control;
 
-        auto ddp_noise_term = (new_control.transpose().eval() * m_ddp_variance_inv * new_control -
+        double  ddp_noise_term = (new_control.transpose().eval() * m_ddp_variance_inv * new_control -
                 2 * (new_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control)
-                );
+                )(0, 0);
 
-        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control -
+        double ddp_bias = (ddp_noise_term) + (ddp_mean_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control -
                 (new_control.transpose().eval() * m_ctrl_variance_inv * new_control)
                 )(0, 0) * m_params.importance;
 
