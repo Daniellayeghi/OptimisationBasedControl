@@ -90,6 +90,7 @@ private:
 public:
     CtrlVector _cached_control;
     std::vector<CtrlMatrix> _covariance;
+    std::vector<CtrlMatrix> _covariance_new;
     std::vector<CtrlVector> _u_traj;
     std::vector<CtrlVector> _u_traj_cp;
     std::vector<double> cost;
