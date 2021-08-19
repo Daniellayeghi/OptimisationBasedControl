@@ -52,9 +52,9 @@ template<int state_size, int ctrl_size>
 mjtNum CostFunction<state_size, ctrl_size>::running_cost(const mjData *d)
 {
     update_errors(d);
-    return (m_x_error.transpose().eval() * m_x_gain * m_x_error)(0, 0) +
-           (m_u_error.transpose().eval() * m_u_gain * m_u_error)(0, 0) +
-           (m_du_error.transpose().eval() * m_u_diff_gain * m_du_error)(0, 0);
+    return (m_x_error.transpose() * m_x_gain * m_x_error)(0, 0) +
+           (m_u_error.transpose() * m_u_gain * m_u_error)(0, 0) +
+           (m_du_error.transpose() * m_u_diff_gain * m_du_error)(0, 0);
 }
 
 
@@ -68,9 +68,9 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(const
     for(unsigned int row = 0; row < u_trajectory.size(); ++row)
     {
         update_errors(x_trajectory[row], u_trajectory[row]);
-        cost += (m_x_error.transpose().eval() * m_x_gain * m_x_error)(0, 0) +
-                (m_u_error.transpose().eval() * m_u_gain * m_u_error)(0, 0) +
-                (m_du_error.transpose().eval() * m_u_diff_gain * m_du_error)(0, 0);
+        cost += (m_x_error.transpose() * m_x_gain * m_x_error)(0, 0) +
+                (m_u_error.transpose() * m_u_gain * m_u_error)(0, 0) +
+                (m_du_error.transpose() * m_u_diff_gain * m_du_error)(0, 0);
     }
 
     //Compute terminal cost
@@ -82,7 +82,7 @@ inline mjtNum CostFunction<state_size, ctrl_size>::trajectory_running_cost(const
 //    }
     m_x_error = m_x_desired - x_trajectory.back();
     //Running cost + terminal cost
-    return cost + (m_x_error.transpose().eval() * m_x_terminal_gain * m_x_error)(0, 0);
+    return cost + (m_x_error.transpose() * m_x_terminal_gain * m_x_error)(0, 0);
 }
 
 
@@ -90,7 +90,7 @@ template<int state_size, int ctrl_size>
 mjtNum CostFunction<state_size, ctrl_size>::terminal_cost(const mjData *d)
 {
     update_errors(d);
-    return (m_x_error.transpose().eval() * m_x_terminal_gain * m_x_error)(0, 0);
+    return (m_x_error.transpose() * m_x_terminal_gain * m_x_error)(0, 0);
 }
 
 
@@ -98,7 +98,7 @@ template<int state_size, int ctrl_size>
 StateVector CostFunction<state_size, ctrl_size>::Lf_x(const mjData *d)
 {
     update_errors(d);
-    return m_x_error.transpose().eval() * (2 * m_x_terminal_gain);
+    return m_x_error.transpose() * (2 * m_x_terminal_gain);
 }
 
 
@@ -113,7 +113,7 @@ template<int state_size, int ctrl_size>
 StateVector CostFunction<state_size, ctrl_size>::L_x(const mjData *d)
 {
     update_errors(d);
-    return m_x_error.transpose().eval() * (2 * m_x_gain);
+    return m_x_error.transpose() * (2 * m_x_gain);
 }
 
 
@@ -129,7 +129,7 @@ template<int state_size, int ctrl_size>
 CtrlVector CostFunction<state_size, ctrl_size>::L_u(const mjData *d)
 {
     update_errors(d);
-    return (m_u_error.transpose().eval() * (2 * m_u_gain)) * 2;
+    return (m_u_error.transpose() * (2 * m_u_gain)) * 2;
 }
 
 

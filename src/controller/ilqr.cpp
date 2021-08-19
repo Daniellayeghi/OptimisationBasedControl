@@ -74,68 +74,68 @@ ILQR<state_size, ctrl_size>::~ILQR()
 template<int state_size, int ctrl_size>
 StateVector ILQR<state_size, ctrl_size>::Q_x(int time, StateVector& _v_x)
 {
-    return m_d_vector[time].lx + m_d_vector[time].fx.transpose().eval() * _v_x ;
+    return m_d_vector[time].lx + m_d_vector[time].fx.transpose() * _v_x ;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlVector ILQR<state_size, ctrl_size>::Q_u(int time,  StateVector& _v_x)
 {
-    return m_d_vector[time].lu + m_d_vector[time].fu.transpose().eval() * _v_x ;
+    return m_d_vector[time].lu + m_d_vector[time].fu.transpose() * _v_x ;
 }
 
 
 template<int state_size, int ctrl_size>
 StateMatrix ILQR<state_size, ctrl_size>::Q_xx(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose().eval() * _v_xx) * m_d_vector[time].fx;
+    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose() * _v_xx) * m_d_vector[time].fx;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlStateMatrix ILQR<state_size, ctrl_size>::Q_ux(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lux + m_d_vector[time].fu.transpose().eval() * (_v_xx) * m_d_vector[time].fx;
+    return m_d_vector[time].lux + m_d_vector[time].fu.transpose() * (_v_xx) * m_d_vector[time].fx;
 }
 
 template<int state_size, int ctrl_size>
 StateCtrlMatrix ILQR<state_size, ctrl_size>::Q_xu(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].fx.transpose().eval() * (_v_xx) * m_d_vector[time].fu;
+    return m_d_vector[time].fx.transpose() * (_v_xx) * m_d_vector[time].fu;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlMatrix ILQR<state_size, ctrl_size>::Q_uu(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose().eval() * (_v_xx)) * (m_d_vector[time].fu);
+    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose() * (_v_xx)) * (m_d_vector[time].fu);
 }
 
 
 template<int state_size, int ctrl_size>
 StateMatrix ILQR<state_size, ctrl_size>::Q_xx_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose().eval() * _v_xx + _regularizer) * m_d_vector[time].fx;
+    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose() * _v_xx + _regularizer) * m_d_vector[time].fx;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlStateMatrix ILQR<state_size, ctrl_size>::Q_ux_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lux + (m_d_vector[time].fu.transpose().eval() * (_v_xx + _regularizer)) * m_d_vector[time].fx;
+    return m_d_vector[time].lux + (m_d_vector[time].fu.transpose() * (_v_xx + _regularizer)) * m_d_vector[time].fx;
 }
 
 template<int state_size, int ctrl_size>
 StateCtrlMatrix ILQR<state_size, ctrl_size>::Q_xu_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].fx.transpose().eval() * (_v_xx + _regularizer) * m_d_vector[time].fu;
+    return m_d_vector[time].fx.transpose() * (_v_xx + _regularizer) * m_d_vector[time].fu;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlMatrix ILQR<state_size, ctrl_size>::Q_uu_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose().eval() * (_v_xx+_regularizer)) * (m_d_vector[time].fu);
+    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose() * (_v_xx+_regularizer)) * (m_d_vector[time].fu);
 }
 
 
@@ -242,11 +242,11 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             m_bp_vector[time].ff_k = -1 * Quu_reg.colPivHouseholderQr().solve(Qu);
 
             //Approximate value functions
-            V_x = Qx + (m_bp_vector[time].fb_k.transpose().eval() * Quu * (m_bp_vector[time].ff_k));
-            V_x += m_bp_vector[time].fb_k.transpose().eval() * Qu + Qux.transpose().eval() * m_bp_vector[time].ff_k;
-            V_xx = Qxx + m_bp_vector[time].fb_k.transpose().eval() * Quu * m_bp_vector[time].fb_k;
-            V_xx += m_bp_vector[time].fb_k.transpose().eval() * Qux + Qux.transpose().eval() * m_bp_vector[time].fb_k;
-            V_xx = 0.5 * (V_xx + V_xx.transpose().eval());
+            V_x = Qx + (m_bp_vector[time].fb_k.transpose() * Quu * (m_bp_vector[time].ff_k));
+            V_x += m_bp_vector[time].fb_k.transpose() * Qu + Qux.transpose() * m_bp_vector[time].ff_k;
+            V_xx = Qxx + m_bp_vector[time].fb_k.transpose() * Quu * m_bp_vector[time].fb_k;
+            V_xx += m_bp_vector[time].fb_k.transpose() * Qux + Qux.transpose() * m_bp_vector[time].fb_k;
+            V_xx = 0.5 * (V_xx + V_xx.transpose());
             ++iter;
         }
     }while(non_pd_path and m_good_backpass and iter < max_iter);
@@ -302,8 +302,8 @@ double ILQR<state_size, ctrl_size>::compute_expected_cost(const double backtrack
     double estimate_1st = 0 , estimate_2nd = 0;
     for (auto time = 0; time < m_params.simulation_time; ++time)
     {
-        estimate_1st += (-backtracker*(m_bp_vector[time].ff_k.transpose().eval() * m_Qu_traj[time])(0.0));
-        estimate_2nd += (-backtracker*backtracker/2*(m_bp_vector[time].ff_k.transpose().eval() * m_Quu_traj[time] * m_bp_vector[time].ff_k)(0.0));
+        estimate_1st += (-backtracker*(m_bp_vector[time].ff_k.transpose() * m_Qu_traj[time])(0.0));
+        estimate_2nd += (-backtracker*backtracker/2*(m_bp_vector[time].ff_k.transpose() * m_Quu_traj[time] * m_bp_vector[time].ff_k)(0.0));
     }
     return estimate_1st + estimate_2nd;
 }

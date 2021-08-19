@@ -164,9 +164,9 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
             const auto samples = m_normX_cholesk.samples_vector();
             for (auto time = 0; time < m_params.m_sim_time - 1; ++time) {
                 // Set sampled perturbation
-                auto pert_sample = samples.block(0, time, n_ctrl, 1).transpose().eval();
+                auto pert_sample = samples.block(0, time, n_ctrl, 1).transpose();
                 m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample;
-                CtrlVector instant_pert = pert_sample.transpose().eval();
+                CtrlVector instant_pert = pert_sample.transpose();
                 instant_control = m_control[time] + instant_pert;
                 // Forward simulate controls and compute running costl
                 MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
@@ -176,11 +176,11 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
             }
 
             // Set final pert sample
-            auto final_sample = samples.block(0, m_params.m_sim_time - 1, n_ctrl, 1).transpose().eval();
+            auto final_sample = samples.block(0, m_params.m_sim_time - 1, n_ctrl, 1).transpose();
             m_ctrl_samples_time.block(sample, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl) = final_sample;
 
             // Apply final sample
-            instant_control = m_control.back() + final_sample.transpose().eval();
+            instant_control = m_control.back() + final_sample.transpose();
             MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new.back(), m_d_cp, m_m);
 
             // Compute terminal cost
