@@ -116,9 +116,12 @@ int main(int argc, const char** argv)
     // load and compile model
     char error[1000] = "Could not load binary model";
 
+
+    std::string model_path = "../../../models/assets_hand/hand/", name = "manipulate_pen";
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/assets_hand/hand/manipulate_pen.xml", 0, error, 1000);
+        m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
+
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {

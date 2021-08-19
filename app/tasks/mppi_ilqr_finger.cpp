@@ -46,8 +46,7 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
     {
-        d->qpos[1] = uniform_dist(e1);
-        d->qvel[1] = uniform_dist(e1);
+        save_data = true;
     }
 }
 
@@ -110,15 +109,18 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // main function
 int main(int argc, const char** argv)
 {
+
     // activate software
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
     char error[1000] = "Could not load binary model";
 
+
+    std::string model_path = "../../../models/", name = "finger";
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/finger.xml", 0, error, 1000);
+        m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -242,7 +244,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 0;
     };
 
-    MPPIDDPParams params {7, 75, 1,  1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {10, 75, 1,  1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -255,7 +257,7 @@ int main(int argc, const char** argv)
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -265,10 +267,12 @@ int main(int argc, const char** argv)
     ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
-    std::fstream cost_mpc(path + ("finger_cost_mpc_pi_ddp_0.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("finger_vel.csv"), std::fstream::out | std::fstream::trunc);
+
+    const std::string mode = "piddp";
+    std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::vector<double> cost_buffer;
 /* ==================================================Simulation=======================================================*/
 
@@ -282,13 +286,12 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
+            d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+            pi.control(d, ilqr._u_traj, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);
-            zmq_buffer.send_buffers();
+//            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
@@ -310,7 +313,7 @@ int main(int argc, const char** argv)
 
         if(save_data)
         {
-            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
+            BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::cout << "Saved!" << std::endl;
             save_data = false;

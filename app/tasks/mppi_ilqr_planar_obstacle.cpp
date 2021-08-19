@@ -126,10 +126,11 @@ int main(int argc, const char** argv)
     // load and compile model
     char error[1000] = "Could not load binary model";
 
+
+    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_complex";
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/planar_3d_examples/planar_good_comp_2.xml", 0, error, 1000);
-
+        m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
             m = mj_loadModel(argv[1], 0);
@@ -182,15 +183,14 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100, 25, 25, 10, 1, 1;
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<100, 10, 10, 10, 1, 1;;
+    StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 0.1, .1, .1, 0, 0, 0;
-    StateMatrix x_gain; x_gain.setIdentity();
+    StateVector x_running_gain_vec; x_running_gain_vec << 0, 0, 0, 0, 0, 0;
+    StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlMatrix u_gain;
-    u_gain.setIdentity();
-    u_gain *= 10;
+    CtrlVector u_gain_vec; u_gain_vec << 1, 0.1, 0.1;
+    CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -217,9 +217,9 @@ int main(int argc, const char** argv)
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateVector t_state_reg_vec; t_state_reg_vec << 100, 25, 25, 10, 1, 1;
+    StateVector t_state_reg_vec; t_state_reg_vec << 100, 10, 10, 10, 1, 1;
     StateMatrix t_state_reg; t_state_reg = t_state_reg_vec.asDiagonal();
-    StateVector r_state_reg_vec; r_state_reg_vec << 0.1, .1, .1, 0, 0, 0;
+    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 0, 0, 0, 0;
     StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
     CtrlVector control_reg_vec; control_reg_vec << 0, 0, 0;
@@ -235,7 +235,6 @@ int main(int argc, const char** argv)
                 auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
                 bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
                 bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                std::cout << "w_con " << world_contact << " plan_con " << (check_1 not_eq check_2) << "\n";
                 if (check_1 != check_2 and not world_contact)
                     return true;
             }
@@ -257,7 +256,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams params {10, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {5, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -278,10 +277,10 @@ int main(int argc, const char** argv)
     DummyBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream cost_mpc(path + ("cartpole_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
+    std::fstream cost_mpc(path + name + "_cost_mpc_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + name + "_ctrl_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + name + "_pos_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + name + "_vel_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
     printf ("Connecting to viewer server…\n");
     Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
     Buffer<RawType<CtrlVector>::type> pi_buffer{};
