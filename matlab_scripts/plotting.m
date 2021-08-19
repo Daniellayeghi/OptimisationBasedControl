@@ -22,17 +22,17 @@ xlabel('$x$','interpreter','latex', 'FontSize', 12);
 ylabel('$\dot{x}$', 'interpreter', 'latex', 'FontSize', 12);
 
 fig_ilqr_ar_3 = figure();
-ar_cost = csvread("finger_cost_mpc_ddp1000000.csv");
+ar_cost = csvread("planar_good_comp_1_cost_mpc_pi_ddp1.csv");
 [row, ~] = size(ar_cost);
 iteration = linspace(1, row, row);
 plot(iteration , ar_cost)
-title('Finger MPC cost - iteration','interpreter','latex', 'FontSize', 12);
+title('Obs avoid MPC cost k = 1 - iteration','interpreter','latex', 'FontSize', 12);
 xlabel('MPC iteration','interpreter','latex', 'FontSize', 12);
 ylabel('Cost', 'Interpreter', 'latex', 'FontSize', 12);
 
 print(fig_ilqr_ar_1,'ar_ctrl_ilqr.png','-dpng','-r600');
 print(fig_ilqr_ar_2,'ar_pp_ilqr.png','-dpng','-r600');
-print(fig_ilqr_ar_3,'fi_cost_ilqr.png','-dpng','-r600');
+print(fig_ilqr_ar_3,'obs_cost_piddp1_ilqr.png','-dpng','-r600');
 
 if(SAVE_AR)
     save("ar_cost.mat", 'ar_cost');

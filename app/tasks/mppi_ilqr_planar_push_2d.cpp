@@ -49,9 +49,7 @@ namespace {
         // backspace: reset simulation
         if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
         {
-            auto k = false;
-            d->qacc[0] = uniform_dist(e1);
-            d->qacc[1] = uniform_dist(e1);
+            save_data = true;
         }
     }
 
@@ -244,7 +242,7 @@ int main(int argc, const char** argv)
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {20, 75, 1, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {20, 75, 1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -262,7 +260,7 @@ int main(int argc, const char** argv)
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
     std::fstream cost_mpc(path + name + "_cost_mpc_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
@@ -293,9 +291,9 @@ int main(int argc, const char** argv)
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);
-            zmq_buffer.send_buffers();
+//            ctrl_buffer.update(ilqr._cached_control.data(), true);
+//            pi_buffer.update(pi._cached_control.data(), false);
+//            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

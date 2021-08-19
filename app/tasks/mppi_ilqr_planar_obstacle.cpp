@@ -45,23 +45,13 @@ namespace {
 
 
 // keyboard callback
-//    void keyboard(GLFWwindow *window, int key, int scancode, int act, int mods) {
-//        // backspace: reset simulation
-//        if (act == GLFW_PRESS && key == GLFW_KEY_END) {
-//            save_data = true;
-//        }
-//    }
-
-    void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
-    {
+    void keyboard(GLFWwindow *window, int key, int scancode, int act, int mods) {
         // backspace: reset simulation
-        if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
-        {
-            auto k = false;
-            d->qacc[0] = uniform_dist(e1);
-            d->qacc[1] = uniform_dist(e1);
+        if (act == GLFW_PRESS && key == GLFW_KEY_HOME) {
+            save_data = true;
         }
     }
+
 
 // mouse button callback
     void mouse_button(GLFWwindow *window, int button, int act, int mods) {
@@ -126,7 +116,7 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_complex";
+    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_1";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
@@ -212,7 +202,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.15;
+        ctrl_var.diagonal()[elem] = 0.05;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -255,7 +245,7 @@ int main(int argc, const char** argv)
     };
 
 
-    MPPIDDPParams params {5, 75, 0.001, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
 
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
@@ -268,8 +258,8 @@ int main(int argc, const char** argv)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
@@ -302,8 +292,8 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
+//            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+//            ilqr._u_traj = pi.m_control;
 //            ctrl_buffer.update(ilqr._cached_control.data(), true);
 //            pi_buffer.update(pi._cached_control.data(), false);
 //            zmq_buffer.send_buffers();

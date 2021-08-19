@@ -57,16 +57,16 @@ public:
 
         CtrlVector new_control = control + delta_control;
 
-        auto ddp_noise_term = (new_control.transpose().eval() * m_ddp_variance_inv * new_control -
-                2 * (new_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control)
+        auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
+                2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
                 );
 
-        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose().eval() * m_ddp_variance_inv * ddp_mean_control -
-                (new_control.transpose().eval() * m_ctrl_variance_inv * new_control)
+        double ddp_bias = (ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
+                (new_control.transpose() * m_ctrl_variance_inv * new_control)
                 )(0, 0) * m_params.importance;
 
-        double pi_bias = (2 * (new_control.transpose().eval() * m_ctrl_variance_inv * control) -
-                control.transpose().eval() * m_ctrl_variance_inv * control
+        double pi_bias = (2 * (new_control.transpose() * m_ctrl_variance_inv * control) -
+                control.transpose() * m_ctrl_variance_inv * control
                 )(0, 0);
 
         const double cost_power = 1;

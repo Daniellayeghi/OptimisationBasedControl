@@ -148,7 +148,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
         CtrlVector instant_control;
         fill_state_vector(d, m_state_new.front(), m_m);
         std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
-//        m_normX_cholesk.setMean(m_params.pi_ctrl_mean/10);
+        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
 //        m_normX_cholesk.setCovar(m_params.ctrl_variance);
 //        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
 
