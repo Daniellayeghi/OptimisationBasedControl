@@ -26,4 +26,5 @@ TEST_F(OpenMPTests, Basic_Test)
 		std::cout << "Tests 1" << "\n";
 		std::cout << "Tests 2" << "\n";
 	}
+
 }

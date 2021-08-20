@@ -61,13 +61,13 @@ public:
                 2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
                 );
 
-        double ddp_bias = (ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
-                (new_control.transpose() * m_ctrl_variance_inv * new_control)
-                )(0, 0) * m_params.importance;
+        double ddp_bias = (ddp_noise_term * 0 + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
+                           new_control.transpose() * m_ctrl_variance_inv * new_control
+                           )(0, 0) * m_params.importance;
 
         double pi_bias = (2 * (new_control.transpose() * m_ctrl_variance_inv * control) -
-                control.transpose() * m_ctrl_variance_inv * control
-                )(0, 0);
+                          control.transpose() * m_ctrl_variance_inv * control
+                         )(0, 0);
 
         const double cost_power = 1;
         return -0.5*(ddp_bias + pi_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;

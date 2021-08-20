@@ -214,7 +214,7 @@ int main(int argc, const char** argv)
     };
 
 //    To show difference in sampling try 5 samples
-    MPPIDDPParams params {3, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {5, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
