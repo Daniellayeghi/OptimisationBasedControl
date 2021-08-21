@@ -61,7 +61,7 @@ public:
                 2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
                 );
 
-        double ddp_bias = (ddp_noise_term * 0 + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
+        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
                            new_control.transpose() * m_ctrl_variance_inv * new_control
                            )(0, 0) * m_params.importance;
 

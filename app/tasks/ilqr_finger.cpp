@@ -163,30 +163,17 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 0;
-    x_terminal_gain (2, 2) = 1500000000;
-    x_terminal_gain (3, 3) = 0;
-    x_terminal_gain (4, 4) = 0;
-    x_terminal_gain (5, 5) = 5000000;
 
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0;
-    }
+    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000000, 5000, 5000, 50000;
+    StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
 
-    x_gain *= 0;
-    x_gain (3, 3) = 1 * 0.01;
-    x_gain (4, 4) = 1 * 0.01;
+
+    StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 0.05, 0.05, 0;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 500;
+    u_gain *= 0.0001;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();

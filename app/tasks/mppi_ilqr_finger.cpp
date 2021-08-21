@@ -174,7 +174,7 @@ int main(int argc, const char** argv)
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 20;
+    u_gain *= 1;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -198,18 +198,18 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.1;
+        ctrl_var.diagonal()[elem] = 0.7;
         ddp_var.diagonal()[elem] = 0.0001;
     }
 
-    StateVector state_reg_vec; state_reg_vec << 0, 0, 50, .5, .5, 50;
+    StateVector state_reg_vec; state_reg_vec << 0, 0, 500, .5, .5, 50;
     StateMatrix t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
 
     CtrlVector control_reg_vec;
     control_reg_vec << 0, 0;
     CtrlMatrix control_reg; control_reg = control_reg_vec.asDiagonal();
 
-    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 50, 0, 0, 0;
+    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 500, 0, 0, 0;
     StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
 
 
@@ -244,7 +244,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 0;
     };
 
-    MPPIDDPParams params {30, 75, 1,  1, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 0.1,  1, 1, 1, .001, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -291,9 +291,9 @@ int main(int argc, const char** argv)
             ilqr.control(d);
             pi.control(d, ilqr._u_traj, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);//
-            zmq_buffer.send_buffers();
+//            ctrl_buffer.update(ilqr._cached_control.data(), true);
+//            pi_buffer.update(pi._cached_control.data(), false);//
+//            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

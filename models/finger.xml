@@ -28,7 +28,7 @@
     </asset>
 
     <option timestep="0.01" cone="elliptic" iterations="200">
-        <flag gravity="enable"/>
+        <flag gravity="disable"/>
     </option>
 
     <default>`
@@ -52,7 +52,7 @@
             <geom name="proximal" type="capsule" material="self" size=".03" fromto="0 0 0 0 0 -.17"/>
             <body name="distal" pos="0 0 -.18" childclass="finger">
                 <joint name="distal" range="-50 50" damping="0.05" limited="false"/>
-                <geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.16" contype="0" conaffinity="0"/>
+                <geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.16"/>
                 <geom name="fingertip" type="capsule" size=".03" material="effector" fromto="0 0 -.13 0 0 -.161"/>
                 <site name="touchtop" pos=".01 0 -.17"/>
                 <site name="touchbottom" pos="-.01 0 -.17"/>
