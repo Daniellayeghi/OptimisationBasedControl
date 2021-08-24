@@ -257,7 +257,7 @@ int main(int argc, const char** argv)
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-    DataBuffer d_buff;
+    DummyBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";

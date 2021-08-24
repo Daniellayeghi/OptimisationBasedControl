@@ -5,13 +5,17 @@
 #include "controller.h"
 #include "cost_function.h"
 #include "../parameters/simulation_params.h"
+#include "../utilities/mujoco_utils.h"
 #include "ilqr.h"
 #include "mppi_ddp.h"
 
+using namespace MujocoUtils;
 using namespace SimulationParameters;
 static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr;
 static MyController<MPPIDDP<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
 static int _mark;
+
+
 
 #define myFREESTACK d->pstack = _mark;
 
@@ -56,10 +60,8 @@ controls(controls), _m(m), _d(d)
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
-    for (auto row = 0; row < ctrl_size; ++row)
-        _d->ctrl[row] = controls._cached_control(row, 0);
-
-//    std::cout << "CTRL " << controls._cached_control << "\n";
+//    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
+    set_control_data(_d, controls._cached_control, _m);
 }
 
 

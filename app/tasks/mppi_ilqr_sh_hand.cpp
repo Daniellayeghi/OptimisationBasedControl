@@ -22,7 +22,9 @@ using namespace std::chrono;
 namespace {
     // MuJoCo data structures
     mjModel *m = NULL;                  // MuJoCo model
+    mjModel *m_ng = NULL;                  // MuJoCo model
     mjData *d = NULL;                   // MuJoCo data
+    mjData *d_ng = NULL;                   // MuJoCo data
     mjvCamera cam;                      // abstract camera
     mjvOption opt;                      // visualization options
     mjvScene scn;                       // abstract scene
@@ -116,10 +118,12 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/assets_hand/hand/", name = "manipulate_pen";
+    std::string model_path = "../../../models/assets_hand/hand/", name = "manipulate_pen", name_ng = "manipulate_pen_no_grav";
+
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
+        m_ng = mj_loadXML((model_path + name_ng  + ".xml").c_str(), 0, error, 1000);
 
 
     }else {
@@ -136,6 +140,7 @@ int main(int argc, const char** argv)
 
     // make data
     d = mj_makeData(m);
+    d_ng = mj_makeData(m_ng);
 
     // init GLFW
     if( !glfwInit() )
@@ -199,7 +204,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.025;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -267,9 +272,9 @@ int main(int argc, const char** argv)
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {30, 75, 1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {50, 75, .1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
+    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
 
     CtrlMatrix R;
     StateMatrix Q;
@@ -277,7 +282,7 @@ int main(int argc, const char** argv)
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
 
     // install control callback
     using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
@@ -285,7 +290,7 @@ int main(int argc, const char** argv)
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DataBuffer d_buff;
+    DummyBuffer d_buff;
     /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
     std::fstream cost_mpc(path + ("hand_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
