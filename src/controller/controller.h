@@ -13,7 +13,7 @@ template<typename T, int state_size, int ctrl_size>
 class MyController
 {
 public:
-    MyController(const mjModel *m, mjData *d, const T& controls);
+    MyController(const mjModel *m, mjData *d, const T& controls, const bool comp_gravity = false);
 
     void controller();
 
@@ -27,9 +27,11 @@ public:
 
 private:
     std::vector<SimulationParameters::CtrlVector> ctrl_buffer;
+    bool m_comp_gravity;
     const T& controls;
     const mjModel* _m;
     mjData* _d;
+    Eigen::Map<CtrlVector> m_grav_comp;
 };
 
 #endif //DRAKE_CMAKE_INSTALLED_CONTROLLER_H

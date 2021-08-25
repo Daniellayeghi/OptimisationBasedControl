@@ -18,7 +18,9 @@ using namespace std::chrono;
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
+mjModel* m_ng = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
+mjData* d_ng = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
@@ -117,10 +119,11 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/", name = "finger";
+    std::string model_path = "../../../models/", name = "finger", name_ng = "finger_ng";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
+        m_ng = mj_loadXML((model_path + name_ng + ".xml").c_str(), 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -136,6 +139,7 @@ int main(int argc, const char** argv)
 
     // make data
     d = mj_makeData(m);
+    d_ng = mj_makeData(m_ng);
 
     // init GLFW
     if( !glfwInit() )
@@ -164,10 +168,8 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
-
     StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000000, 5000, 5000, 50000;
     StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
-
 
     StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 0.05, 0.05, 0;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
@@ -246,15 +248,15 @@ int main(int argc, const char** argv)
 
     MPPIDDPParams params {30, 75, 0.1,  1, 1, 1, .001, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
+    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m_ng);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m_ng);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m_ng, d_ng, nullptr);
     // install control callback
     using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi, false);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
     DummyBuffer d_buff;

@@ -50,8 +50,8 @@ namespace
 }
 
 template<typename T, int state_size, int ctrl_size>
-MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls) :
-controls(controls), _m(m), _d(d)
+MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls, const bool comp_gravity) :
+controls(controls), _m(m), _d(d), m_comp_gravity(comp_gravity), m_grav_comp(_d->qfrc_bias, _m->nu, 1)
 {
     ctrl_buffer.assign(10, CtrlVector::Zero());
 }
@@ -61,7 +61,7 @@ template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
 //    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
-    set_control_data(_d, controls._cached_control, _m);
+    set_control_data(_d, controls._cached_control + m_grav_comp, _m);
 }
 
 
