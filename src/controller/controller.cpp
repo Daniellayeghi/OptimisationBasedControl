@@ -61,7 +61,7 @@ template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
 //    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
-    set_control_data(_d, controls._cached_control + m_grav_comp, _m);
+    set_control_data(_d, controls._cached_control, _m);
 }
 
 

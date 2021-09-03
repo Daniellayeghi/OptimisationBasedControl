@@ -7,7 +7,7 @@
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1" />
     </visual>
     <default class="main">
-        <geom solimp="0 0.9 0.01 0.5 2" />
+        <geom condim="4" solref="0.005 0.6" solimp="0 0.9 0.01 0.5 2" margin="0.001" />
         <general ctrllimited="true" ctrlrange="-1 1" />
     </default>
     <asset>
@@ -41,35 +41,31 @@
             <geom name="proximal" size="0.01 0.05" pos="0 0 -0.05" type="capsule" material="self" />
             <body name="distal" pos="0 0 -0.1">
                 <inertial pos="0 0 -0.05" mass="0.0217147" diaginertia="2.14541e-05 2.14541e-05 6.9487e-07" />
-                <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.3" />
+                <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.25" />
                 <geom name="distal" size="0.008 0.05" pos="0 0 -0.05" type="capsule" material="self" />
                 <body name="distal2" pos="0 0 -0.1">
                     <inertial pos="0 0 -0.05" mass="0.00522761" diaginertia="4.73273e-06 4.73273e-06 4.18209e-08" />
-                    <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.4" />
-                    <geom name="distal2" size="0.004 0.05" pos="0 0 -0.05" type="capsule" material="self" />
+                    <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.25" />
+                    <geom name="distal2" size="0.006 0.05" pos="0 0 -0.05" type="capsule" material="self" />
                 </body>
             </body>
         </body>
-        <body name="k" pos="0.155478 0.21219 0.02">
+        <body name="k" pos="-0.0768094 -0.284848 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="a" pos="-0.00745687 0.0275017 0.02">
+        <body name="a" pos="-0.0538126 -0.0144446 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
-        <body name="b" pos="0.134292 0.180275 0.02">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.02" rgba="1 0 0 1" />
-        </body>
-        <body name="c" pos="0.0645265 -0.221917 0.02">
+        <body name="b" pos="0.0727857 -0.0371981 0.02">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
             <geom size="0.02" rgba="1 0 0 1" />
         </body>
     </worldbody>
     <actuator>
-        <general name="proximal" joint="proximal" gear="0.35 0 0 0 0 0" />
+        <general name="proximal" joint="proximal" gear="0.5 0 0 0 0 0" />
         <general name="distal" joint="distal" gear="0.5 0 0 0 0 0" />
-        <general name="distal2" joint="distal2" gear="0.6 0 0 0 0 0" />
+        <general name="distal2" joint="distal2" gear="0.5 0 0 0 0 0" />
     </actuator>
 </mujoco>

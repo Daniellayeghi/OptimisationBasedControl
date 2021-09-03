@@ -160,7 +160,8 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
 
-    StateVector x_desired; x_desired << 0, 0 ,0, 0, 0.13, 0.022, 0, 0, 0, 0;
+
+    StateVector x_desired; x_desired << 0, 0 ,0, -0.15, -0.022, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
     StateVector x_terminal_gain_vec;
@@ -172,9 +173,10 @@ int main(int argc, const char** argv)
     x_gain_vec << 0, 0, 0, 100000, 100000, 0, 0, 0, 0, 0;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
+
+    CtrlVector u_gain_vec; u_gain_vec << 10, 10, 10;
     CtrlMatrix u_gain;
-    u_gain.setIdentity();
-    u_gain *= 10;
+    u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -229,20 +231,19 @@ int main(int argc, const char** argv)
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
-
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
+        (0, 0) + not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {70, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {40, 75, 0.01, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -263,16 +264,24 @@ int main(int argc, const char** argv)
     DataBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream cost_mpc(path + name + "_cost_mpc_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + name + "_ctrl_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + name + "_pos_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + name + "_vel_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
+
+    const std::string mode = "pi_ddp";
+    std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+
     printf ("Connecting to viewer server…\n");
     Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
     Buffer<RawType<CtrlVector>::type> pi_buffer{};
     ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
+    std::vector<double> cost_buffer;
+    StateVector temp_state; temp_state << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    CtrlVector temp_ctrl; temp_ctrl << 0, 0, 0;
+    mj_step(m, d);
+    auto iteration = 0, lim = 1500;
 
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
@@ -294,8 +303,12 @@ int main(int argc, const char** argv)
             ctrl_buffer.update(ilqr._cached_control.data(), true);
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
+            MujocoUtils::fill_state_vector(d, temp_state, m);
+            MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+            cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -313,13 +326,14 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
 
-        if(save_data)
+        if(iteration > 1500 or save_data)
         {
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::cout << "Saved!" << std::endl;
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            break;
         }
     }
     // free visualization storage

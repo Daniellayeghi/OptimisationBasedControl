@@ -122,6 +122,8 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
 template<int state_size, int ctrl_size>
 void MPPIDDP<state_size, ctrl_size>::prepare_control_mpc()
 {
+    MujocoUtils::rollout_dynamics(m_control_new, m_state_new, m_d_cp, m_m);
+    traj_cost = compute_trajectory_cost(m_control_new, m_state_new);
     _cached_control = m_control.front();
     m_control_cp = m_control;
     std::rotate(m_control.begin(), m_control.begin() + 1, m_control.end());
@@ -186,11 +188,8 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
             // Compute terminal cost
             m_delta_cost_to_go[sample] =
                     m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state_new.back(), m_d_cp, m_m);
-            traj_cost += std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0) /
-                         m_delta_cost_to_go.size();
         }
 
-        traj_cost /= m_params.m_k_samples;
         const auto [new_mean, new_variance] = compute_control_trajectory();
         m_params.pi_ctrl_mean = new_mean;
 //        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;

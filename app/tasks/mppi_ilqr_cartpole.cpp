@@ -112,9 +112,11 @@ int main(int argc, const char** argv)
     // load and compile model
     char error[1000] = "Could not load binary model";
 
+    std::string model_path = "../../../models/", name = "cartpole";
+
     // check command-line arguments
     if( argc<2 ) {
-        m = mj_loadXML("../../../models/cartpole.xml", 0, error, 1000);
+        m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -160,7 +162,7 @@ int main(int argc, const char** argv)
 
     StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
-    StateVector x_gain_vec; x_gain_vec << 100000, 50000, 0, 0;
+    StateVector x_gain_vec; x_gain_vec << 1000, 500, 0, 0;
     StateMatrix x_gain; x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
@@ -186,7 +188,7 @@ int main(int argc, const char** argv)
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
+        ctrl_var.diagonal()[elem] = 0.5;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -213,8 +215,8 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    // To show difference in sampling try 5 samples
-    MPPIDDPParams params {5, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    // To show difference in sampling try 3 samples
+    MPPIDDPParams params {3, 75, 0.1, 0, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -229,20 +231,22 @@ int main(int argc, const char** argv)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr, false);
+    MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream cost_mpc(path + ("cartpole_pi_ddp_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + ("cartpole_pi_ddp_ctrl.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + ("cartpole_pi_ddp_pos.csv"), std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + ("cartpole_pi_ddp_vel.csv"), std::fstream::out | std::fstream::trunc);
-    std::vector<CtrlVector> ctrl_buffer_ilqr; std::fill(ctrl_buffer_ilqr.begin(), ctrl_buffer_ilqr.begin(), CtrlVector::Zero());
-    std::vector<CtrlVector> ctrl_buffer_pi; std::fill(ctrl_buffer_pi.begin(), ctrl_buffer_pi.begin(), CtrlVector::Zero());
+
+    const std::string mode = "ddp";
+    std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::vector<double> cost_buffer;
 
 /* ==================================================IPC=======================================================*/
     printf ("Connecting to viewer server…\n");
@@ -267,17 +271,18 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            d_buff.fill_buffer(d);
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
             ilqr._u_traj = pi.m_control;
+            d_buff.fill_buffer(d);
+            cost_buffer.emplace_back(ilqr.cost.back());
 //          Send control for visualisation
             ctrl_buffer.update(ilqr._cached_control.data(), true);
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
 //          Step this env
-            mjcb_control = MyController<MPPIDDP<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 
@@ -297,10 +302,11 @@ int main(int argc, const char** argv)
         glfwPollEvents();
         if(save_data)
         {
-            std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
-            std::fstream ctrl_data_ilqr(path + ("planar_3_ctrl_ilqr.csv"), std::fstream::out | std::fstream::trunc);
-            BufferUtilities::save_to_file(ctrl_data_pi, ctrl_buffer_pi);
-            BufferUtilities::save_to_file(ctrl_data_ilqr, ctrl_buffer_ilqr);
+//            std::fstream ctrl_data_pi(path + ("planar_3_ctrl_pi.csv"), std::fstream::out | std::fstream::trunc);
+//            std::fstream ctrl_data_ilqr(path + ("planar_3_ctrl_ilqr.csv"), std::fstream::out | std::fstream::trunc);
+//            BufferUtilities::save_to_file(ctrl_data_pi, ctrl_buffer_pi);
+//            BufferUtilities::save_to_file(ctrl_data_ilqr, ctrl_buffer_ilqr);
+            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             std::cout << "Saved!" << std::endl;

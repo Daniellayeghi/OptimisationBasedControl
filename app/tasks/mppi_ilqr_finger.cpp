@@ -7,6 +7,7 @@
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
+#include "../../src/utilities/mujoco_utils.h"
 
 // for sleep timers
 #include <chrono>
@@ -18,9 +19,7 @@ using namespace std::chrono;
 
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
-mjModel* m_ng = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
-mjData* d_ng = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
@@ -119,11 +118,10 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/", name = "finger", name_ng = "finger_ng";
+    std::string model_path = "../../../models/", name = "finger_ng";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
-        m_ng = mj_loadXML((model_path + name_ng + ".xml").c_str(), 0, error, 1000);
 
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
@@ -139,7 +137,6 @@ int main(int argc, const char** argv)
 
     // make data
     d = mj_makeData(m);
-    d_ng = mj_makeData(m_ng);
 
     // init GLFW
     if( !glfwInit() )
@@ -168,15 +165,17 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
-    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000000, 5000, 5000, 50000;
+
+    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000, 5, 5, 50;
     StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
 
-    StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 0.05, 0.05, 0;
+
+    StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 5, 5, 50;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 1;
+    u_gain *= .001;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -192,7 +191,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
+    d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     CtrlVector ctrl_mean; ctrl_mean.setZero();
@@ -200,19 +199,19 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.7;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.0001;
     }
 
-    StateVector state_reg_vec; state_reg_vec << 0, 0, 500, .5, .5, 50;
-    StateMatrix t_state_reg; t_state_reg = state_reg_vec.asDiagonal();
+//    StateVector state_reg_vec; state_reg_vec << 0, 0, 500, .5, .5, 50;
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
 
     CtrlVector control_reg_vec;
     control_reg_vec << 0, 0;
     CtrlMatrix control_reg; control_reg = control_reg_vec.asDiagonal();
 
-    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 500, 0, 0, 0;
-    StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
+//    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 500, 0, 0, 0;
+    StateMatrix r_state_reg; r_state_reg = x_gain;
 
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
@@ -237,29 +236,29 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0) + not collision_cost(data, model) * 15;
+                       (0, 0) + not collision_cost(data, model) * state_error.transpose() * r_state_reg * state_error;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 0;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * state_error.transpose() * t_state_reg * state_error;
     };
 
-    MPPIDDPParams params {30, 75, 0.1,  1, 1, 1, .001, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {10, 75, 0.5,  0, 1, 1, 0.25, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
+    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m_ng);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m_ng);
+    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
+    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m_ng, d_ng, nullptr);
+    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi, false);
+    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -270,12 +269,16 @@ int main(int argc, const char** argv)
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
 
-    const std::string mode = "piddp";
+    const std::string mode = "ddp";
     std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::vector<double> cost_buffer;
+    StateVector temp_state;
+    CtrlVector temp_ctrl;
+    auto iteration = 0, lim = 1000;
+    mj_step(m, d);
 /* ==================================================Simulation=======================================================*/
 
     // use the first while condition if you want to simulate for a period.
@@ -291,13 +294,17 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
-//            ctrl_buffer.update(ilqr._cached_control.data(), true);
-//            pi_buffer.update(pi._cached_control.data(), false);//
-//            zmq_buffer.send_buffers();
+//            pi.control(d, ilqr._u_traj, ilqr._covariance);
+//            ilqr._u_traj = pi.m_control;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);//
+            zmq_buffer.send_buffers();
+            MujocoUtils::fill_state_vector(d, temp_state, m);
+            MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+            cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
+            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -315,13 +322,14 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
 
-        if(save_data)
+        if(iteration > lim)
         {
-            BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
+            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::cout << "Saved!" << std::endl;
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            break;
         }
     }
     // free visualization storage

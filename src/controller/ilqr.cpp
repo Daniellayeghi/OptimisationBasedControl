@@ -249,6 +249,11 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             V_xx += m_bp_vector[time].fb_k.transpose() * Qux + Qux.transpose() * m_bp_vector[time].fb_k;
             V_xx = 0.5 * (V_xx + V_xx.transpose());
             ++iter;
+            if (iter > max_iter)
+            {
+                m_good_backpass = (_regularizer * m_params.delta)(0, 0) < 1e10;
+                break;
+            }
         }
     }while(non_pd_path and m_good_backpass and iter < max_iter);
 }

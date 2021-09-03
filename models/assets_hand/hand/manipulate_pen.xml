@@ -37,8 +37,8 @@
         <include file="robot.xml"></include>
         <camera mode="targetbody"></camera>
 
-        <body name="spinner" pos="1 0.82 0.1722" quat="0.707107 0.707107 0 0">
-            <joint name="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".35" limited="false"/>
+        <body name="spinner" pos="1 0.82 0.2022" quat="0.707107 0.707107 0 0">
+            <joint name="hinge" axis="0 -1 0" range="-50 50" frictionloss=".01" damping=".15" limited="false"/>
             <geom name="cap2" type="capsule" size=".015 .09" material="self" pos="-.0 0 0"/>
             <geom name="spinner_decoration" type="cylinder" fromto="0 -.02 0 0 .02 0" size=".005" material="decoration"/>
         </body>

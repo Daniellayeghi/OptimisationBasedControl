@@ -116,7 +116,7 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_1";
+    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_complex";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
@@ -140,13 +140,11 @@ int main(int argc, const char** argv)
         mju_error("Could not initialize GLFW");
 
 //    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
-////    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-////
+//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
 //    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-////    int i_2 = mj_saveLastXML("/home/daniel/Repos/Mujoco_Python_Sandbox/xmls/point_mass.xml", m, error, 1000);
 //    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
-//
-//    d = mj_makeData(m);
+
+    d = mj_makeData(m);
 
     // Assert against model params (literals)100
     using namespace SimulationParameters;
@@ -169,16 +167,16 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
 
-    StateVector x_desired; x_desired << M_PI, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << M_PI+1.57, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<100, 10, 10, 10, 1, 1;;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<100, 100, 100, 10, 1, 1;;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 0, 0, 0, 0, 0, 0;
+    StateVector x_running_gain_vec; x_running_gain_vec << 100, 10, 10, 0, 0, 0;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 1, 0.1, 0.1;
+    CtrlVector u_gain_vec; u_gain_vec << 1, 1, 1;
     CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
@@ -202,14 +200,12 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.05;
+        ctrl_var.diagonal()[elem] = 0.15;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateVector t_state_reg_vec; t_state_reg_vec << 100, 10, 10, 10, 1, 1;
-    StateMatrix t_state_reg; t_state_reg = t_state_reg_vec.asDiagonal();
-    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 0, 0, 0, 0;
-    StateMatrix r_state_reg; r_state_reg = r_state_reg_vec.asDiagonal();
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
+    StateMatrix r_state_reg; r_state_reg = x_gain;
 
     CtrlVector control_reg_vec; control_reg_vec << 0, 0, 0;
     CtrlMatrix control_reg = control_reg_vec.asDiagonal();
@@ -235,19 +231,18 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 5000;
+                       (0, 0) + collision_cost(data, model) * 500000;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 5000;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 500000;
     };
 
 
-    MPPIDDPParams params {30, 75, 0.01, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {10, 75, .1, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
     CtrlMatrix R;
@@ -258,25 +253,30 @@ int main(int argc, const char** argv)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-    DummyBuffer d_buff;
+    DataBuffer d_buff;
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-    std::fstream cost_mpc(path + name + "_cost_mpc_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + name + "_ctrl_pi_ddp" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + name + "_pos_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + name + "_vel_pi_ddp_0" + std::to_string(params.importance) + ".csv", std::fstream::out | std::fstream::trunc);
+
+    const std::string mode = "ddp";
+    std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
+    std::vector<double> cost_buffer;
+
     printf ("Connecting to viewer server…\n");
     Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
     Buffer<RawType<CtrlVector>::type> pi_buffer{};
     ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
-
+    StateVector temp_state;
+    CtrlVector temp_ctrl;
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
@@ -292,8 +292,11 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
+//            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+//            ilqr._u_traj = pi.m_control;
+            MujocoUtils::fill_state_vector(d, temp_state, m);
+            MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+            cost_buffer.emplace_back(terminal_cost(temp_state, d, m) + collision_cost(d, m));
             ctrl_buffer.update(ilqr._cached_control.data(), true);
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
@@ -318,7 +321,7 @@ int main(int argc, const char** argv)
 
         if(save_data)
         {
-            BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
+            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);
             std::cout << "Saved!" << std::endl;
             save_data = false;

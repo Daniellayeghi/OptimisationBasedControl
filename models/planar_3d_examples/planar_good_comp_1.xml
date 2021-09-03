@@ -68,9 +68,9 @@
         </body>
     </worldbody>
     <actuator>
-        <general name="proximal" joint="proximal" gear="0.35 0 0 0 0 0" />
+        <general name="proximal" joint="proximal" gear="0.5 0 0 0 0 0" />
         <general name="distal" joint="distal" gear="0.5 0 0 0 0 0" />
-        <general name="distal2" joint="distal2" gear="0.6 0 0 0 0 0" />
+        <general name="distal2" joint="distal2" gear="0.5 0 0 0 0 0" />
     </actuator>
 </mujoco>
 

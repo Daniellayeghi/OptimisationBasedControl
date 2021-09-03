@@ -60,7 +60,7 @@
         </body>
 
         <body name="spinner" pos="-.2 0 -.4">
-            <joint name="hinge" range="-50 50" frictionloss=".01" damping=".35" limited="false"/>
+            <joint name="hinge" range="-50 50" frictionloss=".01" damping=".15" limited="false"/>
             <geom name="cap1" type="capsule" size=".04 .09" material="self" pos=".02 0 0" />
             <geom name="cap2" type="capsule" size=".04 .09" material="self" pos="-.02 0 0"/>
             <site name="tip" type="sphere"  size=".02" pos="0 0 .13" material="target"/>
