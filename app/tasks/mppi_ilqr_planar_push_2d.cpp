@@ -161,7 +161,7 @@ int main(int argc, const char** argv)
 
 
 
-    StateVector x_desired; x_desired << 0, 0 ,0, -0.15, -0.022, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0 ,0, 0.25, -0.22, 0.022, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
     StateVector x_terminal_gain_vec;
@@ -174,7 +174,7 @@ int main(int argc, const char** argv)
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
 
-    CtrlVector u_gain_vec; u_gain_vec << 10, 10, 10;
+    CtrlVector u_gain_vec; u_gain_vec << 0.00001, 0.00001, 0.00001;
     CtrlMatrix u_gain;
     u_gain = u_gain_vec.asDiagonal();
 
@@ -192,7 +192,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position     StateVector initial_state; initial_state <<  0, 0, 0, 0.20536, 0.1585, 0.0223, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-    StateVector initial_state; initial_state <<  0, 0 ,0, -0.15, 0.22, 0, 0, 0, 0, 0;
+    StateVector initial_state; initial_state <<  0, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
     std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
     std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
     CtrlVector ctrl_mean; ctrl_mean.setZero();
@@ -208,8 +208,8 @@ int main(int argc, const char** argv)
     StateMatrix r_state_reg; r_state_reg = x_gain;
 
     CtrlVector control_reg_vec;
-    control_reg_vec << 0, 0, 0;
-    CtrlMatrix control_reg = control_reg_vec.asDiagonal();
+    control_reg_vec = u_gain_vec;
+    CtrlMatrix control_reg = u_gain_vec.asDiagonal();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 4> body_list {{0, 1, 2, 3}};
@@ -232,7 +232,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
+        (0, 0) + not collision_cost(data, model)* (state_error.transpose() * r_state_reg * state_error)(0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -243,7 +243,7 @@ int main(int argc, const char** argv)
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {40, 75, 0.01, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {30, 75, 0.25, 1, 1, 1, 2, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -265,7 +265,7 @@ int main(int argc, const char** argv)
 /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    const std::string mode = "pi_ddp";
+    const std::string mode = "ddp-warm";
     std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
@@ -281,7 +281,7 @@ int main(int argc, const char** argv)
     StateVector temp_state; temp_state << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     CtrlVector temp_ctrl; temp_ctrl << 0, 0, 0;
     mj_step(m, d);
-    auto iteration = 0, lim = 1500;
+    auto iteration = 0, lim = 3000;
 
 /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
@@ -326,7 +326,7 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
 
-        if(iteration > 1500 or save_data)
+        if(iteration > lim or save_data)
         {
             BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
             d_buff.save_buffer(pos_data, vel_data, ctrl_data);

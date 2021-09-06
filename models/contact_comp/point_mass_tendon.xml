@@ -5,8 +5,6 @@
     </visual>
 
     <default class="main">
-        <geom friction=".7" solimp="0.9 0.97 0.001" solref=".01 1"/>
-        <joint solimplimit="0 0.99 0.01" solreflimit=".005 1"/>
         <general ctrllimited="true" ctrlrange="-1 1" />
     </default>
 
@@ -31,40 +29,48 @@
         <material name="target_highlight" rgba="0.6 0.3 0.3 0.4" />
     </asset>
 
-    <option timestep="0.005"> </option>
+    <option timestep="0.01"> </option>
+    <default class="finger">
+        <site type="ellipsoid" size=".025 .03 .025" rgba=".5 .5 .5 .3" group="3"/>
+    </default>
+
 
     <worldbody>
-        <geom name="ground" size="0.31 0.31 0.1" pos="-0.0 0 0.0" type="plane" />
-        <geom name="wall_x" size="0.02 0.3 0.02" pos="-0.31 0 0.02" quat="0.707107 0 0.707107 0" type="plane" />
-        <geom name="wall_y" size="0.3 0.02 0.02" pos="0 -0.31 0.02" quat="0.707107 -0.707107 0 0" type="plane" />
-        <geom name="wall_neg_x" size="0.02 0.3 0.02" pos="0.31 0 0.02" quat="0.707107 0 -0.707107 0" type="plane" />
-        <geom name="wall_neg_y" size="0.3 0.02 0.02" pos="0 0.31 0.02" quat="0.707107 0.707107 0 0" type="plane" />
+        <geom name="ground" size="0.61 0.61 0.1" pos="-0.0 0 0.0" type="plane" />
+        <geom name="wall_x" size="0.05 0.61 0.02" pos="-0.61 0 0.05" quat="0.707107 0 0.707107 0" type="plane" />
+        <geom name="wall_y" size="0.61 0.05 0.02" pos="0 -0.61 0.05" quat="0.707107 -0.707107 0 0" type="plane" />
+        <geom name="wall_neg_x" size="0.05 0.61 0.02" pos="0.61 0 0.05" quat="0.707107 0 -0.707107 0" type="plane" />
+        <geom name="wall_neg_y" size="0.61 0.05 0.02" pos="0 0.61 0.05" quat="0.707107 0.707107 0 0" type="plane" />
         <camera name="fixed" pos="0 0 0.75" />
         <light name="light" pos="0 0 1" dir="0 0 -1" />
-        <body pos="0 0 0.022" quat="0.707107 0.707107 0 0">
-            <inertial pos="0 0 -0.0291932" mass="0.0591876" diaginertia="7.61519e-05 7.40747e-05 6.21876e-06" />
-            <joint name="proximal" pos="0 0 0" axis="0 -1 0" ref="-1.5708" range="-130 -60" damping="0.25" />
-            <geom name="proximal_decoration" size="0.024 0.02" quat="0.707107 0.707107 0 0" type="cylinder" material="decoration" />
-            <geom name="proximal" size="0.015 0.05" pos="0 0 -0.05" type="capsule" material="self" />
-            <body pos="0 0 -0.1">
-                <inertial pos="0 0 -0.05" mass="0.0217147" diaginertia="2.14541e-05 2.14541e-05 6.9487e-07" />
-                <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.3" />
-                <geom name="distal" size="0.012 0.05" pos="0 0 -0.05" type="capsule" material="self" />
-                <body pos="0 0 -0.1">
-                    <inertial pos="0 0 -0.05" mass="0.00522761" diaginertia="4.73273e-06 4.73273e-06 4.18209e-08" />
-                    <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.4" />
-                    <geom name="distal2" size="0.01 0.05" pos="0 0 -0.05" type="capsule" material="self"/>
+
+
+
+        <body pos="0 0 0.035" quat="0.707107 0.707107 0 0">
+            <geom name="proximal_decoration" type="cylinder" fromto="0 -.033 0 0 .033 0" size=".034" material="decoration" />
+            <joint name="proximal" range="-150 -80" axis="0 -1 0" ref="-90" damping="0.05" limited="false" />
+            <geom name="proximal" type="capsule" material="self" size=".03" fromto="0 0 0 0 0 -.17"/>
+            <body name="distal" pos="0 0 -.18" childclass="finger">
+                <joint name="distal" range="-50 50" axis="0 -1 0" damping="0.05" limited="false"/>
+                <geom name="distal" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.16"/>/>
+                <body name="distal2" pos="0 0 -.18" childclass="finger">
+                    <joint name="distal2" range="-50 50" axis="0 -1 0" damping="0.05" limited="false"/>
+                    <geom name="distal2" type="capsule" size=".028" material="self" fromto="0 0 0 0 0 -.16"/>
+                    <geom name="fingertip2" type="capsule" size=".03" material="effector" fromto="0 0 -.13 0 0 -.161"/>
+                    <site name="touchtop2" pos=".01 0 -.17"/>
+                    <site name="touchbottom2" pos="-.01 0 -.17"/>
                 </body>
             </body>
         </body>
-        <body name="pointmass" pos="-.0 .0 .022">
+
+        <body name="pointmass" pos="-.0 .0 .042">
             <camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
-            <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" damping="3"/>
-            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" damping="3"/>
-            <geom name="pointmass" type="sphere" size=".022" material="self" mass=".6" condim="4"/>
+            <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" damping="3" frictionloss=".01"/>
+            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" damping="3" frictionloss=".01"/>
+            <geom name="pointmass" type="sphere" size=".042" material="self" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
         </body>
 
-        <geom name="target" pos="-0.13 0 0.022" material="target" type="sphere" rgba="0.5 0 1 0.25"  size=".025" contype="0" conaffinity="0"/>
+        <geom name="target" pos="0.25 -0.25 0.022" material="target" type="sphere" rgba="0.5 0 1 0.25"  size=".025" contype="0" conaffinity="0"/>
     </worldbody>
 
     <tendon>
@@ -79,8 +85,8 @@
     </tendon>
 
     <actuator>
-        <general name="proximal" joint="proximal" gear="0.8 0 0 0 0 0" />
-        <general name="distal" joint="distal" gear="0.8 0 0 0 0 0" />
-        <general name="distal2" joint="distal2" gear="0.8 0 0 0 0 0" />
+        <general name="proximal" joint="proximal" gear="1 0 0 0 0 0" />
+        <general name="distal" joint="distal" gear="1.25 0 0 0 0 0" />
+        <general name="distal2" joint="distal2" gear="1.5 0 0 0 0 0" />
     </actuator>
 </mujoco>
