@@ -48,7 +48,7 @@ private:
 
     const mjModel* _m = nullptr;
     mjData* _d_cp     = nullptr;
-    const double eps  = 1e-8;
+    const double eps  = .000001;
 };
 
 #endif //OPTCONTROL_MUJOCO_FINITE_DIFF_H

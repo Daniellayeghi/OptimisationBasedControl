@@ -239,7 +239,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    std::array<unsigned int, 5> seeds {{2, 4, 4, 5, 6}};
+    std::array<unsigned int, 5> seeds {{2, 3, 4, 5, 6}};
     for (const auto seed : seeds)
     {
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
@@ -251,14 +251,13 @@ int main(int argc, const char** argv)
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,
-                                                        m);
+        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // install control callback
-        using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
@@ -266,7 +265,7 @@ int main(int argc, const char** argv)
 /* =============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-        const std::string mode = "pi_ddp";
+        const std::string mode = "ddp";
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
                               std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
@@ -288,7 +287,7 @@ int main(int argc, const char** argv)
         CtrlVector temp_ctrl;
         temp_ctrl << 0, 0, 0;
         mj_step(m, d);
-        auto iteration = 0, lim = 1500;
+        auto iteration = 0, lim = 2000;
 
 /* ==================================================Simulation=======================================================*/
         // use the first while condition if you want to simulate for a period.

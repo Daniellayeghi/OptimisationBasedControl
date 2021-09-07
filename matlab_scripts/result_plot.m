@@ -1,12 +1,13 @@
-addpath("./results");
+addpath("../data/");
 
 set(groot,'defaultLineLineWidth',1.25)
 close all;
 clear all; clc;
 
+task_name = "Obstacle Avoidance";
+name_map = [task_name, "planar_good_comp_5"];
+
 %% Total Ctrl Effort plots
-task_name = "Push Object";
-name_map = [task_name, "point_mass_tendon"];
 
 file_name_pi = "finger_ng_ctrl_pi_ddp0.csv";
 file_name_ddp = "finger_ng_ctrl_ddp0.csv";
@@ -48,10 +49,11 @@ print(fig_iteration,task_name + 'mpc_iteration.png','-dpng','-r600');
 
 
 %% Cost
-file_name_pi = name_map(2) + "_cost_mpc_pi_ddp0.csv";
-file_name_ddp = name_map(2) + "_cost_mpc_ddp0.csv";
-file_name_pi_ddp = name_map(2) + "_cost_mpc_pi_ddp1.csv";
-file_name_ddp_warm = name_map(2) + "_cost_mpc_ddp-warm0.csv";
+seed = "2";
+file_name_pi = name_map(2) + "_cost_mpc_pi_ddp0" + seed + ".csv";
+file_name_ddp = name_map(2) + "_cost_mpc_ddp0" + seed + ".csv";
+file_name_pi_ddp = name_map(2) + "_cost_mpc_pi_ddp1" + seed + ".csv";
+file_name_ddp_warm = name_map(2) + "_cost_mpc_ddp-warm0" + seed + ".csv";
 
 
 % mkdir results;
@@ -63,7 +65,6 @@ cost_ilqg = csvread(file_name_ddp); cost_ilqg = cost_ilqg(:, 1);
 cost_pi_ilqg = csvread(file_name_pi_ddp ); cost_pi_ilqg = cost_pi_ilqg(:, 1);
 cost_ilqg_warm = csvread(file_name_ddp_warm ); cost_ilqg_warm = cost_ilqg_warm(:, 1);
 
-key = {1, 2, 
 [it_pi, ~] = size(cost_pi); [it_ilqg, ~] = size(cost_ilqg); [it_pi_ilqg, ~] = size(cost_pi_ilqg);
 total_it = max([it_pi, it_ilqg, it_pi_ilqg]);
 
@@ -89,3 +90,21 @@ legend("PI-ILQG", "PI", "ILQG", "ILQG-Warm");
 
 print(fig_cost,task_name + 'cost.png','-dpng','-r600');
 print(fig_cost_traj, task_name + 'cost_traj.png','-dpng','-r600');
+
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+

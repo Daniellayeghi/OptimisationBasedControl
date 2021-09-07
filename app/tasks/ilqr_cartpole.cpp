@@ -154,14 +154,14 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 10000, 5000, 100, 50;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
-    StateVector x_gain_vec; x_gain_vec << 100000, 50000, 0, 0;
-    StateMatrix x_gain; x_gain_vec.asDiagonal();
+    StateVector x_gain_vec; x_gain_vec << 10000, 5000, 0, 0;
+    StateMatrix x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.01;
+    u_gain *= 0.02;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -174,17 +174,12 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
-
-    CtrlMatrix R;
-    StateMatrix Q;
+    d->qpos[0] = 0; d->qpos[1] = 0.2; d->qvel[0] = 0; d->qvel[1] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
-
+    ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
-    params.iteration = 1;
 
     // install control callback
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
@@ -200,7 +195,6 @@ int main(int argc, const char** argv)
     std::fstream pos_data(path + ("cartpole_pos.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + ("cartpole_vel.csv"), std::fstream::out | std::fstream::trunc);
 /* ==================================================Simulation=======================================================*/
-    BufferUtilities::save_to_file(ctrl_data, ilqr._u_traj_cp);
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))

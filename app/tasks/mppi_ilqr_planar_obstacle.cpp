@@ -116,7 +116,7 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_complex";
+    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_5";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
@@ -139,7 +139,7 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-//    std::array<double, 6> pos {{0.3, -0.3, 0.3, -0.3, 0.02, 0.02}};
+//    std::array<double, 6> pos {{0.61, -0.61, 0.61, -0.61, 0.04, 0.04}};
 //    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
 //    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
 //    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
@@ -167,16 +167,16 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
 
-    StateVector x_desired; x_desired << M_PI+1.57, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << M_PI*3+0.3, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<100, 100, 100, 10, 1, 1;;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<1000, 100, 10, 10, 10, 10;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 100, 10, 10, 0, 0, 0;
+    StateVector x_running_gain_vec; x_running_gain_vec << 100, 1, 1, 0, 0, 0;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 1, 1, 1;
+    CtrlVector u_gain_vec; u_gain_vec << 0.0001, 0.0001, 0.0001;
     CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
@@ -192,23 +192,19 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
-
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.15;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
     StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
     StateMatrix r_state_reg; r_state_reg = x_gain;
 
-    CtrlVector control_reg_vec; control_reg_vec << 0, 0, 0;
-    CtrlMatrix control_reg = control_reg_vec.asDiagonal();
+    CtrlMatrix control_reg = u_gain;
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 4> body_list {{0, 1, 2, 3}};
@@ -240,92 +236,106 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 500000;
     };
 
+    std::array<unsigned int, 5> seeds {{2,3,4,5,6}};
+    for (const auto seed : seeds) {
+        // initial position
+        d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
+        d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-    MPPIDDPParams params {10, 75, .1, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
+        MPPIDDPParams params{30, 75, .3, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
+        QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
+        MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
-    CtrlMatrix R;
-    StateMatrix Q;
+        CtrlMatrix R;
+        StateMatrix Q;
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
-    // install control callback
-    using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
-    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+        FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
+        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,
+                                                        m);
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+        // install control callback
+        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+        mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+        DataBuffer d_buff;
 
-    DataBuffer d_buff;
-/* =============================================CSV Output Files=======================================================*/
-    std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+        /* =============================================CSV Output Files=======================================================*/
+        std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-    const std::string mode = "ddp";
-    std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
-    std::vector<double> cost_buffer;
+        const std::string mode = "ddp_warm";
+        std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
+                              std::fstream::out | std::fstream::trunc);
+        std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
+                               std::fstream::out | std::fstream::trunc);
+        std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
+                              std::fstream::out | std::fstream::trunc);
+        std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
+                              std::fstream::out | std::fstream::trunc);
 
-    printf ("Connecting to viewer server…\n");
-    Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
-    Buffer<RawType<CtrlVector>::type> pi_buffer{};
-    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-    zmq_buffer.push_buffer(&ctrl_buffer);
-    zmq_buffer.push_buffer(&pi_buffer);
-    StateVector temp_state;
-    CtrlVector temp_ctrl;
-/* ==================================================Simulation=======================================================*/
-    // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
-    {
-        //  advance interactive simulation for 1/60 sec
-        //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
-        //  this loop will finish on time for the next frame to be rendered at 60 fps.
-        //  Otherwise add a cpu timer and exit this loop when it is time to render.
+        std::vector<double> cost_buffer;
 
-        mjtNum simstart = d->time;
-        while( d->time - simstart < 1.0/60.0 )
-        {
-            d_buff.fill_buffer(d);
-            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-            ilqr.control(d);
-//            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-//            ilqr._u_traj = pi.m_control;
-            MujocoUtils::fill_state_vector(d, temp_state, m);
-            MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
-            cost_buffer.emplace_back(terminal_cost(temp_state, d, m) + collision_cost(d, m));
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);
-            zmq_buffer.send_buffers();
-            mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
-            mj_step(m, d);
-        }
+        printf("Connecting to viewer server…\n");
+        Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+        Buffer<RawType<CtrlVector>::type> pi_buffer{};
+        ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        zmq_buffer.push_buffer(&ctrl_buffer);
+        zmq_buffer.push_buffer(&pi_buffer);
+        StateVector temp_state;
+        CtrlVector temp_ctrl;
+        auto iteration = 0, lim = 1250;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        // get framebuffer viewport
-        mjrRect viewport = {0, 0, 0, 0};
-        glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
+        /* ==================================================Simulation=======================================================*/
+        // use the first while condition if you want to simulate for a period.
+        while (!glfwWindowShouldClose(window)) {
+            //  advance interactive simulation for 1/60 sec
+            //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
+            //  this loop will finish on time for the next frame to be rendered at 60 fps.
+            //  Otherwise add a cpu timer and exit this loop when it is time to render.
 
-        // update scene and render
-        mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
-        mjr_render(viewport, &scn, &con);
+            mjtNum simstart = d->time;
+            while (d->time - simstart < 1.0 / 60.0) {
+                d_buff.fill_buffer(d);
+                mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+                ilqr.control(d);
+                pi.m_control = ilqr._u_traj;
+                pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+                ilqr._u_traj = pi.m_control;
+                MujocoUtils::fill_state_vector(d, temp_state, m);
+                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+                cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d , m));
+                ctrl_buffer.update(ilqr._cached_control.data(), true);
+                pi_buffer.update(pi._cached_control.data(), false);
+                zmq_buffer.send_buffers();
+                mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+                mj_step(m, d);
+                ++iteration;
+            }
 
-        // swap OpenGL buffers (blocking call due to v-sync)
-        glfwSwapBuffers(window);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // get framebuffer viewport
+            mjrRect viewport = {0, 0, 0, 0};
+            glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
-        // process pending GUI events, call GLFW callbacks
-        glfwPollEvents();
+            // update scene and render
+            mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
+            mjr_render(viewport, &scn, &con);
 
-        if(save_data)
-        {
-            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
-            d_buff.save_buffer(pos_data, vel_data, ctrl_data);
-            std::cout << "Saved!" << std::endl;
-            save_data = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            // swap OpenGL buffers (blocking call due to v-sync)
+            glfwSwapBuffers(window);
+
+            // process pending GUI events, call GLFW callbacks
+            glfwPollEvents();
+
+            if (iteration > lim or save_data) {
+                BufferUtilities::save_to_file(cost_mpc, cost_buffer);
+                d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+                std::cout << "Saved!" << std::endl;
+                save_data = false;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                break;
+            }
         }
     }
     // free visualization storage
