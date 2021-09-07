@@ -15,7 +15,7 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
         m_params(params),
         m_cost_func(cost),
         m_m(m),
-        m_normX_cholesk(m_params.pi_ctrl_mean, params.ctrl_variance, m_params.m_sim_time, true)
+        m_normX_cholesk(m_params.pi_ctrl_mean, params.ctrl_variance, m_params.m_sim_time, true,  m_params.m_seed)
 
 {
     m_d_cp = mj_makeData(m_m);

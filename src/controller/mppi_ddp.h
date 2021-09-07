@@ -26,6 +26,7 @@ struct MPPIDDPParams{
     CtrlVector pi_ctrl_mean;
     CtrlMatrix ddp_variance;
     CtrlMatrix ctrl_variance;
+    unsigned int m_seed = 1;
 };
 
 
