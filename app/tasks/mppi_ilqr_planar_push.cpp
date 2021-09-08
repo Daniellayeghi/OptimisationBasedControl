@@ -289,11 +289,11 @@ int main(int argc, const char** argv)
             d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-//            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-//            ilqr._u_traj = pi.m_control;
-//            ctrl_buffer.update(ilqr._cached_control.data(), true);
-//            pi_buffer.update(pi._cached_control.data(), false);
-//            zmq_buffer.send_buffers();
+            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+            ilqr._u_traj = pi.m_control;
+            ctrl_buffer.update(ilqr._cached_control.data(), true);
+            pi_buffer.update(pi._cached_control.data(), false);
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

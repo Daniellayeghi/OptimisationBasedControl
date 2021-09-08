@@ -4,8 +4,8 @@ set(groot,'defaultLineLineWidth',1.25)
 close all;
 clear all; clc;
 
-task_name = "Obstacle Avoidance";
-name_map = [task_name, "planar_good_comp_5"];
+task_name = "Cartpole";
+name_map = [task_name, "cartpole"];
 
 %% Total Ctrl Effort plots
 
@@ -94,6 +94,12 @@ print(fig_cost_traj, task_name + 'cost_traj.png','-dpng','-r600');
 
 
    
+
+   1.8950e+04 +    1.8950e+04 +    6.6347e+03 +    6.7830e+03 +    6.8678e+03 +    1.1259e+04
+
+
+
+
 
 
 

@@ -255,8 +255,8 @@ int main(int argc, const char** argv)
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // install control callback
-        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+        using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
         DataBuffer d_buff;
@@ -299,7 +299,6 @@ int main(int argc, const char** argv)
                 d_buff.fill_buffer(d);
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
-                pi.m_control = ilqr._u_traj;
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
