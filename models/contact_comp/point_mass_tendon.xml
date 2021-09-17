@@ -36,11 +36,11 @@
 
 
     <worldbody>
-        <geom name="ground" size="0.61 0.61 0.1" pos="-0.0 0 0.0" type="plane" />
-        <geom name="wall_x" size="0.05 0.61 0.02" pos="-0.61 0 0.05" quat="0.707107 0 0.707107 0" type="plane" />
-        <geom name="wall_y" size="0.61 0.05 0.02" pos="0 -0.61 0.05" quat="0.707107 -0.707107 0 0" type="plane" />
-        <geom name="wall_neg_x" size="0.05 0.61 0.02" pos="0.61 0 0.05" quat="0.707107 0 -0.707107 0" type="plane" />
-        <geom name="wall_neg_y" size="0.61 0.05 0.02" pos="0 0.61 0.05" quat="0.707107 0.707107 0 0" type="plane" />
+        <geom name="ground" size="0.61 0.61 0.1" pos="-0.0 0 0.0" type="plane" rgba="0.25 0.5 1 1"/>
+        <geom name="wall_x" size="0.05 0.61 0.02" pos="-0.61 0 0.05" quat="0.707107 0 0.707107 0" type="plane" rgba="0.5 0.15 0 1"/>
+        <geom name="wall_y" size="0.61 0.05 0.02" pos="0 -0.61 0.05" quat="0.707107 -0.707107 0 0" type="plane" rgba="0.5 0.15 0 1"/>
+        <geom name="wall_neg_x" size="0.05 0.61 0.02" pos="0.61 0 0.05" quat="0.707107 0 -0.707107 0" type="plane" rgba="0.5 0.15 0 1"/>
+        <geom name="wall_neg_y" size="0.61 0.05 0.02" pos="0 0.61 0.05" quat="0.707107 0.707107 0 0" type="plane" rgba="0.5 0.15 0 1"/>
         <camera name="fixed" pos="0 0 0.75" />
         <light name="light" pos="0 0 1" dir="0 0 -1" />
 
@@ -69,7 +69,7 @@
             <geom name="pointmass" type="sphere" size=".042" material="self" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
         </body>
 
-        <geom name="target" pos="0.25 -0.25 0.022" material="target" type="sphere" rgba="0.5 0 1 0.25"  size=".025" contype="0" conaffinity="0"/>
+        <geom name="target" pos="0.25 -0.25 0.022" material="target" type="sphere" rgba="0.5 1 0 0.25"  size=".045" contype="0" conaffinity="0"/>
     </worldbody>
 
     <tendon>

@@ -13,6 +13,10 @@
 #include <chrono>
 #include <thread>
 
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::duration;
+using std::chrono::milliseconds;
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -162,7 +166,7 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0+2*M_PI, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
 
@@ -234,7 +238,7 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + not collision_cost(data, model) * state_error.transpose() * r_state_reg * state_error;
+                       (0, 0) + not collision_cost(data, model) * 1000 * state_error.transpose() * r_state_reg * state_error;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -250,7 +254,7 @@ int main(int argc, const char** argv)
         d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
         d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-        MPPIDDPParams params{10, 75, 0.5, 0, 1, 1, 0.25, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{20, 75, 0.1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -260,8 +264,8 @@ int main(int argc, const char** argv)
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // install control callback
-        using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
         DataBuffer d_buff;
@@ -305,9 +309,11 @@ int main(int argc, const char** argv)
                 ilqr.control(d);
                 pi.control(d, ilqr._u_traj, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
+                if (collision_cost(d, m))
+                    std::cout << ilqr._covariance.front() << std::endl;
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);//
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
@@ -331,12 +337,13 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (iteration > lim) {
+            if (iteration > lim or save_data) {
                 BufferUtilities::save_to_file(cost_mpc, cost_buffer);
                 d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+                std::cout << std::accumulate(cost_buffer.begin(), cost_buffer.end(), 0.0) << std::endl;
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 break;
             }
         }
