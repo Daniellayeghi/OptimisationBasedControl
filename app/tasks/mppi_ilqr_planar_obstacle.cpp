@@ -15,7 +15,10 @@
 #include <chrono>
 #include <thread>
 #include <random>
-
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::duration;
+using std::chrono::milliseconds;
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -170,7 +173,10 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << M_PI*3+0.3, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<1000, 100, 10, 10, 10, 10;
+    StateVector initial_state; initial_state << 0, 0, 0, 0, 0, 0;
+
+
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<5000, 500, 50, 50, 50, 50;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
     StateVector x_running_gain_vec; x_running_gain_vec << 100, 1, 1, 0, 0, 0;
@@ -242,7 +248,10 @@ int main(int argc, const char** argv)
         d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
         d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-        MPPIDDPParams params{30, 75, .3, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
+        std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
+        std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
+
+        MPPIDDPParams params{50, 75, .3, 1, 1, 1, 20, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -306,7 +315,7 @@ int main(int argc, const char** argv)
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d , m));
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
                 ++iteration;

@@ -42,7 +42,7 @@ mean = 0.5;
 prob = zeros(length(values), 1);
 iter = 1;
 k = 1;
-pow =0.5;
+pow =1;
 
 for var = values
     prob(iter, 1) = (1/sqrt(2*pi*variance^2/k^2))^pow*exp((-1/2*((var - mean)/variance)^2)*pow);

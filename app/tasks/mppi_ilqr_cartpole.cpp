@@ -15,7 +15,10 @@
 // for sleep timers
 #include <chrono>
 #include <thread>
-
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::duration;
+using std::chrono::milliseconds;
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -222,7 +225,7 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{20, 75, 0.1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -274,8 +277,13 @@ int main(int argc, const char** argv)
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+//                auto t1 = high_resolution_clock::now();
                 ilqr.control(d);
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
+                ilqr._u_traj = pi.m_control;
+//                auto t2 = high_resolution_clock::now();
+//                duration<double, std::milli> ms_double = t2 - t1;
+//                std::cout << "TIME " << ms_double.count() << std::endl;
                 d_buff.fill_buffer(d);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);

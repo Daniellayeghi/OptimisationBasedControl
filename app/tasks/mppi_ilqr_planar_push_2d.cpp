@@ -15,7 +15,10 @@
 #include <chrono>
 #include <thread>
 #include <random>
-
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::duration;
+using std::chrono::milliseconds;
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -230,7 +233,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + (not collision_cost(data, model) + 1000) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
+        (0, 0) + (not collision_cost(data, model) * 10000) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -239,14 +242,14 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    std::array<unsigned int, 5> seeds {{2, 3, 4, 5, 6}};
+    std::array<unsigned int, 5> seeds {{7, 8, 9, 10, 11}};
     for (const auto seed : seeds)
     {
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
         //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
         // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-        MPPIDDPParams params{80, 75, 0.25, 0, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{30, 75, 0.1, 0, 1, 1, 1e-8, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -256,8 +259,8 @@ int main(int argc, const char** argv)
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // install control callback
-        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+        using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
@@ -265,7 +268,7 @@ int main(int argc, const char** argv)
 /* =============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-        const std::string mode = "ddp";
+        const std::string mode = "vid_ddp";
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
                               std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
@@ -306,7 +309,7 @@ int main(int argc, const char** argv)
                 ilqr._u_traj = pi.m_control;
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));

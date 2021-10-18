@@ -42,7 +42,7 @@
 
     <worldbody>
         <light name="light" directional="true" diffuse=".6 .6 .6" pos="0 0 2" specular=".3 .3 .3"/>
-        <geom name="ground" type="plane" pos="0 0 -0.6" size=".6 .2 10" material="grid"/>
+        <geom name="ground" type="plane" pos="-0.2 0 -0.6" size=".6 .2 10" material="grid"/>
         <camera name="cam0" pos="0 -1 .8" xyaxes="1 0 0 0 1 2"/>
         <camera name="cam1" pos="0 -1 .4" xyaxes="1 0 0 0 0 1" />
 
@@ -61,11 +61,19 @@
 
         <body name="spinner" pos="-.2 0 -.4">
             <joint name="hinge" range="-50 50" frictionloss=".01" damping=".15" limited="false"/>
-            <geom name="cap1" type="capsule" size=".04 .09" material="self" pos=".02 0 0" />
-            <geom name="cap2" type="capsule" size=".04 .09" material="self" pos="-.02 0 0"/>
-            <site name="tip" type="sphere"  size=".02" pos="0 0 .13" material="target"/>
-            <geom name="spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" material="decoration"/>
+            <geom name="cap1" type="capsule" size=".04 .09" material="self" pos=".02 0 0" rgba="1 0.5 0 1"/>
+            <geom name="cap2" type="capsule" size=".04 .09" material="self" pos="-.02 0 0"  rgba="0 0.75 1 1"/>
+            <site name="tip" type="sphere"  size=".02" pos="0 0 .13" material="target" />
+            <geom name="spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" material="decoration"  rgba="0.5 0 1 1"/>
         </body>
+
+        <body name="target" pos="-.2 0 -.4">
+            <geom name="target:cap1" type="capsule" size=".04 .09" material="self" pos=".02 0 0" contype="0" conaffinity="0" rgba="1 0.5 0 0.25"/>
+            <geom name="target:cap2" type="capsule" size=".04 .09" material="self" pos="-.02 0 0" contype="0" conaffinity="0" rgba="0 0.75 1 .25"/>
+            <site name="target:tip" type="sphere"  size=".02" pos="0 0 .13" material="target"/>
+            <geom name="target:spinner_decoration" type="cylinder" fromto="0 -.045 0 0 .045 0" size=".02" material="decoration" contype="0" conaffinity="0" rgba="0.5 0 1 0.25"/>
+        </body>
+
 
     </worldbody>
 
