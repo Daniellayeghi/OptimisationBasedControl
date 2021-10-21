@@ -13,10 +13,6 @@
 #include <chrono>
 #include <thread>
 
-using std::chrono::high_resolution_clock;
-using std::chrono::duration_cast;
-using std::chrono::duration;
-using std::chrono::milliseconds;
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -292,7 +288,6 @@ int main(int argc, const char** argv)
         std::vector<double> cost_buffer;
         StateVector temp_state;
         CtrlVector temp_ctrl;
-        auto iteration = 0, lim = 2000;
         mj_step(m, d);
 /* ==================================================Simulation=======================================================*/
 
@@ -309,8 +304,6 @@ int main(int argc, const char** argv)
                 ilqr.control(d);
                 pi.control(d, ilqr._u_traj, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
-                if (collision_cost(d, m))
-                    std::cout << ilqr._covariance.front() << std::endl;
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);//
 //                zmq_buffer.send_buffers();
@@ -319,7 +312,6 @@ int main(int argc, const char** argv)
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
-                ++iteration;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -337,7 +329,7 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (iteration > lim or save_data) {
+            if (save_data) {
                 BufferUtilities::save_to_file(cost_mpc, cost_buffer);
                 d_buff.save_buffer(pos_data, vel_data, ctrl_data);
                 std::cout << std::accumulate(cost_buffer.begin(), cost_buffer.end(), 0.0) << std::endl;

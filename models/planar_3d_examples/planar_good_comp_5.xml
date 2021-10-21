@@ -54,22 +54,22 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="-0.320089 0.050106 0.04">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.04" rgba="1 0 0 1" />
-        </body>
-        <body name="a" pos="-0.0100812 0.253382 0.04">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.04" rgba="1 0 0 1" />
-        </body>
-        <body name="b" pos="-0.105647 -0.235664 0.04">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.04" rgba="1 0 0 1" />
-        </body>
-        <body name="c" pos="0.453819 -0.111522 0.04">
-            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />
-            <geom size="0.04" rgba="1 0 0 1" />
-        </body>
+<!--        <body name="k" pos="-0.320089 0.050106 0.04">-->
+<!--            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />-->
+<!--            <geom size="0.04" rgba="1 0 0 1" />-->
+<!--        </body>-->
+<!--        <body name="a" pos="-0.0100812 0.253382 0.04">-->
+<!--            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />-->
+<!--            <geom size="0.04" rgba="1 0 0 1" />-->
+<!--        </body>-->
+<!--        <body name="b" pos="-0.105647 -0.235664 0.04">-->
+<!--            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />-->
+<!--            <geom size="0.04" rgba="1 0 0 1" />-->
+<!--        </body>-->
+<!--        <body name="c" pos="0.453819 -0.111522 0.04">-->
+<!--            <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06" />-->
+<!--            <geom size="0.04" rgba="1 0 0 1" />-->
+<!--        </body>-->
 
         <geom name="target" pos="-0.350089 0.38106 0.04" material="target" type="sphere" rgba="0.5 1 0 0.25"  size=".04" contype="0" conaffinity="0"/>
 

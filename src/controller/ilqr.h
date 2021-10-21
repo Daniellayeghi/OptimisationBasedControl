@@ -65,7 +65,6 @@ private:
     };
 
     // Control containers
-    std::vector<StateVector> _x_traj;
     std::vector<StateVector> _x_traj_new;
     std::vector<CtrlVector>  _u_traj_new;
     std::vector<Derivatives> m_d_vector;
@@ -92,6 +91,7 @@ public:
     std::vector<CtrlMatrix> _covariance;
     std::vector<CtrlMatrix> _covariance_new;
     std::vector<CtrlVector> _u_traj;
+    std::vector<StateVector> _x_traj;
     std::vector<CtrlVector> _u_traj_cp;
     std::vector<double> cost;
 };

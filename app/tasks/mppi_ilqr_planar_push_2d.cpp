@@ -290,7 +290,6 @@ int main(int argc, const char** argv)
         CtrlVector temp_ctrl;
         temp_ctrl << 0, 0, 0;
         mj_step(m, d);
-        auto iteration = 0, lim = 2000;
 
 /* ==================================================Simulation=======================================================*/
         // use the first while condition if you want to simulate for a period.
@@ -315,7 +314,6 @@ int main(int argc, const char** argv)
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
-                ++iteration;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -333,7 +331,7 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (iteration > lim or save_data) {
+            if (save_data) {
                 BufferUtilities::save_to_file(cost_mpc, ilqr.cost);
                 d_buff.save_buffer(pos_data, vel_data, ctrl_data);
                 std::cout << "Saved!" << std::endl;

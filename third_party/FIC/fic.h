@@ -4,8 +4,17 @@
 #define OPTCONTROL_MUJOCO_FIC_H
 
 #include "Eigen/Core"
+#include "../src/parameters/simulation_params.h"
 #include <cmath>
 
+template<typename Scalar>
+auto Sign = [](const Scalar x){return std::abs(x) == x ? 1 : -1;};
+
+template <typename Scalar>
+auto IsSameSign = [](const Scalar x, const Scalar y){return (Sign<Scalar>(x)==Sign<Scalar>(y));};
+
+
+using namespace SimulationParameters;
 namespace uoe {
 
 /**
@@ -109,7 +118,7 @@ namespace uoe {
             } else {
                 double tmpPos = (1.0-_saturationRatio)*_posErrorMax/(2.0*M_PI);
                 double tmpForce = _saturationRatio*_stiffness*_posErrorMax;
-                return Sign(error)*(
+                return Sign<double>(error)*(
                         (_forceMax-tmpForce)*0.5*(1.0+std::tanh((std::fabs(error)-_posErrorMax)/tmpPos+M_PI))
                         + tmpForce);
             }
@@ -121,7 +130,7 @@ namespace uoe {
          */
 
         //TODO: remove dt
-        Eigen::Vector3d control(const Eigen::Vector3d& error, double dt)
+        CtrlVector control(const PosVector& error, double dt)
         {
             //Initialization
             if (!_isInit) {
@@ -132,7 +141,7 @@ namespace uoe {
                 _lastEffort.setZero();
             }
 
-            Eigen::Vector3d effort = Eigen::Vector3d::Zero();
+            CtrlVector effort = CtrlVector::Zero();
             for (int i=0;i<error.size();i++) {
                 if (std::fabs(error(i)) > std::fabs(_lastPosError(i))) {
                     //Divergence phase
@@ -143,7 +152,7 @@ namespace uoe {
                     //Convergence phase
                     if (
                             std::fabs(_lastDivergencePosError(i)) < std::fabs(error(i)) ||
-                            !IsSameSign(_lastDivergencePosError(i), error(i))
+                            !IsSameSign<double>(_lastDivergencePosError(i), error(i))
                             ) {
                         _lastDivergencePosError(i) = error(i);
                     }
@@ -182,10 +191,10 @@ namespace uoe {
          * Controller states
          */
         bool _isInit;
-        Eigen::Vector3d _lastPosError;
-        Eigen::Vector3d _lastDivergencePosError;
-        Eigen::Vector3d _lastDivergenceEffort;
-        Eigen::Vector3d _lastEffort;
+        PosVector _lastPosError;
+        PosVector _lastDivergencePosError;
+        CtrlVector _lastDivergenceEffort;
+        CtrlVector _lastEffort;
     };
 
 /**
@@ -285,15 +294,15 @@ namespace uoe {
         /**
          * Return internal position, velocity and acceleration state
          */
-        const Eigen::Vector3d& getPos() const
+        const PosVector& getPos() const
         {
             return _posPlanner;
         }
-        const Eigen::Vector3d& getVel() const
+        const VelVector& getVel() const
         {
             return _velPlanner;
         }
-        const Eigen::Vector3d& getAcc() const
+        const VelVector& getAcc() const
         {
             return _accPlanner;
         }
@@ -302,7 +311,7 @@ namespace uoe {
          * Reset planner internal integrated
          * position and velocity
          */
-        void resetState(const Eigen::Vector3d& pos)
+        void resetState(const PosVector& pos)
         {
             _posPlanner = pos;
             _velPlanner.setZero();
@@ -317,7 +326,7 @@ namespace uoe {
         {
             double effort = _stiffness*error;
             if (std::fabs(effort) > effortMax) {
-                effort = Sign(error)*effortMax;
+                effort = Sign<double>(error)*effortMax;
             }
             return effort;
         }
@@ -326,9 +335,9 @@ namespace uoe {
          * Compute and return planned desired position from given
          * target position and time step in seconds
          */
-        Eigen::Vector3d plan(const Eigen::Vector3d& posDesired, double dt)
+        PosVector plan(const PosVector& posDesired, double dt)
         {
-            Eigen::Vector3d error = posDesired - _posPlanner;
+            PosVector error = posDesired - _posPlanner;
 
             //Initialization
             if (!_isInit) {
@@ -346,7 +355,7 @@ namespace uoe {
             //Damping Coefficient
             double gainDamping = _dampingRatio*(2.0*omega_n);
             if ((posDesired-_lastPosDesired).norm() > 1e-6) {
-                Eigen::Vector3d tmpError = (posDesired-_posPlanner).cwiseAbs();
+                PosVector tmpError = (posDesired-_posPlanner).cwiseAbs();
                 if (tmpError.norm() > 1e-6) {
                     //Clamp the error to the 0.001mm ball
                     tmpError = std::max(0.001, tmpError.norm())*tmpError.normalized();
@@ -354,7 +363,7 @@ namespace uoe {
                     double vel_n = std::min(_velDesired, omega_n*tmpError.norm());
                     _stateVelMax = 1.595*vel_n;
                     double vel_max = (_stateVelMax*_stateVelMax)/tmpError.norm();
-                    for (size_t i=0;i<3;i++) {
+                    for (size_t i=0;i<n_jvel;i++) {
                         _stateAccMax(i) = std::min(2.0*vel_max*tmpError(i)/tmpError.norm(), _accMax);
                     }
                 }
@@ -369,7 +378,7 @@ namespace uoe {
                     //Convergence phase
                     if (
                             std::fabs(_lastDivergencePosError(i)) < std::fabs(error(i)) ||
-                            !IsSameSign(_lastDivergencePosError(i), error(i))
+                            !IsSameSign<double>(_lastDivergencePosError(i), error(i))
                             ) {
                         _lastDivergencePosError(i) = error(i);
                     }
@@ -409,14 +418,14 @@ namespace uoe {
          * Planner states
          */
         bool _isInit;
-        Eigen::Vector3d _lastPosError;
-        Eigen::Vector3d _lastDivergencePosError;
-        Eigen::Vector3d _lastPosDesired;
-        Eigen::Vector3d _posPlanner;
-        Eigen::Vector3d _velPlanner;
-        Eigen::Vector3d _accPlanner;
+        PosVector _lastPosError;
+        PosVector _lastDivergencePosError;
+        PosVector _lastPosDesired;
+        PosVector _posPlanner;
+        VelVector _velPlanner;
+        VelVector _accPlanner;
         double _stateVelMax;
-        Eigen::Vector3d _stateAccMax;
+        PosVector _stateAccMax;
     };
 
 }
