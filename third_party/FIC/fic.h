@@ -32,7 +32,7 @@ namespace uoe {
          */
         FICController() :
                 _posErrorMax(0.1),
-                _forceMax(10.0),
+                _forceMax(1.0),
                 _stiffness(50.0),
                 _diffEffortMax(1.0),
                 _saturationRatio(0.9),
@@ -173,8 +173,13 @@ namespace uoe {
             //Update state
             _lastPosError = error;
             _lastEffort = effort;
+            _cached_control = effort;
             return effort;
         }
+
+
+    public:
+        CtrlVector  _cached_control;
 
     private:
 

@@ -173,10 +173,10 @@ int main(int argc, const char** argv)
     StateVector x_terminal_gain_vec; x_terminal_gain_vec <<5000, 500, 50, 50, 50, 50;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 100, 1, 1, 0, 0, 0;
+    StateVector x_running_gain_vec; x_running_gain_vec << 500, 100, 100, 50, 50, 50;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 1, 1, 1;
+    CtrlVector u_gain_vec; u_gain_vec << 100, 100, 100;
     CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
@@ -255,7 +255,7 @@ int main(int argc, const char** argv)
         FICController fic_ctrl;
         FICPlanner fic_plr;
         // install control callback
-        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+        using ControlType = ILQR<state_size, n_ctrl>;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
@@ -298,9 +298,7 @@ int main(int argc, const char** argv)
 //                pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
                 PosVector pos_des = fic_plr.plan(ilqr._x_traj[1].block<n_jpos, 1>(0, 0), 0.01);
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_des, 0.01);
-                ilqr._u_traj.front() = ctrl_vec;
-//                ilqr._u_traj = pi.m_control;
-                std::cout << "POS DES: " << pos_des << std::endl;
+                std::cout << "POS DES: " << ctrl_vec << std::endl;
                 d_buff.fill_buffer(d);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
