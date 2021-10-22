@@ -31,9 +31,9 @@ namespace uoe {
          * Default initialization
          */
         FICController() :
-                _posErrorMax(0.1),
+                _posErrorMax(0.001),
                 _forceMax(1.0),
-                _stiffness(50.0),
+                _stiffness(500.0),
                 _diffEffortMax(1.0),
                 _saturationRatio(0.9),
                 _isInit(false),
@@ -130,7 +130,7 @@ namespace uoe {
          */
 
         //TODO: remove dt
-        CtrlVector control(const PosVector& error, double dt)
+        CtrlVector control(const PosVector& error)
         {
             //Initialization
             if (!_isInit) {
@@ -161,13 +161,13 @@ namespace uoe {
                     effort(i) = tmpGainOut*(error(i)-tmpPosMid);
                 }
 
-                //Clamp effort variation
-                if (effort(i) > _lastEffort(i)+dt*_diffEffortMax) {
-                    effort(i) = _lastEffort(i)+dt*_diffEffortMax;
-                }
-                if (effort(i) < _lastEffort(i)-dt*_diffEffortMax) {
-                    effort(i) = _lastEffort(i)-dt*_diffEffortMax;
-                }
+//                //Clamp effort variation
+//                if (effort(i) > _lastEffort(i)+dt*_diffEffortMax) {
+//                    effort(i) = _lastEffort(i)+dt*_diffEffortMax;
+//                }
+//                if (effort(i) < _lastEffort(i)-dt*_diffEffortMax) {
+//                    effort(i) = _lastEffort(i)-dt*_diffEffortMax;
+//                }
             }
 
             //Update state
@@ -216,7 +216,6 @@ namespace uoe {
          */
         FICPlanner() :
                 _stiffness(15790.0),
-                _velDesired(0.2),
                 _accMax(5000.0),
                 _dampingRatio(0.005),
                 _frequency(20.0),
@@ -251,9 +250,9 @@ namespace uoe {
         {
             return _velDesired;
         }
-        void setVelDesired(double velDesired)
+        void setVelDesired(double& velDesired)
         {
-            if (velDesired <= 0.0) {
+            if (velDesired <= 0) {
                 throw std::logic_error(
                         "uoe::FIC: Invalid vel desired");
             }

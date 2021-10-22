@@ -242,6 +242,8 @@ int main(int argc, const char** argv)
         d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
         d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
+        PosVector des; des << 0.45, 0, 0;
+
         // To show difference in sampling try 3 samples
         MPPIDDPParams params{10, 75, 0.1, 1, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
@@ -253,17 +255,15 @@ int main(int argc, const char** argv)
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         using namespace uoe;
         FICController fic_ctrl;
-        FICPlanner fic_plr;
         // install control callback
-        using ControlType = ILQR<state_size, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+        using ControlType = uoe::FICController;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-        DataBuffer d_buff;
-
+        DummyBuffer d_buff;
 /* ============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-        const std::string mode = "ddp_warm";
+        const std::string mode = "fic";
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
                               std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
@@ -283,6 +283,8 @@ int main(int argc, const char** argv)
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
+        std::vector<CtrlVector> temp;
+        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/point_mass_tendon_ctrl_ddp02.csv", temp, ',');
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -295,10 +297,9 @@ int main(int argc, const char** argv)
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
-//                pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-                PosVector pos_des = fic_plr.plan(ilqr._x_traj[1].block<n_jpos, 1>(0, 0), 0.01);
-                CtrlVector ctrl_vec = fic_ctrl.control(pos_des, 0.01);
-                std::cout << "POS DES: " << ctrl_vec << std::endl;
+                MujocoUtils::fill_state_vector(d, temp_state, m);
+                PosVector error = ilqr._x_traj[1].block<n_jpos, 1>(0, 0) - temp_state.block<n_jpos, 1>(0, 0);
+                CtrlVector ctrl_vec = fic_ctrl.control(error);
                 d_buff.fill_buffer(d);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
@@ -327,7 +328,6 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-                BufferUtilities::save_to_file(cost_mpc, cost_buffer);
                 d_buff.save_buffer(pos_data, vel_data, ctrl_data);
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
