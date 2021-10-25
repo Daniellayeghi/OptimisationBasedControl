@@ -23,10 +23,13 @@ namespace SimulationParameters
     using StateCtrlMatrix = Eigen::Matrix<SimScalarType, state_size, n_ctrl>;
 
     /* Raw Types Used */
+
+
     template<typename T>
     struct RawType {
         using type = typename T::Scalar[T::RowsAtCompileTime * T::ColsAtCompileTime];
         using scalar = typename T::Scalar;
+        static constexpr const unsigned int size = sizeof(T);
     };
 
 

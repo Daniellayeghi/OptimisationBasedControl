@@ -298,6 +298,16 @@ int main(int argc, const char** argv)
     std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
     std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
 
+    double cost;
+    GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
+    GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
+    GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+    GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+
+    pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
+    vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
+    ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
+    cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
 
     printf ("Connecting to viewer server…\n");
     Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
@@ -305,12 +315,8 @@ int main(int argc, const char** argv)
     ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
     zmq_buffer.push_buffer(&ctrl_buffer);
     zmq_buffer.push_buffer(&pi_buffer);
-
-    DataBuffer d_buff;
-    std::vector<double> cost_buffer;
     StateVector temp_state;
     CtrlVector temp_ctrl;
-    auto iteration = 0, lim = 1000;
     mj_step(m, d);
     /* ==================================================Simulation=======================================================*/
     // use the first while condition if you want to simulate for a period.
@@ -324,7 +330,6 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            d_buff.fill_buffer(d);
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
@@ -334,10 +339,10 @@ int main(int argc, const char** argv)
             zmq_buffer.send_buffers();
             MujocoUtils::fill_state_vector(d, temp_state, m);
             MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
-            cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d, m));
+            cost = running_cost(temp_state, temp_ctrl, d , m);
+            pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
-            ++iteration;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -355,11 +360,10 @@ int main(int argc, const char** argv)
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
 
-        if(iteration > lim or save_data)
+        if(save_data)
         {
-            BufferUtilities::save_to_file(cost_mpc, cost_buffer);
-            d_buff.save_buffer(pos_data, vel_data, ctrl_data);
-            std::cout << "Saved! at " << iteration << std::endl;
+            pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
+            std::cout << "Saved!" << std::endl;
             save_data = false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             break;

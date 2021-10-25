@@ -5,6 +5,7 @@
 #include "mujoco.h"
 #include "eigen3/Eigen/Dense"
 #include "../parameters/simulation_params.h"
+#include "generic_utils.h"
 #include "buffer_utils.h"
 
 using namespace SimulationParameters;
@@ -13,13 +14,15 @@ using namespace SimulationParameters;
 template<typename T>
 struct GenericBuffer
 {
-    using scalar = typename T::scalar;
-    unsigned int buff_size = sizeof (T);
-    void update(const T input) {begin = input;}
-    typename T::scalar* get_begin(){return begin;}
-    unsigned int get_size(){return sizeof(T);}
+    explicit GenericBuffer(typename RawType<T>::scalar* ptr) : begin(ptr){};
+    using type = T;
+    using scalar = typename RawType<T>::scalar;
+    static constexpr const unsigned int size = RawType<T>::size;
+    void update(typename RawType<T>::scalar* input) {begin = input;}
+    typename RawType<T>::scalar* get_begin(){return begin;}
+    unsigned int get_size(){return size;}
 private:
-    typename T::scalar* begin;
+    typename RawType<T>::scalar* begin;
 };
 
 
@@ -28,17 +31,22 @@ template<typename T, typename BufferType>
 class BaseBuffer
 {
 public:
-    void fill_buffer(const mjData *data, BufferType& buffer)
+    void add_buffer_and_file(const FastPair<BufferType*, std::fstream*>& buffer_file_pair)
     {
         T& underlying = static_cast<T&>(*this);
-        underlying.fill(data, buffer);
+        underlying.add_buffer_file_pair(buffer_file_pair);
     }
 
-
-    void save_buffer(std::fstream& pos_file, std::fstream& vel_file, std::fstream& ctrl_file)
+    void push_buffer()
     {
         T& underlying = static_cast<T&>(*this);
-        underlying.save_data(pos_file, vel_file, ctrl_file);
+        underlying.push_buffers();
+    }
+
+    void save_buffer()
+    {
+        T& underlying = static_cast<T&>(*this);
+        underlying.save_data();
     }
 };
 
@@ -48,32 +56,39 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
 {
     friend class BaseBuffer<DataBuffer<BufferType>, BufferType>;
 
-    void fill(const mjData *data, BufferType& buffer)
+    void add_buffer_file_pair(const FastPair<BufferType*, std::fstream*>& buffer_file_pair)
     {
-        using namespace Eigen;
-        Eigen::Map<RowVectorXd> pos(data->qpos, n_jpos);
-        Eigen::Map<RowVectorXd> vel(data->qpos, n_jvel);
-        Eigen::Map<RowVectorXd> ctrl(data->ctrl, n_ctrl);
+        typename BufferType::type temp;
+        memcpy(temp.data(), buffer_file_pair.first->get_begin(), BufferType::size);
+        m_buffer_file_pair.template emplace_back(buffer_file_pair);
+        m_buffer_vec.template emplace_back().template emplace_back(std::move(temp));
 
-        auto& ref = buffer_vec.back();
-        memcpy(ref, buffer.get_begin(), buffer.get_size());
-        pos_buffer.emplace_back();
-        vel_buffer.emplace_back(vel);
-        ctrl_buffer.emplace_back(ctrl);
+    }
+
+    void push_buffers()
+    {
+
+        for(auto buffer = 0; buffer < m_buffer_file_pair.size(); ++buffer )
+        {
+            typename BufferType::type temp;
+            memcpy(temp.data(), m_buffer_file_pair[buffer].first->get_begin(), BufferType::size);
+            m_buffer_vec[buffer].emplace_back(std::move(temp));
+        }
     }
 
 
-    void save_data(std::fstream& pos_file, std::fstream& vel_file, std::fstream& ctrl_file)
+    void save_data()
     {
-        BufferUtilities::save_to_file(pos_file, pos_buffer);
-        BufferUtilities::save_to_file(vel_file, vel_buffer);
-        BufferUtilities::save_to_file(ctrl_file, ctrl_buffer);
+
+        for(auto buffer = 0; buffer < m_buffer_vec.size(); ++buffer)
+        {
+            BufferUtilities::save_to_file(m_buffer_file_pair[buffer].second, m_buffer_vec[buffer]);
+        }
+
     }
 
-    std::vector<typename BufferType::scalar [BufferType::buff_size]> buffer_vec;
-    std::vector<Eigen::Matrix<double, n_jpos, 1>> pos_buffer;
-    std::vector<Eigen::Matrix<double, n_jvel, 1>> vel_buffer;
-    std::vector<Eigen::Matrix<double, n_ctrl, 1>> ctrl_buffer;
+    std::vector<std::vector<typename BufferType::type>> m_buffer_vec;
+    std::vector<FastPair<BufferType*, std::fstream*>> m_buffer_file_pair;
 };
 
 
@@ -81,7 +96,7 @@ template<typename BufferType>
 class DummyBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
 {
     friend class BaseBuffer<DataBuffer<BufferType>, BufferType> ;
-    void fill(const mjData *data, BufferType& buffer)
+    void add_buffer_file_pair(const mjData *data, BufferType& buffer)
     {
 
     }

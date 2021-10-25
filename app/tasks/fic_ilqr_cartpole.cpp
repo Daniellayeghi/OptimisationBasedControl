@@ -260,8 +260,6 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-        GenericBuffer<RawType<PosVector>> pos_buffer{};
-        DataBuffer<GenericBuffer<RawType<PosVector>>> d_buff;
 /* ============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
         const std::string mode = "fic";
@@ -274,17 +272,27 @@ int main(int argc, const char** argv)
         std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
                               std::fstream::out | std::fstream::trunc);
 
+        double cost;
+        GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
+        GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+
+        pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
+        vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
+        ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
+        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
+
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");
-        Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
+        Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
         Buffer<RawType<CtrlVector>::type> pi_buffer{};
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-        zmq_buffer.push_buffer(&ctrl_buffer);
+        zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
 
         std::vector<CtrlVector> temp;
         BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
-        std::vector<double> cost_buffer;
         StateVector temp_state;
         CtrlVector temp_ctrl;
         auto iteration = 0;
@@ -303,14 +311,13 @@ int main(int argc, const char** argv)
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 PosVector pos_error = temp[iteration] - temp_state.block<n_jpos, 1>(0, 0);
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
-                pos_buffer.update(d->qpos);
-                d_buff.fill_buffer(d, pos_buffer);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
-                cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d , m));
-                ctrl_buffer.update(ilqr._cached_control.data(), true);
+                ilqr_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);
-//                zmq_buffer.send_buffers();
+                zmq_buffer.send_buffers();
+                cost = running_cost(temp_state, temp_ctrl, d , m);
+                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
                 ++iteration;
@@ -333,7 +340,7 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-                d_buff.save_buffer(pos_data, vel_data, ctrl_data);
+                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
