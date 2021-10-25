@@ -24,12 +24,12 @@ namespace SimulationParameters
 
     /* Raw Types Used */
     template<typename T>
-    struct RawType {};
-
-    template<>
-    struct RawType<CtrlVector>{
-        using type = CtrlVector::Scalar[n_ctrl];
+    struct RawType {
+        using type = typename T::Scalar[T::RowsAtCompileTime * T::ColsAtCompileTime];
+        using scalar = typename T::Scalar;
     };
+
+
 }
 
 #endif //OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H

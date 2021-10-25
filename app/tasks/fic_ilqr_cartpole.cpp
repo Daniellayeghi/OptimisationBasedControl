@@ -260,7 +260,8 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-        DummyBuffer d_buff;
+        GenericBuffer<RawType<PosVector>> pos_buffer{};
+        DataBuffer<GenericBuffer<RawType<PosVector>>> d_buff;
 /* ============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
         const std::string mode = "fic";
@@ -273,9 +274,6 @@ int main(int argc, const char** argv)
         std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
                               std::fstream::out | std::fstream::trunc);
 
-        std::vector<double> cost_buffer;
-        StateVector temp_state;
-        CtrlVector temp_ctrl;
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");
         Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
@@ -283,8 +281,13 @@ int main(int argc, const char** argv)
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
+
         std::vector<CtrlVector> temp;
-        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/point_mass_tendon_ctrl_ddp02.csv", temp, ',');
+        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
+        std::vector<double> cost_buffer;
+        StateVector temp_state;
+        CtrlVector temp_ctrl;
+        auto iteration = 0;
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -298,9 +301,10 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
-                PosVector error = ilqr._x_traj[1].block<n_jpos, 1>(0, 0) - temp_state.block<n_jpos, 1>(0, 0);
-                CtrlVector ctrl_vec = fic_ctrl.control(error);
-                d_buff.fill_buffer(d);
+                PosVector pos_error = temp[iteration] - temp_state.block<n_jpos, 1>(0, 0);
+                CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
+                pos_buffer.update(d->qpos);
+                d_buff.fill_buffer(d, pos_buffer);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
                 cost_buffer.emplace_back(running_cost(temp_state, temp_ctrl, d , m));
@@ -309,6 +313,7 @@ int main(int argc, const char** argv)
 //                zmq_buffer.send_buffers();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
+                ++iteration;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
