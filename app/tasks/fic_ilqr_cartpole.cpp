@@ -247,7 +247,7 @@ int main(int argc, const char** argv)
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
         CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 5};
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 3};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         uoe::FICController fic_ctrl;
         // install control callback
