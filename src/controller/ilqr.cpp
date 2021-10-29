@@ -359,25 +359,26 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
 
 
 template<int state_size, int ctrl_size>
-void ILQR<state_size, ctrl_size>::control(const mjData* d)
+void ILQR<state_size, ctrl_size>::control(const mjData* d, const bool skip)
 {
-    m_params.delta = m_params.delta_init;
-    _regularizer.setIdentity();
-    for(auto iteration = 0; iteration < m_params.iteration; ++iteration)
-    {
-        fill_state_vector(d, _x_traj.front(),_m);
-        forward_simulate(d);
-        backward_pass();
-        if(minimal_grad()) break;
-        if (m_good_backpass) forward_pass(d);
-        _cf.m_u_prev = _u_traj.front();
+    if (not skip) {
+        m_params.delta = m_params.delta_init;
+        _regularizer.setIdentity();
+        for (auto iteration = 0; iteration < m_params.iteration; ++iteration) {
+            fill_state_vector(d, _x_traj.front(), _m);
+            forward_simulate(d);
+            backward_pass();
+            if (minimal_grad()) break;
+            if (m_good_backpass) forward_pass(d);
+            _cf.m_u_prev = _u_traj.front();
+            cost.emplace_back(_prev_total_cost);
+        }
+        _cached_control = _u_traj.front();
     }
-    _cached_control = _u_traj.front();
+    //    std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
-//    std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
+    _u_traj.back() = CtrlVector::Zero();
 
-    _u_traj.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
-    cost.emplace_back(_prev_total_cost);
 }
 
 

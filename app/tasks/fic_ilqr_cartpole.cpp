@@ -136,10 +136,6 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-//    std::array<double, 6> pos {{0.61, -0.61, 0.61, -0.61, 0.04, 0.04}};
-//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 
     d = mj_makeData(m);
 
@@ -170,13 +166,13 @@ int main(int argc, const char** argv)
     StateVector initial_state; initial_state << 0, 0, 0, 0, 0, 0;
 
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<5000, 500, 50, 50, 50, 50;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<50, 50, 50, 5, 5, 5;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 500, 100, 100, 50, 50, 50;
+    StateVector x_running_gain_vec; x_running_gain_vec << 50, 10, 10, 5, 5, 5;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 100, 100, 100;
+    CtrlVector u_gain_vec; u_gain_vec << 25, 25, 25;
     CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
@@ -251,10 +247,9 @@ int main(int argc, const char** argv)
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
         CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 5};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
-        using namespace uoe;
-        FICController fic_ctrl;
+        uoe::FICController fic_ctrl;
         // install control callback
         using ControlType = uoe::FICController;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
@@ -286,16 +281,19 @@ int main(int argc, const char** argv)
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");
         Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
-        Buffer<RawType<CtrlVector>::type> pi_buffer{};
+        Buffer<RawType<CtrlVector>::type> fic_buffer{};
+
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
-        zmq_buffer.push_buffer(&pi_buffer);
+        zmq_buffer.push_buffer(&fic_buffer);
 
         std::vector<CtrlVector> temp;
         BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
-        StateVector temp_state;
-        CtrlVector temp_ctrl;
         auto iteration = 0;
+
+        Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
+        Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -307,16 +305,15 @@ int main(int argc, const char** argv)
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                ilqr.control(d);
-                MujocoUtils::fill_state_vector(d, temp_state, m);
-                PosVector pos_error = temp[iteration] - temp_state.block<n_jpos, 1>(0, 0);
+                PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
+                ilqr.control(d, iteration != static_cast<int>(params.m_sim_time / 2));
+                iteration = (iteration == static_cast<int>(params.m_sim_time / 2)) ? 0 : iteration;
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
-                MujocoUtils::fill_state_vector(d, temp_state, m);
-                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
                 ilqr_buffer.update(ilqr._cached_control.data(), true);
-                pi_buffer.update(pi._cached_control.data(), false);
+                fic_buffer.update(fic_ctrl._cached_control.data(), false);
                 zmq_buffer.send_buffers();
-                cost = running_cost(temp_state, temp_ctrl, d , m);
+                StateVector curr_state; curr_state << mapped_pos, mapped_vel;
+                cost = running_cost(curr_state, mapped_ctrl, d , m);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

@@ -26,7 +26,6 @@ private:
 };
 
 
-
 template<typename T, typename BufferType>
 class BaseBuffer
 {
@@ -62,7 +61,6 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
         memcpy(temp.data(), buffer_file_pair.first->get_begin(), BufferType::size);
         m_buffer_file_pair.template emplace_back(buffer_file_pair);
         m_buffer_vec.template emplace_back().template emplace_back(std::move(temp));
-
     }
 
     void push_buffers()
@@ -79,11 +77,8 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
 
     void save_data()
     {
-
         for(auto buffer = 0; buffer < m_buffer_vec.size(); ++buffer)
-        {
             BufferUtilities::save_to_file(m_buffer_file_pair[buffer].second, m_buffer_vec[buffer]);
-        }
 
     }
 

@@ -33,7 +33,7 @@ public:
          const std::vector<CtrlVector>* init_u = nullptr);
 
     ~ILQR();
-    void control(const mjData* d);
+    void control(const mjData* d, bool skip = false);
 
 private:
     void forward_simulate(const mjData* d);
