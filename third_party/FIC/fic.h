@@ -6,6 +6,9 @@
 #include "Eigen/Core"
 #include "../src/parameters/simulation_params.h"
 #include <cmath>
+#include <iostream>
+
+//Assumes the system is fully actuated therefore replaced PosVector and VelVector with CtrlVector
 
 template<typename Scalar>
 auto Sign = [](const Scalar x){return std::abs(x) == x ? 1 : -1;};
@@ -65,10 +68,11 @@ namespace uoe {
         }
         void setForceMax(double forceMax)
         {
-            if (forceMax <= 0.0) {
-                throw std::logic_error(
-                        "uoe::FIC: Invalid force max");
-            }
+//            if (forceMax <= 0.0) {
+//                std::cout << forceMax << std::endl;
+//                throw std::logic_error(
+//                        "uoe::FIC: Invalid force max");
+//            }
             _forceMax = forceMax;
         }
         double getStiffness() const
@@ -130,7 +134,7 @@ namespace uoe {
          */
 
         //TODO: remove dt
-        CtrlVector control(const PosVector& error)
+        CtrlVector control(const CtrlVector& error)
         {
             //Initialization
             if (!_isInit) {
@@ -196,8 +200,8 @@ namespace uoe {
          * Controller states
          */
         bool _isInit;
-        PosVector _lastPosError;
-        PosVector _lastDivergencePosError;
+        CtrlVector _lastPosError;
+        CtrlVector _lastDivergencePosError;
         CtrlVector _lastDivergenceEffort;
         CtrlVector _lastEffort;
     };
@@ -298,15 +302,15 @@ namespace uoe {
         /**
          * Return internal position, velocity and acceleration state
          */
-        const PosVector& getPos() const
+        const CtrlVector& getPos() const
         {
             return _posPlanner;
         }
-        const VelVector& getVel() const
+        const CtrlVector& getVel() const
         {
             return _velPlanner;
         }
-        const VelVector& getAcc() const
+        const CtrlVector& getAcc() const
         {
             return _accPlanner;
         }
@@ -315,7 +319,7 @@ namespace uoe {
          * Reset planner internal integrated
          * position and velocity
          */
-        void resetState(const PosVector& pos)
+        void resetState(const CtrlVector& pos)
         {
             _posPlanner = pos;
             _velPlanner.setZero();
@@ -339,9 +343,9 @@ namespace uoe {
          * Compute and return planned desired position from given
          * target position and time step in seconds
          */
-        PosVector plan(const PosVector& posDesired, double dt)
+        CtrlVector plan(const CtrlVector& posDesired, double dt)
         {
-            PosVector error = posDesired - _posPlanner;
+            CtrlVector error = posDesired - _posPlanner;
 
             //Initialization
             if (!_isInit) {
@@ -359,7 +363,7 @@ namespace uoe {
             //Damping Coefficient
             double gainDamping = _dampingRatio*(2.0*omega_n);
             if ((posDesired-_lastPosDesired).norm() > 1e-6) {
-                PosVector tmpError = (posDesired-_posPlanner).cwiseAbs();
+                CtrlVector tmpError = (posDesired-_posPlanner).cwiseAbs();
                 if (tmpError.norm() > 1e-6) {
                     //Clamp the error to the 0.001mm ball
                     tmpError = std::max(0.001, tmpError.norm())*tmpError.normalized();
@@ -422,14 +426,14 @@ namespace uoe {
          * Planner states
          */
         bool _isInit;
-        PosVector _lastPosError;
-        PosVector _lastDivergencePosError;
-        PosVector _lastPosDesired;
-        PosVector _posPlanner;
-        VelVector _velPlanner;
-        VelVector _accPlanner;
+        CtrlVector _lastPosError;
+        CtrlVector _lastDivergencePosError;
+        CtrlVector _lastPosDesired;
+        CtrlVector _posPlanner;
+        CtrlVector _velPlanner;
+        CtrlVector _accPlanner;
         double _stateVelMax;
-        PosVector _stateAccMax;
+        CtrlVector _stateAccMax;
     };
 
 }

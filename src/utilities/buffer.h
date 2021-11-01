@@ -10,7 +10,6 @@
 
 using namespace SimulationParameters;
 
-
 template<typename T>
 struct GenericBuffer
 {
@@ -63,6 +62,7 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
         m_buffer_vec.template emplace_back().template emplace_back(std::move(temp));
     }
 
+
     void push_buffers()
     {
 
@@ -79,7 +79,6 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
     {
         for(auto buffer = 0; buffer < m_buffer_vec.size(); ++buffer)
             BufferUtilities::save_to_file(m_buffer_file_pair[buffer].second, m_buffer_vec[buffer]);
-
     }
 
     std::vector<std::vector<typename BufferType::type>> m_buffer_vec;
