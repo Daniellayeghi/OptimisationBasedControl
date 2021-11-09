@@ -205,7 +205,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.015;
+        ctrl_var.diagonal()[elem] = 0.15;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -258,20 +258,21 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1 * not collision_cost(data, model) ; //* (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
+        return (state_error.transpose() * r_state_reg * state_error +
+        ctrl_error.transpose() * control_reg * ctrl_error) (0, 0) +
+        not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0) * 0.1;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + 100000; //not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0); //not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
     };
 
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {30, 75, 1, 1, 1, 1, 2, ctrl_mean, ddp_var, ctrl_var};
+    MPPIDDPParams params {10, 75, 0.1, 0, 1, 1, 1e3, ctrl_mean, ddp_var, ctrl_var};
     QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
     MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
 
@@ -333,14 +334,15 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
             ctrl_buffer.update(ilqr._cached_control.data(), true);
+            ilqr._u_traj = pi.m_control;
             pi_buffer.update(pi._cached_control.data(), false);
             zmq_buffer.send_buffers();
             MujocoUtils::fill_state_vector(d, temp_state, m);
             MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
             cost = running_cost(temp_state, temp_ctrl, d , m);
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

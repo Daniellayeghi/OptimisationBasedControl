@@ -19,6 +19,8 @@ using namespace std::chrono;
 namespace {
 // MuJoCo data structures
     mjModel *m = NULL;                  // MuJoCo model
+    mjModel *m_h = nullptr;
+    mjData *d_h = nullptr;
     mjData *d = NULL;                   // MuJoCo data
     mjvCamera cam;                      // abstract camera
     mjvOption opt;                      // visualization options
@@ -113,10 +115,13 @@ int main(int argc, const char** argv)
     char error[1000] = "Could not load binary model";
 
 
-    std::string model_path = "../../../models/planar_3d_examples/", name = "planar_good_comp_5";
+    std::string model_path = "../../../models/", name = "planar_3_link";
+    std::string model_path_2 = "../../../models/", name_2 = "planar_3_link_heavy";
+
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
+        m_h = mj_loadXML((model_path + name_2 + ".xml").c_str(), 0, error, 1000);
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
             m = mj_loadModel(argv[1], 0);
@@ -131,13 +136,10 @@ int main(int argc, const char** argv)
 
     // make data
     d = mj_makeData(m);
-
+    d_h = mj_makeData(m_h);
     // init GLFW
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
-
-
-    d = mj_makeData(m);
 
     // Assert against model params (literals)100
     using namespace SimulationParameters;
@@ -156,8 +158,8 @@ int main(int argc, const char** argv)
     mjv_defaultOption(&opt);
     mjv_defaultScene(&scn);
     mjr_defaultContext(&con);
-    mjv_makeScene(m, &scn, 2000);                // space for 2000 objects
-    mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
+    mjv_makeScene(m_h, &scn, 2000);                // space for 2000 objects
+    mjr_makeContext(m_h, &con, mjFONTSCALE_150);   // model-specific context
 
 
     StateVector x_desired; x_desired << M_PI*3+0.3, 0, 0, 0, 0, 0;
@@ -165,11 +167,10 @@ int main(int argc, const char** argv)
 
     StateVector initial_state; initial_state << 0, 0, 0, 0, 0, 0;
 
-
     StateVector x_terminal_gain_vec; x_terminal_gain_vec <<50, 50, 50, 5, 5, 5;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 50, 10, 10, 5, 5, 5;
+    StateVector x_running_gain_vec; x_running_gain_vec << 50, 50, 50, 5, 5, 5;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
     CtrlVector u_gain_vec; u_gain_vec << 25, 25, 25;
@@ -178,9 +179,6 @@ int main(int argc, const char** argv)
     CtrlMatrix du_gain;
     du_gain.setIdentity();
     du_gain *= 0;
-
-    CtrlVector u_control_1;
-    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -235,24 +233,23 @@ int main(int argc, const char** argv)
     std::array<unsigned int, 5> seeds {{2,3,4,5,6}};
     for (const auto seed : seeds) {
         // initial position
-        d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
-        d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
-
-        PosVector des; des << 0.45, 0, 0;
+        d_h->qpos[0] = 0; d_h->qpos[1] = 0; d_h->qpos[2] = 0;
+        d_h->qvel[0] = 0; d_h->qvel[1] = 0; d_h->qvel[2] = 0;
+        MujocoUtils::copy_data(m_h, d_h, d);
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{10, 75, 0.1, 0, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
         CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 3};
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 2};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         uoe::FICController fic_ctrl;
         // install control callback
         using ControlType = uoe::FICController;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m_h, d_h, fic_ctrl);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 /* ============================================CSV Output Files=======================================================*/
@@ -268,16 +265,15 @@ int main(int argc, const char** argv)
                               std::fstream::out | std::fstream::trunc);
 
         double cost;
-        GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
-        GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<PosVector> pos_bt{d_h->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
+        GenericBuffer<VelVector> vel_bt{d_h->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d_h->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
         GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
-
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");
         Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
@@ -291,9 +287,9 @@ int main(int argc, const char** argv)
         BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
         auto iteration = 0;
 
-        Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
-        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
-        Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
+        Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d_h->qpos);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d_h->qvel);
+        Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d_h->ctrl);
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -302,21 +298,21 @@ int main(int argc, const char** argv)
             //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
             //  this loop will finish on time for the next frame to be rendered at 60 fps.
             //  Otherwise add a cpu timer and exit this loop when it is time to render.
-            mjtNum simstart = d->time;
-            while (d->time - simstart < 1.0 / 60.0) {
+            mjtNum simstart = d_h->time;
+            while (d_h->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
-                ilqr.control(d, iteration != static_cast<int>(params.m_sim_time / 2));
+                ilqr.control(d_h, iteration != static_cast<int>(params.m_sim_time / 2));
                 iteration = (iteration == static_cast<int>(params.m_sim_time / 2)) ? 0 : iteration;
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
                 ilqr_buffer.update(ilqr._cached_control.data(), true);
                 fic_buffer.update(fic_ctrl._cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 StateVector curr_state; curr_state << mapped_pos, mapped_vel;
-                cost = running_cost(curr_state, mapped_ctrl, d , m);
+                cost = running_cost(curr_state, mapped_ctrl, d_h, m_h);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
-                mj_step(m, d);
+                mj_step(m_h, d_h);
                 ++iteration;
             }
 
@@ -326,7 +322,7 @@ int main(int argc, const char** argv)
             glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
             // update scene and render
-            mjv_updateScene(m, d, &opt, NULL, &cam, mjCAT_ALL, &scn);
+            mjv_updateScene(m_h, d_h, &opt, NULL, &cam, mjCAT_ALL, &scn);
             mjr_render(viewport, &scn, &con);
 
             // swap OpenGL buffers (blocking call due to v-sync)
@@ -350,8 +346,10 @@ int main(int argc, const char** argv)
     mjr_freeContext(&con);
 
     // free MuJoCo model and data, deactivate
-    mj_deleteData(d);
+    mj_deleteModel(m_h);
+    mj_deleteData(d_h);
     mj_deleteModel(m);
+    mj_deleteData(d);
     mj_deactivate();
 
 

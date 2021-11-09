@@ -2,6 +2,7 @@
 #include "mujoco.h"
 #include "ilqr.h"
 #include "../../src/utilities/mujoco_utils.h"
+#include "../../src/utilities/buffer_utils.h"
 
 using namespace MujocoUtils;
 using namespace SimulationParameters;
@@ -15,19 +16,14 @@ ILQR<state_size, ctrl_size>::ILQR(FiniteDifference<state_size, ctrl_size>& fd,
                                   const std::vector<CtrlVector>* init_u) :
 _fd(fd) ,_cf(cf), _m(m), m_params(params)
 {
-    _d_cp = mj_makeData(m);
-    _prev_total_cost = 0;
-    _regularizer.setIdentity();
+    _d_cp = mj_makeData(_m);
+    m_regularizer.setIdentity();
 
     exp_cost_reduction.assign(m_params.simulation_time, 0.0);
-
-
     m_d_vector.assign(m_params.simulation_time + 1,{0, StateVector::Zero(), StateMatrix::Zero(),
-                                            CtrlVector::Zero(), CtrlMatrix::Zero(), CtrlStateMatrix::Zero(),
-                                            StateMatrix::Zero(), StateCtrlMatrix::Zero()});
-
+                                                    CtrlVector::Zero(), CtrlMatrix::Zero(), CtrlStateMatrix::Zero(),
+                                                    StateMatrix::Zero(), StateCtrlMatrix::Zero()});
     m_bp_vector.assign(m_params.simulation_time + 1, {CtrlVector::Zero(), CtrlStateMatrix::Zero()});
-
     _x_traj_new.assign(m_params.simulation_time + 1, StateVector::Zero());
     _x_traj.assign(m_params.simulation_time + 1, StateVector::Zero());
     _u_traj_new.assign(m_params.simulation_time, CtrlVector::Zero());
@@ -37,31 +33,29 @@ _fd(fd) ,_cf(cf), _m(m), m_params(params)
     m_Qu_traj.assign(m_params.simulation_time, CtrlVector::Zero());
     m_Quu_traj.assign(m_params.simulation_time, CtrlMatrix::Zero());
 
-
+    copy_data(_m, d, _d_cp);
+    fill_state_vector(_d_cp, _x_traj.front(), _m);
     if(init_u == nullptr)
     {
         _u_traj.assign(m_params.simulation_time, CtrlVector::Random() * 0);
-
     }else
     {
         _u_traj = *init_u;
     }
 
     copy_data(m, d, _d_cp);
-    fill_state_vector(d, _x_traj.front(), _m);
     for (int time = 0; time < m_params.simulation_time; ++time)
     {
-        set_control_data(_d_cp, _u_traj[time], _m);
-        mj_step(m, _d_cp);
-        fill_state_vector(_d_cp, _x_traj[time+1], _m);
+        MujocoUtils::apply_ctrl_update_state(_u_traj[time], _x_traj[time+1], _d_cp, _m);
     }
     copy_data(m, d, _d_cp);
 
-    _backtrackers =  {{1.00000000e+00, 9.09090909e-01,
-                       6.83013455e-01, 4.24097618e-01,
-                       2.17629136e-01, 9.22959982e-02,
-                       3.23491843e-02, 9.37040641e-03,
-                       2.24320079e-03, 4.43805318e-04, 0.00000001}};
+
+    m_backtrackers =  {{1.00000000e+00, 9.09090909e-01,
+                        6.83013455e-01, 4.24097618e-01,
+                        2.17629136e-01, 9.22959982e-02,
+                        3.23491843e-02, 9.37040641e-03,
+                        2.24320079e-03, 4.43805318e-04, 0.00000001}};
 }
 
 
@@ -116,27 +110,27 @@ CtrlMatrix ILQR<state_size, ctrl_size>::Q_uu(int time, StateMatrix& _v_xx)
 template<int state_size, int ctrl_size>
 StateMatrix ILQR<state_size, ctrl_size>::Q_xx_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose() * _v_xx + _regularizer) * m_d_vector[time].fx;
+    return m_d_vector[time].lxx + (m_d_vector[time].fx.transpose() * _v_xx + m_regularizer) * m_d_vector[time].fx;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlStateMatrix ILQR<state_size, ctrl_size>::Q_ux_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].lux + (m_d_vector[time].fu.transpose() * (_v_xx + _regularizer)) * m_d_vector[time].fx;
+    return m_d_vector[time].lux + (m_d_vector[time].fu.transpose() * (_v_xx + m_regularizer)) * m_d_vector[time].fx;
 }
 
 template<int state_size, int ctrl_size>
 StateCtrlMatrix ILQR<state_size, ctrl_size>::Q_xu_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].fx.transpose() * (_v_xx + _regularizer) * m_d_vector[time].fu;
+    return m_d_vector[time].fx.transpose() * (_v_xx + m_regularizer) * m_d_vector[time].fu;
 }
 
 
 template<int state_size, int ctrl_size>
 CtrlMatrix ILQR<state_size, ctrl_size>::Q_uu_reg(int time, StateMatrix& _v_xx)
 {
-    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose() * (_v_xx+_regularizer)) * (m_d_vector[time].fu);
+    return m_d_vector[time].luu + (m_d_vector[time].fu.transpose() * (_v_xx + m_regularizer)) * (m_d_vector[time].fu);
 }
 
 
@@ -164,7 +158,6 @@ void ILQR<state_size, ctrl_size>::forward_simulate(const mjData* d)
     m_d_vector.back().l = _cf.terminal_cost(_d_cp);
     m_d_vector.back().lx = _cf.Lf_x(_d_cp);
     m_d_vector.back().lxx = _cf.Lf_xx();
-    copy_data(_m, d, _d_cp);
 }
 
 template<int state_size, int ctrl_size>
@@ -176,10 +169,10 @@ bool ILQR<state_size, ctrl_size>::minimal_grad()
         ctrl_k_ratio += (m_bp_vector[iter].ff_k.cwiseAbs().template cwiseProduct(
                         (_u_traj[iter].cwiseAbs() + CtrlVector::Ones()).cwiseInverse()).maxCoeff());
     }
-    if(ctrl_k_ratio/_u_traj.size() < 1e-4 and _regularizer(0, 0) < m_params.min_reg)
+    if(ctrl_k_ratio/_u_traj.size() < 1e-4 and m_regularizer(0, 0) < m_params.min_reg)
     {
         m_params.delta = std::min(m_params.delta_init, m_params.delta/m_params.delta_init);
-        _regularizer = _regularizer * m_params.delta * (_regularizer(0, 0) > m_params.min_reg);
+        m_regularizer = m_regularizer * m_params.delta * (m_regularizer(0, 0) > m_params.min_reg);
         return true;
     }
     return false;
@@ -224,7 +217,7 @@ void ILQR<state_size, ctrl_size>::backward_pass()
             auto p = lltOfA.info() == Eigen::NumericalIssue;
             if (p) {
                 non_pd_path = true; update_regularizer(true);
-                m_good_backpass = (_regularizer * m_params.delta)(0, 0) < 1e10;
+                m_good_backpass = (m_regularizer * m_params.delta)(0, 0) < 1e10;
                 break;
             }
 
@@ -277,21 +270,21 @@ void ILQR<state_size, ctrl_size>::update_regularizer(const bool increase)
     if(increase)
     {
         m_params.delta = std::max(m_params.delta_init, m_params.delta * m_params.delta_init);
-        auto reg_elem = std::max(_regularizer(0, 0)*m_params.delta, m_params.min_reg);
-        _regularizer = StateMatrix::Identity() * reg_elem;
+        auto reg_elem = std::max(m_regularizer(0, 0) * m_params.delta, m_params.min_reg);
+        m_regularizer = StateMatrix::Identity() * reg_elem;
 //        // All elements are equal hence the (0, 0) comparison
-//        if ((_regularizer * m_params.delta)(0, 0) > m_params.min_reg) {
-//            _regularizer = _regularizer * m_params.delta;
+//        if ((m_regularizer * m_params.delta)(0, 0) > m_params.min_reg) {
+//            m_regularizer = m_regularizer * m_params.delta;
 //        } else {
-//            _regularizer = StateMatrix::Identity() * m_params.min_reg;
+//            m_regularizer = StateMatrix::Identity() * m_params.min_reg;
 //        }
     }else
     {
         m_params.delta = std::min(1.0/m_params.delta_init, m_params.delta/m_params.delta_init);
-        if ((_regularizer * m_params.delta)(0, 0) > m_params.min_reg) {
-            _regularizer = _regularizer * m_params.delta;
+        if ((m_regularizer * m_params.delta)(0, 0) > m_params.min_reg) {
+            m_regularizer = m_regularizer * m_params.delta;
         } else {
-            _regularizer = StateMatrix::Zero();
+            m_regularizer = StateMatrix::Zero();
         }
     }
 }
@@ -317,10 +310,9 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
     auto expected_cost_red = 0.0; auto new_total_cost = 0.0; auto cost_red_ratio = 0.0;
 
     //TODO Regularize the Quu inversion instead
-    for (const auto &backtracker : _backtrackers)
+    for (const auto &backtracker : m_backtrackers)
     {
         std::fill(_u_traj_new.begin(), _u_traj_new.end(), CtrlVector::Zero());
-
         copy_data(_m, d, _d_cp);
         _x_traj_new.front() = _x_traj.front();
         for (auto time = 0; time < m_params.simulation_time; ++time)
@@ -346,7 +338,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             _x_traj = _x_traj_new;
             _covariance = _covariance_new;
             printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f, Update = %s, last_position = %f\n",
-                   _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, _regularizer(0.0), status.c_str(), _x_traj_new.front()(0, 0));
+                   _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, m_regularizer(0.0), status.c_str(), _x_traj_new.front()(0, 0));
 
             break;
         }
@@ -363,7 +355,7 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d, const bool skip)
 {
     if (not skip) {
         m_params.delta = m_params.delta_init;
-        _regularizer.setIdentity();
+        m_regularizer.setIdentity();
         for (auto iteration = 0; iteration < m_params.iteration; ++iteration) {
             fill_state_vector(d, _x_traj.front(), _m);
             forward_simulate(d);
@@ -373,8 +365,8 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d, const bool skip)
             _cf.m_u_prev = _u_traj.front();
             cost.emplace_back(_prev_total_cost);
         }
-        _cached_control = _u_traj.front();
     }
+    _cached_control = _u_traj.front();
     //    std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
     _u_traj.back() = CtrlVector::Zero();

@@ -27,10 +27,10 @@ public:
 
 private:
     std::vector<SimulationParameters::CtrlVector> ctrl_buffer;
-    bool m_comp_gravity;
     const T& controls;
     const mjModel* _m;
     mjData* _d;
+    bool m_comp_gravity;
     Eigen::Map<CtrlVector> m_grav_comp;
 };
 

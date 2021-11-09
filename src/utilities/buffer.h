@@ -87,16 +87,19 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
 
 
 template<typename BufferType>
-class DummyBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
+class DummyBuffer : public BaseBuffer<DummyBuffer<BufferType>, BufferType>
 {
-    friend class BaseBuffer<DataBuffer<BufferType>, BufferType> ;
-    void add_buffer_file_pair(const mjData *data, BufferType& buffer)
+    friend class BaseBuffer<DummyBuffer<BufferType>, BufferType> ;
+    void add_buffer_file_pair(const FastPair<BufferType*, std::fstream*>& buffer_file_pair){
+
+    }
+
+    void push_buffers()
     {
 
     }
 
-
-    void save_data(std::fstream& pos_file, std::fstream& vel_file, std::fstream& ctrl_file)
+    void save_data()
     {
 
     }

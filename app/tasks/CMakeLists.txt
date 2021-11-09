@@ -15,7 +15,7 @@ set(SOURCE_FILES
         mppi_ilqr_planar_push_2d.cpp
         mppi_ilqr_sh_hand.cpp
 #        fic_ilqr_planar_3_link.cpp
-        fic_ilqr_cartpole.cpp
+#        fic_ilqr_cartpole.cpp
         )
 
 include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZeroMQ_INCLUDE_DIR})

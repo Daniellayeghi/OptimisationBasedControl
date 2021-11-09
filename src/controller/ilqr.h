@@ -83,8 +83,8 @@ private:
     ILQRParams& m_params;
     mjData* _d_cp = nullptr;
 
-    std::array<double, 11> _backtrackers{};
-    StateMatrix _regularizer;
+    std::array<double, 11> m_backtrackers{};
+    StateMatrix m_regularizer;
 
 public:
     CtrlVector _cached_control;

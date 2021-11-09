@@ -55,7 +55,7 @@ public:
     {
 
         m_ddp_variance_inv = ddp_covariance.llt().solve(CtrlMatrix::Identity());
-
+//        std::cout << "HEss Gain: " << m_ddp_variance_inv << std::endl;
         CtrlVector new_control = control + delta_control;
 
         auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
@@ -65,6 +65,7 @@ public:
         double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
                            new_control.transpose() * m_ctrl_variance_inv * new_control
                            )(0, 0) * m_params.importance;
+
 
         double pi_bias = (2 * (new_control.transpose() * m_ctrl_variance_inv * control) -
                           control.transpose() * m_ctrl_variance_inv * control
@@ -130,13 +131,13 @@ private:
     std::vector<StateVector> m_state_new;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
-    std::vector<std::vector<double>> m_cost_to_go_sample_time;
+//    std::vector<std::vector<double>> m_cost_to_go_sample_time;
     std::vector<CtrlMatrix> m_ddp_cov_vec;
 
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
-    Eigen::Matrix<CtrlVector, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samp_time;
+//    Eigen::Matrix<CtrlVector, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samp_time;
     double m_prev_cost = 0;
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;

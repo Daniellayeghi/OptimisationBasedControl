@@ -212,7 +212,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    std::array<unsigned int, 5> seeds {{2,3,4,5,6}};
+    std::array<unsigned int, 5> seeds {{3,3,4,5,6}};
     for (const auto seed : seeds) {
         // initial position
         d->qpos[0] = 0;
@@ -221,7 +221,7 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{12, 75, 0.1, 1, 1, 1, 1e3, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -250,10 +250,10 @@ int main(int argc, const char** argv)
                               std::fstream::out | std::fstream::trunc);
 
         double cost;
-        GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
-        GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+        GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
+        GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
@@ -287,7 +287,7 @@ int main(int argc, const char** argv)
                 cost = running_cost(temp_state, temp_ctrl, d , m);
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);
-//                zmq_buffer.send_buffers();
+                zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

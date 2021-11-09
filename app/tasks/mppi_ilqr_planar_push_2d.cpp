@@ -33,6 +33,7 @@ namespace {
 
 // mouse interaction
     bool button_left = false;
+    bool toggle_importance = false;
     bool button_middle = false;
     bool button_right = false;
     bool save_data = false;
@@ -50,9 +51,12 @@ namespace {
     void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     {
         // backspace: reset simulation
-        if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
+        if(act==GLFW_PRESS && key==GLFW_KEY_HOME)
         {
             save_data = true;
+        }else if(act==GLFW_PRESS && key==GLFW_KEY_1)
+        {
+            toggle_importance = not toggle_importance;
         }
     }
 
@@ -168,25 +172,19 @@ int main(int argc, const char** argv)
     CtrlVector u_desired; u_desired << 0, 0, 0;
 
     StateVector x_terminal_gain_vec;
-    x_terminal_gain_vec << 0, 0, 0, 100000, 100000, 0, 0, 0, 500, 500;
-    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
-
+    x_terminal_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 10, 10;
+    StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
     StateVector x_gain_vec;
-    x_gain_vec << 0, 0, 0, 100000, 100000, 0, 0, 0, 0, 0;
-    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
+    x_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 0, 0;
+    StateMatrix x_gain = x_gain_vec.asDiagonal();
 
-
-    CtrlVector u_gain_vec; u_gain_vec << 0.0000001, 0.0000001, 0.0000001;
-    CtrlMatrix u_gain;
-    u_gain = u_gain_vec.asDiagonal();
+    CtrlVector u_gain_vec; u_gain_vec << 1, 1, 1;
+    CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
     du_gain *= 0;
-
-    CtrlVector u_control_1;
-    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -195,21 +193,18 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position     StateVector initial_state; initial_state <<  0, 0, 0, 0.20536, 0.1585, 0.0223, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-    StateVector initial_state; initial_state <<  0, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
+    StateVector initial_state; initial_state <<  -M_PI_2 + 0.1, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
+        ctrl_var.diagonal()[elem] = 0.15;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
-    StateMatrix r_state_reg; r_state_reg = x_gain;
-
-    CtrlVector control_reg_vec;
-    control_reg_vec = u_gain_vec;
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain * 0.0001;
+    StateMatrix r_state_reg; r_state_reg = x_gain * 0.0001;
     CtrlMatrix control_reg = u_gain_vec.asDiagonal();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
@@ -229,11 +224,12 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-        (0, 0) + (not collision_cost(data, model) * 10000) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+        const StateVector state_error = x_desired - state_vector;
+        const CtrlVector ctrl_error = u_desired - ctrl_vector;
+        const double ctrl_cst = (ctrl_error.transpose() * control_reg * ctrl_error)(0, 0);
+        const double state_cst = (state_error.transpose() * r_state_reg * state_error)(0, 0);
+        return ctrl_cst + state_cst + (not collision_cost(data, model) * 1000) * state_cst;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -249,7 +245,7 @@ int main(int argc, const char** argv)
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
         //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
         // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-        MPPIDDPParams params{30, 75, 0.1, 0, 1, 1, 1e-8, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{100, 75, 0.1, 0, 1, 1, 1e6, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -278,10 +274,10 @@ int main(int argc, const char** argv)
                               std::fstream::out | std::fstream::trunc);
 
         double cost;
-        GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
-        GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+        GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
+        GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
@@ -309,6 +305,8 @@ int main(int argc, const char** argv)
 
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
+                params.importance = toggle_importance;
+                std::cout << params.importance << std::endl;
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);

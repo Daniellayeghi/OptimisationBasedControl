@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1,0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -270,8 +270,8 @@ int main(int argc, const char** argv)
 
 //        std::vector<CtrlVector> temp;
 //        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
-        auto iteration = 0;
 
+        auto iteration = 0;
         Eigen::Map<CtrlVector> mapped_pos_act = Eigen::Map<CtrlVector>(d->qpos);
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
