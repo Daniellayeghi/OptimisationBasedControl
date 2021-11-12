@@ -247,9 +247,10 @@ int main(int argc, const char** argv)
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 2};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         uoe::FICController fic_ctrl;
+
         // install control callback
-        using ControlType = uoe::FICController;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m_h, d_h, fic_ctrl);
+        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m_h, d_h, ilqr);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 /* ============================================CSV Output Files=======================================================*/
@@ -278,18 +279,17 @@ int main(int argc, const char** argv)
         printf("Connecting to viewer server…\n");
         Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
         Buffer<RawType<CtrlVector>::type> fic_buffer{};
-
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&fic_buffer);
 
         std::vector<CtrlVector> temp;
-        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
-        auto iteration = 0;
+        BufferUtilities::read_csv_file("../../../data/fic_planar_sample.csv", temp, ',');
 
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d_h->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d_h->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d_h->ctrl);
+        int iteration = 0;
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -299,7 +299,8 @@ int main(int argc, const char** argv)
             //  this loop will finish on time for the next frame to be rendered at 60 fps.
             //  Otherwise add a cpu timer and exit this loop when it is time to render.
             mjtNum simstart = d_h->time;
-            while (d_h->time - simstart < 1.0 / 60.0) {
+            while (d_h->time - simstart < 1.0 / 60.0)
+            {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
                 ilqr.control(d_h, iteration != static_cast<int>(params.m_sim_time / 2));
@@ -308,9 +309,13 @@ int main(int argc, const char** argv)
                 ilqr_buffer.update(ilqr._cached_control.data(), true);
                 fic_buffer.update(fic_ctrl._cached_control.data(), false);
                 zmq_buffer.send_buffers();
-                StateVector curr_state; curr_state << mapped_pos, mapped_vel;
+                StateVector curr_state;
+                curr_state << mapped_pos, mapped_vel;
                 cost = running_cost(curr_state, mapped_ctrl, d_h, m_h);
-                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
+                pos_buff.push_buffer();
+                vel_buff.push_buffer();
+                ctrl_buff.push_buffer();
+                cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m_h, d_h);
                 ++iteration;

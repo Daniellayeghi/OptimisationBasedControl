@@ -332,7 +332,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
         // NOTE: Not doing this and updating regardless of the cost can lead to better performance!
         if(cost_red_ratio >= m_params.min_cost_red) {
             status = "Y";
-            update_regularizer(false);
+//            update_regularizer(false);
             _u_traj = _u_traj_new;
             _u_traj_cp = _u_traj;
             _x_traj = _x_traj_new;
@@ -343,7 +343,7 @@ void ILQR<state_size, ctrl_size>::forward_pass(const mjData* d)
             break;
         }
         else if (cost_red_ratio < 0){
-            update_regularizer(true);
+//            update_regularizer(true);
             status = "N";
         }
     }
@@ -366,8 +366,12 @@ void ILQR<state_size, ctrl_size>::control(const mjData* d, const bool skip)
             cost.emplace_back(_prev_total_cost);
         }
     }
+    else{
+        std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
+        _covariance.back() = CtrlMatrix::Identity() * 0.15;
+
+    }
     _cached_control = _u_traj.front();
-    //    std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
     std::rotate(_u_traj.begin(), _u_traj.begin() + 1, _u_traj.end());
     _u_traj.back() = CtrlVector::Zero();
 

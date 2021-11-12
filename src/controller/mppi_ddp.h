@@ -58,13 +58,17 @@ public:
 //        std::cout << "HEss Gain: " << m_ddp_variance_inv << std::endl;
         CtrlVector new_control = control + delta_control;
 
-        auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
-                2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
-                );
+        double ddp_bias = ((new_control - ddp_mean_control).transpose() * m_ddp_variance_inv *  (new_control - ddp_mean_control))(0, 0);
+        ddp_bias += (new_control.transpose() * m_ctrl_variance_inv * new_control)(0, 0);
+        ddp_bias *= m_params.importance;;
 
-        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
-                           new_control.transpose() * m_ctrl_variance_inv * new_control
-                           )(0, 0) * m_params.importance;
+//        auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
+//                2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
+//                );
+//
+//        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
+//                           new_control.transpose() * m_ctrl_variance_inv * new_control
+//                           )(0, 0) * m_params.importance;
 
 
         double pi_bias = (2 * (new_control.transpose() * m_ctrl_variance_inv * control) -
@@ -105,30 +109,27 @@ public:
 
     ~MPPIDDP();
 
-    void control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance);
+    void control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance, bool skip = false);
 
     CtrlVector _cached_control;
     std::vector<CtrlVector> m_control;
     std::vector<CtrlVector> m_control_filtered;
     std::vector<CtrlVector> m_control_new;
     std::vector<CtrlVector> m_control_cp;
+    std::vector<StateVector> m_state_new;
     double traj_cost{};
 
 private:
-
     FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
     FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost, double normaliser);
     void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);
-    void prepare_control_mpc();
+    void prepare_control_mpc(bool skip = false);
     double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
-    bool accepted_trajectory();
 
+    bool accepted_trajectory();
     MPPIDDPParams& m_params;
     std::vector<CtrlMatrix> covariance;
     QRCostDDP<state_size, ctrl_size>& m_cost_func;
-
-    //  Data
-    std::vector<StateVector> m_state_new;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
 //    std::vector<std::vector<double>> m_cost_to_go_sample_time;

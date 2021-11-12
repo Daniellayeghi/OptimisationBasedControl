@@ -188,15 +188,15 @@ int main(int argc, const char** argv)
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
+        ctrl_var.diagonal()[elem] = 0.5;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg = x_terminal_gain;
-    StateMatrix r_state_reg = x_gain;
+    StateMatrix t_state_reg = StateMatrix::Zero();// = x_terminal_gain;
+    StateMatrix r_state_reg = StateMatrix::Zero(); // = x_gain;
 
-    CtrlMatrix control_reg; control_reg.setIdentity();
-    control_reg = u_gain;
+    CtrlMatrix control_reg;
+    control_reg = CtrlMatrix::Zero();//u_gain;
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
@@ -221,7 +221,7 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{12, 75, 0.1, 1, 1, 1, 1e3, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{100, 75, 0.1, 1, 1, 1, 1e6, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -235,32 +235,30 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
-
 /* ============================================CSV Output Files=======================================================*/
-        std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-
-        const std::string mode = "ddp_warm";
-        std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
-                              std::fstream::out | std::fstream::trunc);
-        std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
-                               std::fstream::out | std::fstream::trunc);
-        std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
-                              std::fstream::out | std::fstream::trunc);
-        std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + std::to_string(seed) +  ".csv",
-                              std::fstream::out | std::fstream::trunc);
+        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+        const std::string mode = "check_KL" + std::to_string(int(params.importance)) + std::to_string(seed);
+        std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream ctrl_data(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream pos_data(path + name + "_pos_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream vel_data(path + name + "_vel_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream ctrl_data_pi(path + name + "_ctrl_pi" + mode + ".csv", std::fstream::out | std::fstream::trunc);
 
         double cost;
         GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
         GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
         GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost};
+        DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
         StateVector temp_state;
-        CtrlVector temp_ctrl;
+        Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
+        Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");
         Buffer<RawType<CtrlVector>::type> ctrl_buffer{};
@@ -277,20 +275,26 @@ int main(int argc, const char** argv)
             //  this loop will finish on time for the next frame to be rendered at 60 fps.
             //  Otherwise add a cpu timer and exit this loop when it is time to render.
             mjtNum simstart = d->time;
-            while (d->time - simstart < 1.0 / 60.0) {
+            while (d->time - simstart < 1.0 / 60.0)
+            {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
+                BufferUtilities::save_to_file(&ctrl_data, ilqr._u_traj);
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
+                BufferUtilities::save_to_file(&ctrl_data_pi, pi.m_control);
+                ctrl_data.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+                BufferUtilities::save_to_file(&ctrl_data, ilqr._u_traj);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
-                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
-                cost = running_cost(temp_state, temp_ctrl, d , m);
+                cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
                 pi_buffer.update(pi._cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
+                ctrl_data.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+                ctrl_data_pi.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -310,7 +314,7 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
+//                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));

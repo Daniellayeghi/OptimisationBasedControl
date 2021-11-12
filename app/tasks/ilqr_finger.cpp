@@ -5,6 +5,7 @@
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/utilities/zmq_utils.h"
 
 // for sleep timers
 #include <random>
@@ -160,20 +161,20 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0+2*M_PI, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0;
 
 
-    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 15000000, 5000, 5000, 50000;
+    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 500, .05, .05, 5;
     StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
 
 
-    StateVector  x_gain_vec; x_gain_vec << 0, 0, 15000, 0.05, 0.05, 0;
+    StateVector  x_gain_vec; x_gain_vec << 0, 0, 500, 0, 0, 0;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.0001;
+    u_gain *= 50;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -189,7 +190,7 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     // initial position
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = -.8;
+    d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
@@ -204,6 +205,14 @@ int main(int argc, const char** argv)
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+
+    printf("Connecting to viewer server…\n");
+    Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
+    Buffer<RawType<CtrlVector>::type> pi_buffer{};
+    ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+    zmq_buffer.push_buffer(&ilqr_buffer);
+    zmq_buffer.push_buffer(&pi_buffer);
+
     std::fstream cost_mpc(path + ("finger_cost_mpc.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream ctrl_data(path + ("finger_ctrl.csv"), std::fstream::out | std::fstream::trunc);
     std::fstream pos_data(path + ("finger_pos.csv"), std::fstream::out | std::fstream::trunc);
@@ -235,6 +244,8 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
+            ilqr_buffer.update(ilqr._cached_control.data(), true);
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

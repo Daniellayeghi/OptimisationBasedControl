@@ -2,6 +2,9 @@
 #define OPTCONTROL_MUJOCO_GENERIC_UTILS_H
 
 #include <numeric>
+#include <chrono>
+#include <iostream>
+#include <utility>
 
 namespace GenericUtils
 {
@@ -40,6 +43,27 @@ namespace GenericUtils
         result[0] = input[0];
         result[1] = input[1];
     }
+
+
+    struct TimeBench
+    {
+        std::chrono::time_point<std::chrono::steady_clock> m_start, m_end;
+        std::chrono::duration<double> duration;
+        const std::string m_id;
+
+        TimeBench(std::string id = "") : m_id(std::move(id))
+        {
+            m_start = std::chrono::steady_clock::now();
+        }
+    public:
+        ~TimeBench()
+        {
+            m_end = std::chrono::steady_clock::now();
+            duration = m_end - m_start;
+            std::cout << "["<< m_id << "]" << " Computation took: " << duration.count() * 1000.0 << " ms" << "\n";
+        }
+    };
+
 }
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_UTILS_H

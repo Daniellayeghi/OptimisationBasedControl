@@ -1,21 +1,19 @@
 
 #include "mujoco.h"
-#include "cstdio"
-#include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
-#include <random>
-#include "../third_party/FIC/fic.h"
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/mujoco_utils.h"
+#include "../../third_party/FIC/fic.h"
 
 // for sleep timers
 #include <chrono>
 #include <thread>
+
 using namespace std;
 using namespace std::chrono;
 // local variables include
@@ -28,11 +26,18 @@ mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
+std::random_device r;
+
+// Choose a random mean between 1 and 6
+std::default_random_engine e1(r());
+std::uniform_real_distribution<double> uniform_dist(0, 1);
+int mean = uniform_dist(e1);
+
 // mouse interaction
-bool button_left = false;
+bool button_left   = false;
 bool button_middle = false;
-bool button_right =  false;
-bool save_data    = false;
+bool button_right  = false;
+bool save_data     = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -103,18 +108,18 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
-
 // main function
 int main(int argc, const char** argv)
 {
 
+    // activate software
     mj_activate(MUJ_KEY_PATH);
 
     // load and compile model
     char error[1000] = "Could not load binary model";
 
-    std::string model_path = "../../../models/", name = "cartpole";
 
+    std::string model_path = "../../../models/", name = "finger";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
@@ -158,21 +163,25 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0;
-    CtrlVector u_desired; u_desired << 0;
+    StateVector x_desired; x_desired << 0, 0, 0+2*M_PI, 0, 0, 0;
+    CtrlVector u_desired; u_desired << 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
-    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
-    StateVector x_gain_vec; x_gain_vec << 2, 2, 0, 0;
-    StateMatrix x_gain = x_gain_vec.asDiagonal();
-
+    // Cost functions
+    StateVector  x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 500, .05, .05, 5;
+    StateMatrix x_terminal_gain; x_terminal_gain =  x_terminal_gain_vec.asDiagonal();
+    StateVector  x_gain_vec; x_gain_vec << 0, 0, 500, 0, 0, 0;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 0.005;
+    u_gain *= 50;
+
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
     du_gain *= 0;
+
+    CtrlVector u_control_1;
+    StateVector x_state_1;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -180,52 +189,74 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
+    // initial position
+    d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
+    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
+    CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
-    CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
-        ddp_var.diagonal()[elem] = 0.001;
+        ctrl_var.diagonal()[elem] = 0.15;
+        ddp_var.diagonal()[elem] = 0.0001;
     }
 
-    StateMatrix t_state_reg = x_terminal_gain;
-    StateMatrix r_state_reg = x_gain;
+//    StateVector state_reg_vec; state_reg_vec << 0, 0, 500, .5, .5, 50;
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
 
-    CtrlMatrix control_reg; control_reg.setIdentity();
-    control_reg = u_gain;
+    CtrlVector control_reg_vec;
+    CtrlMatrix control_reg; control_reg = u_gain;
+
+//    StateVector r_state_reg_vec; r_state_reg_vec << 0, 0, 500, 0, 0, 0;
+    StateMatrix r_state_reg; r_state_reg = x_gain;
+
+
+    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        const constexpr std::array<int, 3> joint_list {{0, 1, 2}};
+
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                const auto first_geom = model->geom_bodyid[data->contact[i].geom1];
+                const auto second_geom = model->geom_bodyid[data->contact[i].geom2];
+                const bool check_1 = (std::find(joint_list.begin(), joint_list.end(), first_geom) != joint_list.end());
+                const bool check_2 = (std::find(joint_list.begin(), joint_list.end(), second_geom) != joint_list.end());
+                if (check_1 != check_2) return true;
+            }
+        return false;
+    };
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0);
+                       (0, 0) + not collision_cost(data, model)  * state_error.transpose() * r_state_reg * state_error;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model)  * state_error.transpose() * t_state_reg * state_error;
     };
 
-    std::array<unsigned int, 5> seeds {{2,3,4,5,6}};
-    for (const auto seed : seeds) {
-        // initial position
-        d->qpos[0] = 0;
-        d->qpos[1] = M_PI;
-        d->qvel[0] = 0;
-        d->qvel[1] = 0;
 
-        // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1,0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
+    std::array<unsigned int, 5> seeds {{2, 3, 4, 5, 6}};
+    for (const auto seed : seeds)
+    {
+        // initial position
+        d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
+        d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
+
+        MPPIDDPParams params{20, 75, 0.1, 1, 1, 1, 100, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 4};
+        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,
+                                                        m);
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75,  5};
         ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         uoe::FICController fic_ctrl;
 
@@ -237,16 +268,22 @@ int main(int argc, const char** argv)
 
 /* ============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+        printf("Connecting to viewer server…\n");
+        Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
+        Buffer<RawType<CtrlVector>::type> pi_buffer{};
+        ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        zmq_buffer.push_buffer(&ilqr_buffer);
+        zmq_buffer.push_buffer(&pi_buffer);
 
-        const std::string mode = "ddp_warm";
-        std::fstream cost_mpc(path += name += "_cost_mpc_" + mode + std::to_string(int(params.importance)) +
-        std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
-        std::fstream ctrl_data(path += name += "_ctrl_" + mode + std::to_string(int(params.importance)) +
-        std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
-        std::fstream pos_data(path += name += "_pos_" + mode + std::to_string(int(params.importance)) +
-        std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
-        std::fstream vel_data(path += name += "_vel_" + mode + std::to_string(int(params.importance)) +
-        std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
+        const std::string mode = "pi_ddp";
+        std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + std::to_string(int(params.importance)) +
+                              std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream ctrl_data(path + name + "_ctrl_" + mode + std::to_string(int(params.importance)) +
+                               std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream pos_data(path + name + "_pos_" + mode + std::to_string(int(params.importance)) +
+                              std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) +
+                              std::to_string(seed) +  ".csv", std::fstream::out | std::fstream::trunc);
 
         double cost;
         GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
@@ -260,22 +297,13 @@ int main(int argc, const char** argv)
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
         StateVector temp_state;
         CtrlVector temp_ctrl;
-/* ==================================================IPC=======================================================*/
-        printf("Connecting to viewer server…\n");
-        Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
-        Buffer<RawType<CtrlVector>::type> fic_buffer{};
-        ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-        zmq_buffer.push_buffer(&ilqr_buffer);
-        zmq_buffer.push_buffer(&fic_buffer);
+        mj_step(m, d);
 
-//        std::vector<CtrlVector> temp;
-//        BufferUtilities::read_csv_file("/home/daniel/Repos/OptimisationBasedControl/data/fic_planar_sample.csv", temp, ',');
-
-        auto iteration = 0;
-        Eigen::Map<CtrlVector> mapped_pos_act = Eigen::Map<CtrlVector>(d->qpos);
-        Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
+        Eigen::Map<CtrlVector> mapped_pos = Eigen::Map<CtrlVector>(d->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
+
+        auto iteration = 0;
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -287,22 +315,21 @@ int main(int argc, const char** argv)
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
-                ilqr.control(d_h, iteration != static_cast<int>(params.m_sim_time / 2));
-                iteration = (iteration == static_cast<int>(params.m_sim_time / 2)) ? 0 : iteration;
+                const auto skip = iteration % static_cast<int>(params.m_sim_time / 2);
+                ilqr.control(d, skip);
+                iteration = (iteration == static_cast<int>(params.m_sim_time) ? 0 : iteration);
+                //pi.control(d, ilqr._u_traj, ilqr._covariance, skip);
+//                ilqr._u_traj = pi.m_control;
+                CtrlVector pos_error =  ilqr._x_traj[iteration].block<n_ctrl, 1>(0, 0) - mapped_pos;
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
                 ilqr_buffer.update(ilqr._cached_control.data(), true);
-                fic_buffer.update(fic_ctrl._cached_control.data(), false);
+                pi_buffer.update(fic_ctrl._cached_control.data(), false);
+                MujocoUtils::fill_state_vector(d, temp_state, m);
+                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 zmq_buffer.send_buffers();
-                StateVector curr_state;
-                curr_state << mapped_pos, mapped_vel;
-                cost = running_cost(curr_state, mapped_ctrl, d_h, m_h);
-                pos_buff.push_buffer();
-                vel_buff.push_buffer();
-                ctrl_buff.push_buffer();
-                cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
-                mj_step(m_h, d_h);
+                mj_step(m, d);
                 ++iteration;
             }
 
@@ -321,15 +348,13 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (save_data)
-            {
+            if (save_data) {
                 pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 break;
             }
-
         }
     }
     // free visualization storage
@@ -340,10 +365,6 @@ int main(int argc, const char** argv)
     mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
-
-    // terminate ipc
-//    zmq_close (requester);
-//    zmq_ctx_destroy (context);
 
     // terminate GLFW (crashes with Linux NVidia drivers)
 #if defined(__APPLE__) || defined(_WIN32)

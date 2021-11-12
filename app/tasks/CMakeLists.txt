@@ -14,6 +14,7 @@ set(SOURCE_FILES
         mppi_ilqr_planar_push.cpp
         mppi_ilqr_planar_push_2d.cpp
         mppi_ilqr_sh_hand.cpp
+        fic_ilqr_mppi_finger.cpp
 #        fic_ilqr_planar_3_link.cpp
 #        fic_ilqr_cartpole.cpp
         )

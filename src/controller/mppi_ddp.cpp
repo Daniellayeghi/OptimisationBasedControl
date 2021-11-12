@@ -121,12 +121,15 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
 
 
 template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::prepare_control_mpc()
+void MPPIDDP<state_size, ctrl_size>::prepare_control_mpc(const bool skip)
 {
-    MujocoUtils::rollout_dynamics(m_control_new, m_state_new, m_d_cp, m_m);
-    traj_cost = compute_trajectory_cost(m_control_new, m_state_new);
-    _cached_control = m_control.front();
-    m_control_cp = m_control;
+    if (not skip)
+    {
+        MujocoUtils::rollout_dynamics(m_control_new, m_state_new, m_d_cp, m_m);
+        traj_cost = compute_trajectory_cost(m_control_new, m_state_new);
+        _cached_control = m_control.front();
+        m_control_cp = m_control;
+    }
     std::rotate(m_control.begin(), m_control.begin() + 1, m_control.end());
     m_control.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
 }
@@ -143,14 +146,17 @@ void MPPIDDP<state_size, ctrl_size>::regularise_ddp_variance(std::vector<CtrlMat
 
 
 template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance) {
+void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance, const bool skip) {
 
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
-    regularise_ddp_variance(ddp_variance);
-    for (auto iteration = 0; iteration < m_params.iteration; ++iteration) {
-        CtrlVector instant_control;
-        fill_state_vector(d, m_state_new.front(), m_m);
-        std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
+    if (not skip)
+    {
+        regularise_ddp_variance(ddp_variance);
+        for (auto iteration = 0; iteration < m_params.iteration; ++iteration)
+        {
+            CtrlVector instant_control;
+            fill_state_vector(d, m_state_new.front(), m_m);
+            std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
 //        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
 //        m_normX_cholesk.setCovar(m_params.ctrl_variance);
 //        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
@@ -158,42 +164,49 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
 /*      Update distribution params.
         m_normX_cholesk.setCovar(m_params.ctrl_variance);
         std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
+        f
 */
-        for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
-            // Variance not adapted in this case
-            // dU ~ N(mean, variance). Generate samples = to the number of time steps
-            copy_data(m_m, d, m_d_cp);
-            const auto samples = m_normX_cholesk.samples_vector();
-            for (auto time = 0; time < m_params.m_sim_time - 1; ++time) {
-                // Set sampled perturbation
-                const CtrlVector pert_sample = samples.block(0, time, n_ctrl, 1);
-                m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample.transpose();
-                const CtrlVector& instant_pert = pert_sample;
-                instant_control = m_control[time] + instant_pert;
-                // Forward simulate controls and compute running costl
-                MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
-                m_delta_cost_to_go[sample] += m_cost_func(
-                        m_state_new[time + 1], m_control[time], instant_pert, ddp_ctrl[time], m_ddp_cov_vec[time], m_d_cp, m_m
-                );
+            for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
+                // Variance not adapted in this case
+                // dU ~ N(mean, variance). Generate samples = to the number of time steps
+                copy_data(m_m, d, m_d_cp);
+                const auto samples = m_normX_cholesk.samples_vector();
+                for (auto time = 0; time < m_params.m_sim_time - 1; ++time) {
+                    // Set sampled perturbation
+                    const CtrlVector pert_sample = samples.block(0, time, n_ctrl, 1);
+                    m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample.transpose();
+                    const CtrlVector &instant_pert = pert_sample;
+                    instant_control = m_control[time] + instant_pert;
+                    // Forward simulate controls and compute running costl
+                    MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
+                    m_delta_cost_to_go[sample] += m_cost_func(
+                            m_state_new[time + 1], m_control[time], instant_pert, ddp_ctrl[time], m_ddp_cov_vec[time],
+                            m_d_cp, m_m
+                    );
+                }
+
+                // Set final pert sample
+                const CtrlVector final_sample = samples.block(0, m_params.m_sim_time - 1, n_ctrl, 1);
+                m_ctrl_samples_time.block(sample, (m_params.m_sim_time - 1) * n_ctrl, 1,
+                                          n_ctrl) = final_sample.transpose();
+
+                // Apply final sample
+                instant_control = m_control.back() + final_sample;
+                MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new.back(), m_d_cp, m_m);
+
+                // Compute terminal cost
+                m_delta_cost_to_go[sample] =
+                        m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state_new.back(), m_d_cp, m_m);
             }
-
-            // Set final pert sample
-            const CtrlVector final_sample = samples.block(0, m_params.m_sim_time - 1, n_ctrl, 1);
-            m_ctrl_samples_time.block(sample, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl) = final_sample.transpose();
-
-            // Apply final sample
-            instant_control = m_control.back() + final_sample;
-            MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new.back(), m_d_cp, m_m);
-
-            // Compute terminal cost
-            m_delta_cost_to_go[sample] =
-                    m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state_new.back(), m_d_cp, m_m);
-        }
 //        std:: cout << "Row: "<<  m_ctrl_samples_time.rows() << "Cols: " << m_ctrl_samples_time.cols() << std::endl;
 //        std::cout << m_ctrl_samples_time << std::endl;
-        const auto [new_mean, new_variance] = compute_control_trajectory();
-        m_params.pi_ctrl_mean = new_mean;
+            const auto[new_mean, new_variance] = compute_control_trajectory();
+            m_params.pi_ctrl_mean = new_mean;
+            std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+            std::fstream cost_mpc(path + "ctrl_sample_time" + ".csv", std::fstream::out | std::fstream::trunc);
+            BufferUtilities::save_to_file(&cost_mpc, m_control);
 //        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
+        }
     }
     prepare_control_mpc();
 }

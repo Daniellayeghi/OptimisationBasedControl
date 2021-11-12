@@ -20,8 +20,23 @@ namespace BufferUtilities
                 }
                 *file << '\n';
             }
-            file->close();
         }
+        file->close();
+    }
+
+
+    template<int rows, int cols>
+    inline void save_to_file(std::fstream *file, Eigen::Matrix<double, rows, cols> &buffer)
+    {
+        if (file->is_open()) {
+            for (int row = 0; row < buffer.rows(); ++row) {
+                for (int col = 0; col < buffer.cols(); ++col) {
+                    *file << std::to_string(buffer(row, col)) + ", ";
+                }
+                *file << '\n';
+            }
+        }
+        file->close();
     }
 
 
@@ -31,11 +46,10 @@ namespace BufferUtilities
         if (file.is_open())
         {
             for (auto const &element : buffer)
-                file << std::to_string(element) << std::endl;
+                file << std::to_string(element) << "\n";
         }
         file.close();
     }
-
 
 
     template<int rows>
@@ -60,9 +74,9 @@ namespace BufferUtilities
                 }
                 buffer.template emplace_back(temp_cont);
             }
-            }
         }
-
     }
+
+}
 
 #endif //OPTCONTROL_MUJOCO_BUFFER_UTILS_H
