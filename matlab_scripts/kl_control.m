@@ -11,13 +11,15 @@ close all;
 % [K, T] = size(ctrl_sample_time);
 
 %% KL Control example
-mean = 0; variance = 0.25;
+K=20; T = 50;
+reg_traj = ones(1, T) * 400;
+mean = 0; variance = 0.1;
 hess_reg_diag = diag(reg_traj);
 sample_reg = eye(T) * 1/variance;
+ctrl_desired = sin((1:T)./2)' + 0.5 * sin((1:T)./2 - 0.75)';
 
 %% Compute the cost from trajectory
-K=50;
-lambda = 0.0005;
+lambda = 0.5;
 traj_cost = zeros(K, 1);
 guess_ctrl = zeros(T, 1);
 current_ctrl = zeros(1, T);
@@ -53,6 +55,6 @@ while iteration < 100
     drawnow;
     error = rms(current_ctrl - ctrl_desired');
     fprintf("Error: %d error at iteration: %i \n", error, iteration);
-    variance = variance * 100/100;
+    variance = variance * 95/100;
     iteration = 1 + iteration;
 end

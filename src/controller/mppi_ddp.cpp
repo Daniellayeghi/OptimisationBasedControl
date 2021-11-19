@@ -27,7 +27,7 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
     m_control_new.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
     m_control_cp.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
 
-    m_ddp_cov_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
+    m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
     m_ctrl_samples_time.resize(m_params.m_k_samples, m_params.m_sim_time * n_ctrl);
 }
@@ -138,7 +138,7 @@ void MPPIDDP<state_size, ctrl_size>::regularise_ddp_variance(std::vector<CtrlMat
 {
     for (auto elem = 0; elem < m_params.m_sim_time; ++elem)
     {
-        m_ddp_cov_vec[elem] = ddp_variance[elem] / m_params.ddp_cov_reg;
+        m_ddp_cov_inv_vec[elem] = (ddp_variance[elem] / m_params.ddp_cov_reg).llt().solve(CtrlMatrix::Identity());
     }
 }
 
@@ -155,30 +155,27 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
             CtrlVector instant_control;
             fill_state_vector(d, m_state_new.front(), m_m);
             std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
-//        m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
-//        m_normX_cholesk.setCovar(m_params.ctrl_variance);
-//        std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
-
-/*      Update distribution params.
-        m_normX_cholesk.setCovar(m_params.ctrl_variance);
-        std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
-        f
-*/
+    /*      Update distribution params.
+            m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
+            m_normX_cholesk.setCovar(m_params.ctrl_variance);
+            std::cout << "[MEAN]: " << m_params.pi_ctrl_mean << "\n";
+            m_normX_cholesk.setCovar(m_params.ctrl_variance);
+            std::cout << "[COVAR]: " << m_params.ddp_variance << "\n";
+    */
             for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
                 // Variance not adapted in this case
                 // dU ~ N(mean, variance). Generate samples = to the number of time steps
                 copy_data(m_m, d, m_d_cp);
                 const auto samples = m_normX_cholesk.samples_vector();
-                for (auto time = 0; time < m_params.m_sim_time - 1; ++time) {
+                for (auto time = 0; time < m_params.m_sim_time; ++time) {
                     // Set sampled perturbation
                     const CtrlVector pert_sample = samples.block(0, time, n_ctrl, 1);
                     m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample.transpose();
-                    const CtrlVector &instant_pert = pert_sample;
-                    instant_control = m_control[time] + instant_pert;
+                    instant_control = m_control[time] + pert_sample;
                     // Forward simulate controls and compute running costl
                     MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
                     m_delta_cost_to_go[sample] += m_cost_func(
-                            m_state_new[time + 1], m_control[time], instant_pert, ddp_ctrl[time], m_ddp_cov_vec[time],
+                            m_state_new[time + 1], m_control[time], pert_sample, ddp_ctrl[time], m_ddp_cov_inv_vec[time],
                             m_d_cp, m_m
                     );
                 }
@@ -196,13 +193,8 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
                 m_delta_cost_to_go[sample] =
                         m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state_new.back(), m_d_cp, m_m);
             }
-//        std:: cout << "Row: "<<  m_ctrl_samples_time.rows() << "Cols: " << m_ctrl_samples_time.cols() << std::endl;
-//        std::cout << m_ctrl_samples_time << std::endl;
             const auto[new_mean, new_variance] = compute_control_trajectory();
             m_params.pi_ctrl_mean = new_mean;
-            std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-            std::fstream cost_mpc(path + "ctrl_sample_time" + ".csv", std::fstream::out | std::fstream::trunc);
-            BufferUtilities::save_to_file(&cost_mpc, m_control);
 //        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
         }
     }

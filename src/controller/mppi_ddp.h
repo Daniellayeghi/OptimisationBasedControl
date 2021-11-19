@@ -125,7 +125,7 @@ private:
     QRCostDDP<state_size, ctrl_size>& m_cost_func;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
-    std::vector<CtrlMatrix> m_ddp_cov_vec;
+    std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
 
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
