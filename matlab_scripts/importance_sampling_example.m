@@ -52,3 +52,6 @@ end
 norm = sum(prob);
 prob = prob./norm;
 plot(values, prob)
+
+
+% PLan for computing the importance sampling

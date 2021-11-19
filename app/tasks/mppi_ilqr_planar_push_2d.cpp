@@ -54,9 +54,6 @@ namespace {
         if(act==GLFW_PRESS && key==GLFW_KEY_HOME)
         {
             save_data = true;
-        }else if(act==GLFW_PRESS && key==GLFW_KEY_1)
-        {
-            toggle_importance = not toggle_importance;
         }
     }
 
@@ -170,17 +167,15 @@ int main(int argc, const char** argv)
 
     StateVector x_desired; x_desired << 0, 0 ,0, 0.25, -0.22, 0.022, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 10, 10;
+    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_terminal_gain_vec;
-    x_terminal_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 10, 10;
-    StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
+    StateVector x_gain_vec; x_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 10, 10;
+    StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
-    StateVector x_gain_vec;
-    x_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 0, 0;
-    StateMatrix x_gain = x_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 1, 1, 1;
-    CtrlMatrix u_gain = u_gain_vec.asDiagonal();
+    CtrlVector u_gain_vec; u_gain_vec << 0.0001, 0.0001, 0.0001;
+    CtrlMatrix u_gain; u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -192,20 +187,38 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    // initial position     StateVector initial_state; initial_state <<  0, 0, 0, 0.20536, 0.1585, 0.0223, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-    StateVector initial_state; initial_state <<  -M_PI_2 + 0.1, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
+    StateVector initial_state; initial_state <<  -1.57, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.15;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg; t_state_reg = x_terminal_gain * 0.0001;
-    StateMatrix r_state_reg; r_state_reg = x_gain * 0.0001;
+    StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
+    StateMatrix r_state_reg; r_state_reg = x_gain;
     CtrlMatrix control_reg = u_gain_vec.asDiagonal();
+
+    const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        std::array<int, 4> body_list {{0, 1, 2, 3}};
+
+        auto iteration = 0;
+        if(data and model)
+            for(auto i = 0; i < data->ncon; ++i)
+            {
+                // Contact with world body (0) is always there so ignore that.
+                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                if (check_1 != check_2 and not world_contact)
+                    ++iteration;
+            }
+        return (iteration == 0)?1:1.0/(iteration+1);
+    };
+
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 4> body_list {{0, 1, 2, 3}};
@@ -224,28 +237,26 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        const StateVector state_error = x_desired - state_vector;
-        const CtrlVector ctrl_error = u_desired - ctrl_vector;
-        const double ctrl_cst = (ctrl_error.transpose() * control_reg * ctrl_error)(0, 0);
-        const double state_cst = (state_error.transpose() * r_state_reg * state_error)(0, 0);
-        return ctrl_cst + state_cst + (not collision_cost(data, model) * 1000) * state_cst;
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+        StateVector state_error  = x_desired - state_vector;
+        CtrlVector ctrl_error = u_desired - ctrl_vector;
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
+                       (0, 0) + (not collision_cost(data, model)) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 1000 * (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
+
 
     std::array<unsigned int, 5> seeds {{7, 8, 9, 10, 11}};
     for (const auto seed : seeds)
     {
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
-        //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
-        // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-        MPPIDDPParams params{100, 75, 0.1, 0, 1, 1, 1e6, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{50, 75, 0.25, 1, 1, 1, 5, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -259,7 +270,6 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-
 /* =============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
@@ -292,7 +302,7 @@ int main(int argc, const char** argv)
         zmq_buffer.push_buffer(&pi_buffer);
 
         StateVector temp_state = StateVector::Zero();
-        CtrlVector temp_ctrl = CtrlVector::Zero();
+        Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
         mj_step(m, d);
 
 /* ==================================================Simulation=======================================================*/
@@ -305,8 +315,6 @@ int main(int argc, const char** argv)
 
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
-                params.importance = toggle_importance;
-                std::cout << params.importance << std::endl;
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
@@ -315,8 +323,7 @@ int main(int argc, const char** argv)
                 pi_buffer.update(pi._cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 MujocoUtils::fill_state_vector(d, temp_state, m);
-                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
-                cost = running_cost(temp_state, temp_ctrl, d , m);
+                cost = running_cost(temp_state, mapped_ctrl, d , m);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

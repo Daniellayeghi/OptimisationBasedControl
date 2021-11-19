@@ -30,8 +30,6 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
     m_ddp_cov_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
     m_ctrl_samples_time.resize(m_params.m_k_samples, m_params.m_sim_time * n_ctrl);
-//    m_ctrl_samp_time.resize(m_params.m_k_samples, m_params.m_sim_time);
-//    m_cost_to_go_sample_time.assign(m_params.m_k_samples, std::vector<double>(m_params.m_sim_time, 0));
 }
 
 

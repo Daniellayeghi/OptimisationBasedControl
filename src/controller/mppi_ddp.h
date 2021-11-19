@@ -50,33 +50,26 @@ public:
                       const CtrlVector& control,
                       const CtrlVector& delta_control,
                       const CtrlVector& ddp_mean_control,
-                      const CtrlMatrix& ddp_covariance,
+                      const CtrlMatrix& ddp_covariance_inv,
                       const mjData* data, const mjModel *model)
     {
 
-        m_ddp_variance_inv = ddp_covariance.llt().solve(CtrlMatrix::Identity());
-//        std::cout << "HEss Gain: " << m_ddp_variance_inv << std::endl;
+        m_ddp_variance_inv = ddp_covariance_inv;
         CtrlVector new_control = control + delta_control;
+        double ddp_bias = (
+                (new_control - ddp_mean_control).transpose() * m_ddp_variance_inv *  (new_control - ddp_mean_control)
+                )(0, 0) * m_params.importance;
 
-        double ddp_bias = ((new_control - ddp_mean_control).transpose() * m_ddp_variance_inv *  (new_control - ddp_mean_control))(0, 0);
-        ddp_bias += (new_control.transpose() * m_ctrl_variance_inv * new_control)(0, 0);
-        ddp_bias *= m_params.importance;;
+        double passive_bias = (
+                new_control.transpose() * m_ctrl_variance_inv * new_control
+                )(0, 0) * (1 - m_params.importance);
 
-//        auto ddp_noise_term = (new_control.transpose() * m_ddp_variance_inv * new_control -
-//                2 * (new_control.transpose()* m_ddp_variance_inv * ddp_mean_control)
-//                );
-//
-//        double ddp_bias = (ddp_noise_term + ddp_mean_control.transpose() * m_ddp_variance_inv * ddp_mean_control -
-//                           new_control.transpose() * m_ctrl_variance_inv * new_control
-//                           )(0, 0) * m_params.importance;
-
-
-        double pi_bias = (2 * (new_control.transpose() * m_ctrl_variance_inv * control) -
-                          control.transpose() * m_ctrl_variance_inv * control
-                         )(0, 0);
+        double common_bias = (
+                (new_control - control).transpose() * m_ctrl_variance_inv * (new_control - control)
+                )(0, 0);
 
         const double cost_power = 1;
-        return -0.5*(ddp_bias + pi_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
     }
 
     const MPPIDDPParams& m_params;
@@ -132,13 +125,11 @@ private:
     QRCostDDP<state_size, ctrl_size>& m_cost_func;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
-//    std::vector<std::vector<double>> m_cost_to_go_sample_time;
     std::vector<CtrlMatrix> m_ddp_cov_vec;
 
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
-//    Eigen::Matrix<CtrlVector, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samp_time;
     double m_prev_cost = 0;
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;

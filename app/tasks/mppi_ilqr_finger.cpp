@@ -189,10 +189,6 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    // initial position
-    d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
-    d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
-
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
@@ -250,7 +246,7 @@ int main(int argc, const char** argv)
         d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
         d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-        MPPIDDPParams params{20, 75, 0.1, 1, 1, 1, 1, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{5, 75, 0.1, 1, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -285,19 +281,17 @@ int main(int argc, const char** argv)
                               std::fstream::out | std::fstream::trunc);
 
         double cost;
-        GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
-        GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+        GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
+        GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
-        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});        StateVector temp_state;
-        CtrlVector temp_ctrl;
+        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
         mj_step(m, d);
 /* ==================================================Simulation=======================================================*/
-
         // use the first while condition if you want to simulate for a period.
         while (!glfwWindowShouldClose(window)) {
             //  advance interactive simulation for 1/60 sec
@@ -308,12 +302,10 @@ int main(int argc, const char** argv)
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
-                pi.control(d, ilqr._u_traj, ilqr._covariance);
+                pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
                 ilqr_buffer.update(ilqr._cached_control.data(), true);
-                pi_buffer.update(pi._cached_control.data(), false);//
-                MujocoUtils::fill_state_vector(d, temp_state, m);
-                MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
+                pi_buffer.update(pi._cached_control.data(), false);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 zmq_buffer.send_buffers();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;

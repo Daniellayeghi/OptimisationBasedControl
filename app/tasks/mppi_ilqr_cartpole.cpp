@@ -188,27 +188,25 @@ int main(int argc, const char** argv)
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.5;
+        ctrl_var.diagonal()[elem] = 0.25;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg = StateMatrix::Zero();// = x_terminal_gain;
-    StateMatrix r_state_reg = StateMatrix::Zero(); // = x_gain;
+    StateMatrix t_state_reg = x_terminal_gain;
+    StateMatrix r_state_reg = x_gain;
 
     CtrlMatrix control_reg;
-    control_reg = CtrlMatrix::Zero();//u_gain;
+    control_reg = u_gain;
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
-
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
                 (0, 0);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
-
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
@@ -221,7 +219,7 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{100, 75, 0.1, 1, 1, 1, 1e6, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{3, 75, 0.01, 1, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -233,7 +231,6 @@ int main(int argc, const char** argv)
         using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-        mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
 /* ============================================CSV Output Files=======================================================*/
         const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -279,12 +276,8 @@ int main(int argc, const char** argv)
             {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
-                BufferUtilities::save_to_file(&ctrl_data, ilqr._u_traj);
                 pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
                 ilqr._u_traj = pi.m_control;
-                BufferUtilities::save_to_file(&ctrl_data_pi, pi.m_control);
-                ctrl_data.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
-                BufferUtilities::save_to_file(&ctrl_data, ilqr._u_traj);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr._cached_control.data(), true);
@@ -293,8 +286,6 @@ int main(int argc, const char** argv)
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
-                ctrl_data.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
-                ctrl_data_pi.open(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -4,10 +4,19 @@
 
 #include "Eigen/Core"
 #include <fstream>
+#include <iomanip>
 
 
 namespace BufferUtilities
 {
+
+    inline std::string as_string(double value)
+    {
+        char buf[32];
+        return std::string(buf, std::snprintf(buf, sizeof buf, "%.16g", value));
+    }
+
+
     template<int rows, int cols>
     inline void save_to_file(std::fstream *file, std::vector<Eigen::Matrix<double, rows, cols>> &buffer)
     {
@@ -15,7 +24,10 @@ namespace BufferUtilities
             for (auto const &element : buffer){
                 for (int row = 0; row < element.rows(); ++row){
                     for (int col = 0; col < element.cols(); ++col){
-                        *file << std::to_string(element(row, col)) + ", ";
+                        if(col != element.cols() - 1)
+                            *file << as_string(element(row, col)) + ", ";
+                        else
+                            *file << as_string(element(row, col));
                     }
                 }
                 *file << '\n';
@@ -31,7 +43,10 @@ namespace BufferUtilities
         if (file->is_open()) {
             for (int row = 0; row < buffer.rows(); ++row) {
                 for (int col = 0; col < buffer.cols(); ++col) {
-                    *file << std::to_string(buffer(row, col)) + ", ";
+                    if(col != buffer.cols() - 1)
+                        *file << as_string(buffer(row, col)) + ", ";
+                    else
+                        *file << as_string(buffer(row, col));
                 }
                 *file << '\n';
             }
@@ -41,14 +56,13 @@ namespace BufferUtilities
 
 
     template<typename T>
-    inline void save_to_file(std::fstream &file, std::vector<T> &buffer)
+    inline void save_to_file(std::fstream *file, std::vector<T> &buffer)
     {
-        if (file.is_open())
-        {
+        if (file->is_open())
             for (auto const &element : buffer)
-                file << std::to_string(element) << "\n";
-        }
-        file.close();
+                *file << as_string(element) << "\n";
+
+        file->close();
     }
 
 

@@ -6,15 +6,15 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(solver_tests finite_diff_tests.cpp)
-#Standard libraries for GL
-# Additional libraries from mujoco package
-include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
-target_link_libraries(solver_tests ${LIB_MUJOCO})
-target_link_libraries(solver_tests gtest_main gtest util_lib Eigen3::Eigen)
-target_link_libraries(solver_tests libglew.so libglfw.so libglewegl.so libglewosmesa.so)
-target_link_libraries(solver_tests ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
-target_link_libraries(solver_tests glut)
+#add_executable(solver_tests finite_diff_tests.cpp)
+##Standard libraries for GL
+## Additional libraries from mujoco package
+#include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
+#target_link_libraries(solver_tests ${LIB_MUJOCO})
+#target_link_libraries(solver_tests gtest_main gtest util_lib Eigen3::Eigen)
+#target_link_libraries(solver_tests libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+#target_link_libraries(solver_tests ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+#target_link_libraries(solver_tests glut)
 
 
 add_executable(open_mp_tests open_mp_tests.cpp)

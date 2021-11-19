@@ -1,6 +1,8 @@
 #ifndef OPTCONTROL_MUJOCO_GENERIC_UTILS_H
 #define OPTCONTROL_MUJOCO_GENERIC_UTILS_H
 
+#include "vector"
+#include "array"
 #include <numeric>
 #include <chrono>
 #include <iostream>
