@@ -86,8 +86,8 @@
 
     <actuator>
         <motor name="proximal" joint="proximal" gear="50" ctrllimited="true" ctrlrange="-1 1"/>
-        <motor name="distal" joint="distal" gear="25" ctrllimited="true" ctrlrange="-1 1"/>
-        <motor name="distal2" joint="distal2" gear="12.5" ctrllimited="true" ctrlrange="-1 1"/>
-        <motor name="distal3" joint="distal" gear="6.25" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal" joint="distal" gear="30" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal2" joint="distal2" gear="20" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal3" joint="distal" gear="10" ctrllimited="true" ctrlrange="-1 1"/>
     </actuator>
 </mujoco>
