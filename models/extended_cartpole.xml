@@ -26,7 +26,7 @@
         <material name="target_default" rgba=".6 .3 .3 1"/>
         <material name="target_highlight" rgba=".6 .3 .3 .4"/>
     </asset>
-    <option timestep="0.01" integrator="RK4">
+    <option timestep="0.01" integrator="Euler">
         <flag contact="disable" energy="enable"/>
     </option>
 
@@ -43,7 +43,7 @@
     <worldbody>
         <light name="light" pos="0 0 6"/>
         <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
-        <camera name="lookatcart" mode="targetbody" target="cart" pos="0 -2 2"/>
+<!--        <camera name="lookatcart" mode="targetbody" target="cart" pos="0 -2 2"/>-->
         <geom name="floor" pos="0 0 -1.1" size="4 4 .2" type="plane" material="grid"/>
         <geom name="rail1" type="capsule" pos="0  .07 0" zaxis="1 0 0" size="0.02 4" material="decoration" />
         <geom name="rail2" type="capsule" pos="0 -.07 0" zaxis="1 0 0" size="0.02 4" material="decoration" />
@@ -59,12 +59,12 @@
                 <site name="touchbottom" pos="-.01 0 -.17"/>
                 <body name="distal2" pos="0 0 -.63" childclass="finger">
                     <joint name="distal2" range="-50 50" axis="0 -1 0" damping="0.05" limited="false"/>
-                    <geom name="distal2" type="capsule" size=".04" material="self" fromto="0 0 0 0 0 -.63"/>
+                    <geom name="distal2" type="capsule" size=".056" material="self" fromto="0 0 0 0 0 -.63"/>
                     <site name="touchtop2" pos=".01 0 -.17"/>
                     <site name="touchbottom2" pos="-.01 0 -.17"/>
-                    <body name="distal3" pos="0 0 -.63" quat="0.707107 0 -0.707107 0" childclass="pole">
-                        <joint type="hinge" axis="0 -1 0"  damping="2e-4"/>
-                        <geom type="capsule" fromto="0 0 0 0 0 -0.63a" size="0.032" material="self" mass=".1"/>
+                    <body name="distal3" pos="0 0 -.63" quat="0.707107 0 -0.707107 0" childclass="finger">
+                        <joint type="hinge" axis="0 -1 0"  damping="0.05"/>
+                        <geom type="capsule" fromto="0 0 0 0 0 -0.63" size="0.054" material="self"/>
                     </body>
                 </body>
             </body>
@@ -85,11 +85,9 @@
     </equality>
 
     <actuator>
-        <motor name="slide" joint="slider" gear="10" ctrllimited="true" ctrlrange="-1.5 1.5" />
-        <motor name="proximal" joint="proximal" gear="10"/>
-        <motor name="distal" joint="distal" gear="5"/>
-        <motor name="distal2" joint="distal2" gear="2.5"/>
-        <motor name="distal3" joint="distal" gear="1.25"/>
+        <motor name="proximal" joint="proximal" gear="50" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal" joint="distal" gear="25" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal2" joint="distal2" gear="12.5" ctrllimited="true" ctrlrange="-1 1"/>
+        <motor name="distal3" joint="distal" gear="6.25" ctrllimited="true" ctrlrange="-1 1"/>
     </actuator>
-
 </mujoco>
