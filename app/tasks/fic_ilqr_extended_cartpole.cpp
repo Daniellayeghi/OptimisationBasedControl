@@ -238,7 +238,7 @@ int main(int argc, const char** argv)
         MujocoUtils::copy_data(m_h, d_h, d);
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 0, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{10, 75, 0.1, 0, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var, seed};
         QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
         MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
 
@@ -249,8 +249,8 @@ int main(int argc, const char** argv)
         uoe::FICController fic_ctrl;
 
         // install control callback
-        using ControlType = ILQR<n_jpos + n_jvel, n_ctrl>;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m_h, d_h, ilqr);
+        using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m_h, d_h, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 /* ============================================CSV Output Files=======================================================*/

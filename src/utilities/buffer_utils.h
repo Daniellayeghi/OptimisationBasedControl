@@ -22,9 +22,9 @@ namespace BufferUtilities
     {
         if (file->is_open()){
             for (auto const &element : buffer){
-                for (int row = 0; row < element.rows(); ++row){
-                    for (int col = 0; col < element.cols(); ++col){
-                        if(col != element.cols() - 1)
+                for (int col = 0; col < element.cols(); ++col){
+                    for (int row = 0; row < element.rows(); ++row){
+                        if(row != element.rows() - 1)
                             *file << as_string(element(row, col)) + ", ";
                         else
                             *file << as_string(element(row, col));
