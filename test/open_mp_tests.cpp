@@ -41,12 +41,12 @@ TEST_F(OpenMPTests, Parallel_Integration_1)
     constexpr const int nthreads_req = 2;
     double step = 1.0/(double) duration_step, pi = 0;
     int nthreads_given = 0;
-    std::array<double, nthreads_req> sum; sum.fill(0);
+    std::array<double, nthreads_req> sum = {};
     omp_set_num_threads(nthreads_req);
     GenericUtils::TimeBench timer("Parallel_Integration_1");
     // The segment insisde the pragma is a program for each thread with any declaration as data per thread
     // Any decleration outside requires protection if writing or reading to
-#pragma omp parallel
+#pragma omp parallel default(none) shared(nthreads_given, sum, step)
         {
             auto func_local = [](double x){return 4/(1+x*x);};
             int id = omp_get_thread_num();
@@ -72,9 +72,9 @@ TEST_F(OpenMPTests, Parallel_Integration_2)
     double step = 1.0/duration_step, approx_pi;
     static long segments = duration_step / nthreads_req;
     omp_set_num_threads(nthreads_req);
-    std::array<double, nthreads_req> sum_per_thread; sum_per_thread.fill(0);
+    std::array<double, nthreads_req> sum_per_thread = {};
     GenericUtils::TimeBench timer("Parallel_Integration_2");
-#pragma omp parallel
+#pragma omp parallel default(none) shared(segments, sum_per_thread, step)
     {
         auto func_local = [](double x){return 4/(1+x*x);};
         int id = omp_get_thread_num();
@@ -96,12 +96,12 @@ TEST_F(OpenMPTests, Parallel_Integration_Cache_Line_Padding_1)
     constexpr const int cache_line_pad = 8;
     constexpr const long duration_step = 1e5;
     constexpr const int nthreads_req = 4;
-    double step = 1.0/duration_step, approx_pi;
+    double step = 1.0/duration_step, approx_pi = 0;
     static long segments = duration_step / nthreads_req;
     omp_set_num_threads(nthreads_req);
     std::array<std::array<double, cache_line_pad>, nthreads_req> sum_per_thread = {};
     GenericUtils::TimeBench timer("Parallel_Integration_Cache_Line_Padding_1");
-#pragma omp parallel
+#pragma omp parallel default(none) shared(segments, sum_per_thread, step)
     {
         auto func_local = [](double x){return 4/(1+x*x);};
         int id = omp_get_thread_num();
@@ -133,7 +133,7 @@ TEST_F(OpenMPTests, Parallel_Integration_Cache_Line_Padding_2)
     GenericUtils::TimeBench timer("Parallel_Integration_Cache_Line_Padding_2");
     // The segment insisde the pragma is a program for each thread with any declaration as data per thread
     // Any decleration outside requires protection if writing or reading to
-#pragma omp parallel
+#pragma omp parallel default(none) shared(nthreads_given, sum_per_thread, step)
     {
         auto func_local = [](double x){return 4/(1+x*x);};
         int id = omp_get_thread_num();
