@@ -38,7 +38,7 @@ TEST_F(OpenMPTests, Sequential_Integration)
 TEST_F(OpenMPTests, Parallel_Integration_1)
 {
     constexpr const long duration_step = 1e5;
-    constexpr const int nthreads_req = 2;
+    constexpr const int nthreads_req = 4;
     double step = 1.0/(double) duration_step, pi = 0;
     int nthreads_given = 0;
     std::array<double, nthreads_req> sum = {};
@@ -68,7 +68,7 @@ TEST_F(OpenMPTests, Parallel_Integration_2)
     // NOTE: it is important for the limit of summation for the threads to be seperated other wise the limit can grow
     // within the loop and never end.
     constexpr const long duration_step = 1e5;
-    constexpr const int nthreads_req = 2;
+    constexpr const int nthreads_req = 4;
     double step = 1.0/duration_step, approx_pi;
     static long segments = duration_step / nthreads_req;
     omp_set_num_threads(nthreads_req);
@@ -146,4 +146,61 @@ TEST_F(OpenMPTests, Parallel_Integration_Cache_Line_Padding_2)
 
     for(int i=0;i<sum_per_thread.size();i++) pi += sum_per_thread[i][0] * step;
     ASSERT_NEAR(pi, 3.14, 0.01);
+}
+
+
+TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_1)
+{
+    constexpr const int cache_line_pad = 8;
+    constexpr const long duration_step = 1e5;
+    constexpr const int nthreads_req = 4;
+    double step = 1.0/(double) duration_step, pi = 0;
+    int nthreads_given = 0;
+    omp_set_num_threads(nthreads_req);
+    GenericUtils::TimeBench timer("Parallel_Integration_Critical_Sum_1");
+    // The segment insisde the pragma is a program for each thread with any declaration as data per thread
+    // Any decleration outside requires protection if writing or reading to
+#pragma omp parallel default(none) shared(nthreads_given, step, pi)
+    {
+        // sum is local to each thread
+        double sum = 0;
+        auto func_local = [](double x){return 4/(1+x*x);};
+        int id = omp_get_thread_num();
+        int nthrds = omp_get_num_threads();
+        if (id == 0) nthreads_given = nthrds;
+        for (int i=id; i < duration_step; i= i + nthrds) {
+            sum += func_local((i+0.5)*step);
+        }
+#pragma omp critical
+        pi += sum *step;
+    }
+    ASSERT_NEAR(pi, 3.14, 0.01);
+}
+
+
+TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_2)
+{
+    // Assuming cache line to be 8 bytes with added padding we can force each thread to access a separate cache line to
+    // false sharing
+    constexpr const int cache_line_pad = 8;
+    constexpr const long duration_step = 1e5;
+    constexpr const int nthreads_req = 4;
+    double step = 1.0/duration_step, approx_pi = 0;
+    static long segments = duration_step / nthreads_req;
+    omp_set_num_threads(nthreads_req);
+    GenericUtils::TimeBench timer("Parallel_Integration_Cache_Line_Padding_1");
+#pragma omp parallel default(none) shared(segments, approx_pi, step)
+    {
+        // sum is local to each thread
+        double sum = 0;
+        auto func_local = [](double x){return 4/(1+x*x);};
+        int id = omp_get_thread_num();
+        for (int iter = id*segments; iter < (id+1) * segments; ++iter)
+        {
+            sum += func_local((iter + 0.5) * step);
+        }
+#pragma omp critical
+        approx_pi += sum *step;
+    }
+    ASSERT_NEAR(approx_pi, 3.14, 0.01);
 }
