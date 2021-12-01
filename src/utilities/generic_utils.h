@@ -17,6 +17,7 @@ namespace GenericUtils
         T2 second;
     };
 
+
     template<typename T>
     void sg_filter(const std::vector<T>& input, std::vector<T>& result)
     {
@@ -26,12 +27,10 @@ namespace GenericUtils
         const double norm = std::accumulate(filter_coeff.begin(), filter_coeff.end(), 0.0);
 
         // Actual filter
-        const auto cleaned = [&](int iter){return
-                                           (filter_coeff[0] * input[iter-2] +
-                                           filter_coeff[1] * input[iter-1] +
-                                           filter_coeff[2] * input[iter] +
-                                           filter_coeff[1] * input[iter+1] +
-                                           filter_coeff[0] * input[iter+2])/norm;
+        const auto cleaned = [&](int iter)
+                {
+            return (filter_coeff[0] * input[iter-2] + filter_coeff[1] * input[iter-1] + filter_coeff[2] * input[iter] +
+            filter_coeff[1] * input[iter+1] + filter_coeff[0] * input[iter+2])/norm;
         };
 
         for(auto iter = filter_coeff.size(); iter < input.size() - filter_coeff.size(); ++iter)
