@@ -21,7 +21,6 @@ namespace GenericUtils
     template<typename T>
     void sg_filter(const std::vector<T>& input, std::vector<T>& result)
     {
-
         // Filter coefficients and normalisation
         const constexpr std::array<double, 3> filter_coeff {{-3, 12, 17}};
         const double norm = std::accumulate(filter_coeff.begin(), filter_coeff.end(), 0.0);
@@ -34,9 +33,7 @@ namespace GenericUtils
         };
 
         for(auto iter = filter_coeff.size(); iter < input.size() - filter_coeff.size(); ++iter)
-        {
             result[iter] = cleaned(iter);
-        }
 
         // Hard set the first and last 2 elems
         result[result.size()-1] = input[input.size()-1];
@@ -64,7 +61,6 @@ namespace GenericUtils
             std::cout << "["<< m_id << "]" << " Computation took: " << duration.count() * 1000.0 << " ms" << "\n";
         }
     };
-
 }
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_UTILS_H
