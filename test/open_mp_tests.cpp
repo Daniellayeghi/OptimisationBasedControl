@@ -175,14 +175,13 @@ TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_1)
 
 TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_2)
 {
-    // Assuming cache line to be 8 bytes with added padding we can force each thread to access a separate cache line to
-    // false sharing
+
     constexpr const long duration_step = 1e5;
     constexpr const int nthreads_req = 4;
     double step = 1.0/duration_step, approx_pi = 0;
     static long segments = duration_step / nthreads_req;
     omp_set_num_threads(nthreads_req);
-    GenericUtils::TimeBench timer("Parallel_Integration_Cache_Line_Padding_1");
+    GenericUtils::TimeBench timer("Parallel_Integration_Critical_Sum_2");
 #pragma omp parallel default(none) shared(segments, approx_pi, step)
     {
         // sum is local to each thread
@@ -191,9 +190,50 @@ TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_2)
         int id = omp_get_thread_num();
         for (int iter = id*segments; iter < (id+1) * segments; ++iter)
             sum += func_local((iter + 0.5) * step);
-        
+
 #pragma omp critical
         approx_pi += sum *step;
     }
+    ASSERT_NEAR(approx_pi, 3.14, 0.01);
+}
+
+
+TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_1)
+{
+
+    // duration step cannot be const since it is determined by openMP for the reduction
+    long duration_step = 1e5;
+    double step = 1.0/duration_step, approx_pi = 0;
+    GenericUtils::TimeBench timer("Parallel_Integration_Loop_Reduction_1");
+    // sum is local to each thread
+    double sum = 0;
+    auto func = [](double x){return 4/(1+x*x);};
+#pragma omp parallel for reduction (+:sum) default(none) shared(func, step, duration_step)
+    for (int iter = 0; iter < duration_step; ++iter)
+        sum += func((iter + 0.5) * step);
+
+    approx_pi += sum *step;
+    ASSERT_NEAR(approx_pi, 3.14, 0.01);
+}
+
+
+
+TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_2)
+{
+    // This is the same construct as above but it is clear that sum is a shared variable with local copies when you
+    // define parallel for
+    long duration_step = 1e5;
+    double step = 1.0/duration_step, approx_pi = 0;
+    double sum = 0;
+    GenericUtils::TimeBench timer("Parallel_Integration_Loop_Reduction_2");
+#pragma omp parallel default(none) shared(approx_pi, step, duration_step, sum)
+    {
+        // sum is local to each thread
+        auto func_local = [](double x){return 4/(1+x*x);};
+#pragma omp for reduction (+:sum)
+        for (int iter = 0; iter < duration_step; ++iter)
+            sum += func_local((iter + 0.5) * step);
+    }
+    approx_pi += sum *step;
     ASSERT_NEAR(approx_pi, 3.14, 0.01);
 }
