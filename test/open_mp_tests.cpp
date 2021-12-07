@@ -190,7 +190,6 @@ TEST_F(OpenMPTests, Parallel_Integration_Critical_Sum_2)
         int id = omp_get_thread_num();
         for (int iter = id*segments; iter < (id+1) * segments; ++iter)
             sum += func_local((iter + 0.5) * step);
-
 #pragma omp critical
         approx_pi += sum *step;
     }
@@ -217,7 +216,6 @@ TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_1)
 }
 
 
-
 TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_2)
 {
     // This is the same construct as above but it is clear that sum is a shared variable with local copies when you
@@ -237,3 +235,6 @@ TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_2)
     approx_pi += sum *step;
     ASSERT_NEAR(approx_pi, 3.14, 0.01);
 }
+
+
+
