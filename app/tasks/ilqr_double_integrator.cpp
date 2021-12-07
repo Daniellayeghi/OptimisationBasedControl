@@ -126,7 +126,6 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
-    m->opt.timestep = 0.01;
     // make data
     d = mj_makeData(m);
 
@@ -157,30 +156,10 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 2, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_terminal_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_terminal_gain *= 25000;
-
-    StateMatrix x_gain; x_gain.setIdentity();
-    for(auto element = 0; element < n_jpos; ++element)
-    {
-        x_gain(element + n_jpos,element + n_jpos) = 0.01;
-    }
-    x_gain *= 0;
-
-    CtrlMatrix u_gain;
-    u_gain.setIdentity();
-    u_gain *= 0;
-
-    CtrlMatrix du_gain;
-    du_gain.setIdentity();
-    du_gain *= 1;
-
-    CtrlVector u_control_1;
-    StateVector x_state_1;
+    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 5;
+    StateMatrix x_gain; x_gain << 250, 0, 0, 0;
+    CtrlMatrix u_gain; u_gain << 1;
+    CtrlMatrix du_gain; du_gain << 0;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -196,7 +175,7 @@ int main(int argc, const char** argv)
 
     FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
     CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 5};
+    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
 
     // install control callback
@@ -216,7 +195,6 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            std::cout << "Error: " << x_desired(0,0) - d->qpos[0] << std::endl;
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;

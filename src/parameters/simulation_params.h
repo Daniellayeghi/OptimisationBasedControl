@@ -7,9 +7,9 @@ namespace SimulationParameters
 {
     /* Environment Dimensions */
     using SimScalarType = double;
-    constexpr const int n_ctrl = 20;
-    constexpr const int n_jpos = 25;
-    constexpr const int n_jvel = 25;
+    constexpr const int n_ctrl = 1;
+    constexpr const int n_jpos = 1;
+    constexpr const int n_jvel = 1;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
