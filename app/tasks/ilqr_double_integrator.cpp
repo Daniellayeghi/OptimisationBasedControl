@@ -156,7 +156,7 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 2, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 50ccccccccccccccccccccccccc;
+    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 50;
     StateMatrix x_gain; x_gain << 250, 0, 0, 0;
     CtrlMatrix u_gain; u_gain << 1;
     CtrlMatrix du_gain; du_gain << 0;

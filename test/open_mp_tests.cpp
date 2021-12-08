@@ -238,58 +238,9 @@ TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_2)
 }
 
 
-TEST_F(OpenMPTests, Mandelbrot_Area_Vanilla)
-{
-    int n_points = 1e3;
-    constexpr const int max_iter = 1e3;
-    constexpr const double eps = 1e-5;
-    int outer_iteration = 0;
-
-    using complex_num = std::complex<double>;
-    complex_num c_num {};
-
-    auto test_func = [&](const complex_num& area, int& outer_it) {
-        complex_num temp_com = area;
-        double temp;
-
-        for (int iter=0; iter<max_iter; ++iter)
-        {
-            temp = (temp_com.real()*temp_com.real())-(temp_com.imag()*temp_com.imag())+area.real();
-            temp_com.imag(temp_com.real()*temp_com.imag()*2+area.imag());
-            temp_com.real(temp);
-            if ((temp_com.real()*temp_com.real()+temp_com.imag()*temp_com.imag())>4.0) {
-#pragma omp atomic
-                outer_it++;
-                break;
-            }
-        }
-            };
-
-    // j is defined here since the omp parallel directive only applies to the first for loop and make the second parallel
-    // the index has to be private to each thread. However limits have to be shared between threads for omp to allocate
-    // chunks. firstprivate eps is because private variable are not initialised firstprivate will initialise it to the
-    // variable shadowing it outside the scope
-    GenericUtils::TimeBench timer("Mandelbrot_Area_Vanilla");
-    int j;
-#pragma omp parallel for num_threads(16) default(none) private(j, c_num) shared(n_points, test_func, outer_iteration) firstprivate(eps)
-    for (int i = 0; i < n_points; ++i)
-        for (j = 0; j < n_points; ++j)
-        {
-            c_num.real(-2.0+2.5*(double)(i)/(double)(n_points)+eps);
-            c_num.imag(1.125*(double)(j)/(double)(n_points)+eps);
-            test_func(c_num, outer_iteration);
-        }
-
-    double final_area=2.0*2.5*1.125*(double)(n_points*n_points-outer_iteration)/(double)(n_points*n_points);
-    double error = final_area/(double)n_points;
-    ASSERT_NEAR(final_area, 1.510659, error );
-
-}
-
-
 TEST_F(OpenMPTests, Mandelbrot_Area_Lower_Lock_Rate)
 {
-    int n_points = 1e3;
+    int n_points = 2e3;
     constexpr const int max_iter = 1e3;
     int outer_iteration = 0;
 
@@ -327,7 +278,54 @@ TEST_F(OpenMPTests, Mandelbrot_Area_Lower_Lock_Rate)
     double final_area=2.0*2.5*1.125*(double)(n_points*n_points-outer_iteration)/(double)(n_points*n_points);
     double error = final_area/(double)n_points;
     ASSERT_NEAR(final_area, 1.510659, error);
+}
 
+
+TEST_F(OpenMPTests, Mandelbrot_Area_Vanilla)
+{
+    int n_points = 2e3;
+    constexpr const int max_iter = 1e3;
+    constexpr const double eps = 1e-5;
+    int outer_iteration = 0;
+
+    using complex_num = std::complex<double>;
+    complex_num c_num {};
+
+    auto test_func = [&](const complex_num& area, int& outer_it) {
+        complex_num temp_com = area;
+        double temp;
+
+        for (int iter=0; iter<max_iter; ++iter)
+        {
+            temp = (temp_com.real()*temp_com.real())-(temp_com.imag()*temp_com.imag())+area.real();
+            temp_com.imag(temp_com.real()*temp_com.imag()*2+area.imag());
+            temp_com.real(temp);
+            if ((temp_com.real()*temp_com.real()+temp_com.imag()*temp_com.imag())>4.0) {
+#pragma omp atomic
+                outer_it++;
+                break;
+            }
+        }
+    };
+
+    // j is defined here since the omp parallel directive only applies to the first for loop and make the second parallel
+    // the index has to be private to each thread. However limits have to be shared between threads for omp to allocate
+    // chunks. firstprivate eps is because private variable are not initialised firstprivate will initialise it to the
+    // variable shadowing it outside the scope
+    GenericUtils::TimeBench timer("Mandelbrot_Area_Vanilla");
+    int j;
+#pragma omp parallel for num_threads(16) default(none) private(j, c_num) shared(n_points, test_func, outer_iteration) firstprivate(eps)
+    for (int i = 0; i < n_points; ++i)
+        for (j = 0; j < n_points; ++j)
+        {
+            c_num.real(-2.0+2.5*(double)(i)/(double)(n_points)+eps);
+            c_num.imag(1.125*(double)(j)/(double)(n_points)+eps);
+            test_func(c_num, outer_iteration);
+        }
+
+    double final_area=2.0*2.5*1.125*(double)(n_points*n_points-outer_iteration)/(double)(n_points*n_points);
+    double error = final_area/(double)n_points;
+    ASSERT_NEAR(final_area, 1.510659, error );
 }
 
 
