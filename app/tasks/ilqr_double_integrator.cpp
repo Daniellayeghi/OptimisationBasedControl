@@ -156,7 +156,7 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 2, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 5;
+    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 50ccccccccccccccccccccccccc;
     StateMatrix x_gain; x_gain << 250, 0, 0, 0;
     CtrlMatrix u_gain; u_gain << 1;
     CtrlMatrix du_gain; du_gain << 0;
@@ -182,7 +182,6 @@ int main(int argc, const char** argv)
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
     MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-
 
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
