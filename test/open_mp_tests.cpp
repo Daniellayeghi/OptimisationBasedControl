@@ -4,6 +4,8 @@
 #include <omp.h>
 #include <iostream>
 #include <complex>
+#include <functional>
+#include <memory>
 
 class OpenMPTests : public testing::Test {
 
@@ -240,7 +242,7 @@ TEST_F(OpenMPTests, Parallel_Integration_Loop_Reduction_2)
 
 TEST_F(OpenMPTests, Mandelbrot_Area_Lower_Lock_Rate)
 {
-    int n_points = 2e3;
+    int n_points = 1e3;
     constexpr const int max_iter = 1e3;
     int outer_iteration = 0;
 
@@ -283,7 +285,7 @@ TEST_F(OpenMPTests, Mandelbrot_Area_Lower_Lock_Rate)
 
 TEST_F(OpenMPTests, Mandelbrot_Area_Vanilla)
 {
-    int n_points = 2e3;
+    int n_points = 1e3;
     constexpr const int max_iter = 1e3;
     constexpr const double eps = 1e-5;
     int outer_iteration = 0;
@@ -328,5 +330,135 @@ TEST_F(OpenMPTests, Mandelbrot_Area_Vanilla)
     ASSERT_NEAR(final_area, 1.510659, error );
 }
 
+
+TEST_F(OpenMPTests, Linked_List_Access)
+{
+    constexpr const int fs = 38, n = 5;
+    struct Node
+    {
+        int data, fib_data; std::shared_ptr<Node> next{nullptr};
+        Node(int data, int fib_data) : data{data}, fib_data(fib_data), next{nullptr} {}
+    };
+
+    std::function<int(int)> fib;
+    fib = [&fib](int n)
+    {
+        int x, y;
+        if (n < 2) { return (n); }
+        else {
+            x = fib(n - 1);
+            y = fib(n - 2);
+            return (x + y);
+        }
+    };
+
+    auto process_work = [&fib](std::shared_ptr<Node> &p)
+    {
+        int n = p->data;
+        p->fib_data = fib(n);
+    };
+
+    std::vector<std::shared_ptr<Node>> nodes;
+    nodes.emplace_back(std::make_shared<Node>(fs, 0));
+
+    for (auto i = 0; i < n; ++i)
+    {
+        nodes.emplace_back(std::make_shared<Node>(fs + i + 1, i + 1));
+        if (i != n) nodes[i]->next = nodes[i + 1];
+        else nodes[i]->next = nullptr;
+    }
+
+    GenericUtils::TimeBench timer("Linked_List_Access");
+    while (nodes.front() != nullptr)
+    {
+        process_work(nodes.front());
+        std::cout << "Linked access value: " <<  nodes.front()->data << " " <<nodes.front()->fib_data << " " << nodes.front()->next << "\n";
+        nodes.front() = nodes.front()->next;
+    }
+}
+
+
+TEST_F(OpenMPTests, Linked_List_Access_2)
+{
+#ifndef N
+#define N 5
+#endif
+#ifndef FS
+#define FS 38
+#endif
+
+    struct node
+    {
+        int data;
+        int fibdata;
+        struct node* next;
+    };
+
+    std::function<int(int)> fib;
+    fib = [&fib](int n)
+    {
+        int x, y;
+        if (n < 2) { return (n); }
+        else {
+            x = fib(n - 1);
+            y = fib(n - 2);
+            return (x + y);
+        }
+    };
+
+    auto process_work = [&fib](struct node *p)
+    {
+        int n = p->data;
+        p->fibdata = fib(n);
+    };
+
+    std::function<struct node*(struct node* )> init_list;
+
+    init_list = [&init_list](struct node* p)
+    {
+        int i;
+        struct node* head = NULL;
+        struct node* temp = NULL;
+
+        head = (struct node*)malloc(sizeof(struct node));
+        p = head;
+        p->data = FS;
+        p->fibdata = 0;
+        for (i=0; i< N; i++)
+        {
+            temp  =  (struct node*)malloc(sizeof(struct node));
+            p->next = temp;
+            p = temp;
+            p->data = FS + i + 1;
+            p->fibdata = i+1;
+        }
+        p->next = NULL;
+        return head;
+    };
+
+    struct node *p=NULL;
+    struct node *temp=NULL;
+    struct node *head=NULL;
+
+    p = init_list(p);
+    head = p;
+
+    GenericUtils::TimeBench timer("Linked_List_Access");
+    while (p != NULL)
+    {
+        process_work(p);
+        std::cout << "Linked access value: " <<  p->data << " " <<p->fibdata << " " << p->next << "\n";
+        p = p->next;
+    }
+
+    p = head;
+    while (p != NULL)
+    {
+        temp = p->next;
+        free (p);
+        p = temp;
+    }
+    free (p);
+}
 
 

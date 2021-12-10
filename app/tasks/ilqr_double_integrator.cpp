@@ -184,7 +184,7 @@ int main(int argc, const char** argv)
     mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     // use the first while condition if you want to simulate for a period.
-    while( !glfwWindowShouldClose(window))
+    while(!glfwWindowShouldClose(window))
     {
         //  advance interactive simulation for 1/60 sec
         //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
