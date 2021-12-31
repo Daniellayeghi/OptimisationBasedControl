@@ -310,7 +310,7 @@ int main(int argc, const char** argv)
                 ilqr_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
             }

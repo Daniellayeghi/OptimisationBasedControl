@@ -24,7 +24,7 @@ public:
     std::vector<CtrlVector> m_u_traj;
     std::vector<StateVector> m_x_traj_new;
     std::vector<StateVector> m_x_traj;
-    CtrlMatrix cached_control;
+    CtrlVector cached_control;
 };
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_CONTROL_H
