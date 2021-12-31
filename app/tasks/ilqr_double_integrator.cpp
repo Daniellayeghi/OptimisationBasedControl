@@ -170,20 +170,10 @@ int main(int argc, const char** argv)
     // initial position
     d->qpos[0] = 0; d->qvel[0] = 0;
 
-    CtrlMatrix R;
-    StateMatrix Q;
-
-<<<<<<< HEAD
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
-=======
     FiniteDifference fd(m);
     CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 5};
     ILQR ilqr(fd, cost_func, params, m, d, nullptr);
->>>>>>> CRTP-interface
 
     // install control callback
     MyController<ILQR, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
@@ -201,12 +191,8 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-<<<<<<< HEAD
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-=======
             std::cout << "Error: " << x_desired(0,0) - d->qpos[0] << std::endl;
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
->>>>>>> CRTP-interface
             ilqr.control(d);
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);

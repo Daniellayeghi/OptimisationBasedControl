@@ -29,6 +29,7 @@ public:
         zmq_connect (m_requester, addr.c_str());
     }
 
+
     void push_buffer(Buffer<T>* buffer_type)
     {
         buffers.template emplace_back(buffer_type);
@@ -38,6 +39,13 @@ public:
     {
         for(const Buffer<T>* buffer : buffers)
             zmq_send(m_requester, buffer->get().data(), buffer->size, 0);
+    }
+
+
+    ~ZMQUBuffer()
+    {
+        zmq_close (m_requester);
+        zmq_ctx_destroy (m_context);
     }
 
 private:

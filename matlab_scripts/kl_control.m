@@ -55,10 +55,6 @@ while iteration < 100
     drawnow;
     error = rms(current_ctrl - ctrl_desired');
     fprintf("Error: %d error at iteration: %i \n", error, iteration);
-<<<<<<< HEAD
     variance = variance * 0.95;
-=======
-    variance = variance * 0.9/100;
->>>>>>> CRTP-interface
     iteration = 1 + iteration;
 end
