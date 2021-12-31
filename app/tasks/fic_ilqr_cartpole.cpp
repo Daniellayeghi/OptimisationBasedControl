@@ -218,17 +218,20 @@ int main(int argc, const char** argv)
         d->qvel[0] = 0;
         d->qvel[1] = 0;
 
-        // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 1, 1, 1,0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
-        QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-        MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
-
-        FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+        FiniteDifference fd(m);
+        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 4};
-        ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
-        uoe::FICController fic_ctrl;
+        ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
+        // To show difference in sampling try 3 samples
+        MPPIDDPParams params{
+            10, 75, 0.1, 1, 1, 1,
+            0.00001, ctrl_mean, ddp_var, ctrl_var,
+            {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        };
+        QRCostDDP qrcost(params, running_cost, terminal_cost);
+        MPPIDDP pi(m, qrcost, params);
+        uoe::FICController fic_ctrl;
         // install control callback
         using ControlType = uoe::FICController;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, fic_ctrl);
@@ -287,7 +290,7 @@ int main(int argc, const char** argv)
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
+                PosVector pos_error = ilqr.m_x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
                 ilqr.control(d_h, iteration != static_cast<int>(params.m_sim_time / 2));
                 iteration = (iteration == static_cast<int>(params.m_sim_time / 2)) ? 0 : iteration;
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);

@@ -267,23 +267,22 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0); //not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
     };
 
-
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
-    MPPIDDPParams params {100, 75, 0.1, 1, 1, 1, 1e3, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
-
-    CtrlMatrix R;
-    StateMatrix Q;
-
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    FiniteDifference fd(m);
+    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
+    ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
+
+    MPPIDDPParams params {
+        100, 75, 0.1, 1, 1, 1, 1e3,
+        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+    };
+    QRCostDDP qrcost(params, running_cost, terminal_cost);
+    MPPIDDP pi(m_ng, qrcost, params);
 
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+    using ControlType = MPPIDDP;
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
@@ -331,10 +330,10 @@ int main(int argc, const char** argv)
         {
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            ilqr._u_traj = pi.m_control;
-            pi_buffer.update(pi._cached_control.data(), false);
+            pi.control(d);
+            ctrl_buffer.update(ilqr.cached_control.data(), true);
+            ilqr.m_u_traj = pi.m_u_traj;
+            pi_buffer.update(pi.cached_control.data(), false);
             zmq_buffer.send_buffers();
             MujocoUtils::fill_state_vector(d, temp_state, m);
             cost = running_cost(temp_state, ctrl_map, d , m);

@@ -8,31 +8,29 @@ static int _mark = 0;
 
 namespace
 {
-    template<int state_size, int ctrl_size>
-    mjtNum* select_original_ptr(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt, const mjData* d)
+    mjtNum* select_original_ptr(typename FiniteDifference::WithRespectTo wrt, const mjData* d)
     {
         switch (wrt)
         {
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::CTRL: return d->ctrl;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::FRC:  return d->qfrc_applied;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::ACC:  return d->qacc;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::VEL:  return d->qvel;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::POS:  return d->qpos;
+            case FiniteDifference::WithRespectTo::CTRL: return d->ctrl;
+            case FiniteDifference::WithRespectTo::FRC:  return d->qfrc_applied;
+            case FiniteDifference::WithRespectTo::ACC:  return d->qacc;
+            case FiniteDifference::WithRespectTo::VEL:  return d->qvel;
+            case FiniteDifference::WithRespectTo::POS:  return d->qpos;
         }
         return nullptr;
     }
 
 
-    template<int state_size, int ctrl_size>
-    inline mjtStage skip_stage(typename FiniteDifference<state_size, ctrl_size>::WithRespectTo wrt)
+    inline mjtStage skip_stage(typename FiniteDifference::WithRespectTo wrt)
     {
         switch (wrt)
         {
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::CTRL:
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::FRC:
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
-            case FiniteDifference<state_size, ctrl_size>::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
+            case FiniteDifference::WithRespectTo::CTRL:
+            case FiniteDifference::WithRespectTo::FRC:
+            case FiniteDifference::WithRespectTo::ACC:  return mjtStage::mjSTAGE_VEL;
+            case FiniteDifference::WithRespectTo::VEL:  return mjtStage::mjSTAGE_POS;
+            case FiniteDifference::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
         }
         return mjtStage::mjSTAGE_NONE;
     }
@@ -52,8 +50,7 @@ namespace
 }
 
 
-template<int state_size, int ctrl_size>
-FiniteDifference<state_size, ctrl_size>::FiniteDifference(const mjModel* m) : _m(m)
+FiniteDifference::FiniteDifference(const mjModel* m) : _m(m)
 {
     _d_cp = mj_makeData(m);
     _wrt[WithRespectTo::ACC] = _d_cp->qacc;
@@ -64,31 +61,27 @@ FiniteDifference<state_size, ctrl_size>::FiniteDifference(const mjModel* m) : _m
 }
 
 
-template<int state_size, int ctrl_size>
-FiniteDifference<state_size, ctrl_size>::~FiniteDifference()
+FiniteDifference::~FiniteDifference()
 {
     mj_deleteData(_d_cp);
 }
 
 
-template<int state_size, int ctrl_size>
-Eigen::Block<typename FiniteDifference<state_size, ctrl_size>::complete_jacobian, state_size, ctrl_size>
-FiniteDifference<state_size, ctrl_size>::f_u()
+Eigen::Block<typename FiniteDifference::complete_jacobian, state_size, n_ctrl>
+FiniteDifference::f_u()
 {
-    return _full_jacobian.template block<state_size, ctrl_size>(0,state_size);
+    return _full_jacobian.template block<state_size, n_ctrl>(0,state_size);
 }
 
 
-template<int state_size, int ctrl_size>
-Eigen::Block<typename FiniteDifference<state_size, ctrl_size>::complete_jacobian, state_size, state_size>
-FiniteDifference<state_size, ctrl_size>::f_x()
+Eigen::Block<typename FiniteDifference::complete_jacobian, state_size, state_size>
+FiniteDifference::f_x()
 {
     return _full_jacobian.template block<state_size, state_size>(0, 0);
 }
 
 
-template<int state_size, int ctrl_size>
-void FiniteDifference<state_size, ctrl_size>::f_x_f_u(mjData *d)
+void FiniteDifference::f_x_f_u(mjData *d)
 {
    diff_wrt(d, _wrt[WithRespectTo::CTRL], WithRespectTo::CTRL);
    diff_wrt(d, _wrt[WithRespectTo::POS], WithRespectTo::POS);
@@ -98,16 +91,15 @@ void FiniteDifference<state_size, ctrl_size>::f_x_f_u(mjData *d)
 }
 
 
-template<int state_size, int ctrl_size>
 GenericUtils::FastPair<mjtNum*, mjtNum *>
-FiniteDifference<state_size, ctrl_size>::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
+FiniteDifference::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
 
     if (do_copy)
         copy_state(_m, d, _d_cp);
 
     mj_step(_m, _d_cp);
-    auto skip = skip_stage<state_size, ctrl_size>(id);
+    auto skip = skip_stage(id);
 
 //     extra solver iterations to improve warmstart (qacc) at center point
     for(int rep = 1; rep < 3; ++rep)
@@ -134,13 +126,12 @@ FiniteDifference<state_size, ctrl_size>::set_finite_diff_arguments(const mjData 
 
 
 
-template<int state_size, int ctrl_size>
-void FiniteDifference<state_size, ctrl_size>::diff_wrt(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
+void FiniteDifference::diff_wrt(const mjData *d, mjtNum *wrt, WithRespectTo id, bool do_copy)
 {
     const auto [centre_pos, centre_vel] = set_finite_diff_arguments(d, wrt, id, do_copy);
     // select target vector and original vector for force or acceleration derivative
     mjtNum* target = wrt;
-    const mjtNum* original = select_original_ptr<state_size, ctrl_size>(id, d);
+    const mjtNum* original = select_original_ptr(id, d);
     const FDFuncArgs fd_args {target, original, centre_pos, centre_vel};
 
     switch(id) {
@@ -151,8 +142,7 @@ void FiniteDifference<state_size, ctrl_size>::diff_wrt(const mjData *d, mjtNum *
 }
 
 
-template<int state_size, int ctrl_size>
-void FiniteDifference<state_size, ctrl_size>::perturb_target(mjtNum *target, const WithRespectTo id, const int state_iter)
+void FiniteDifference::perturb_target(mjtNum *target, const WithRespectTo id, const int state_iter)
 {
     int jid = 0;
     if(id == WithRespectTo::POS)
@@ -189,9 +179,8 @@ void FiniteDifference<state_size, ctrl_size>::perturb_target(mjtNum *target, con
 }
 
 
-template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::ctrl_jacobian
-FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
+typename FiniteDifference::ctrl_jacobian
+FiniteDifference::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
 {
     static const auto row_ctrl = _m->nu;
     ctrl_jacobian result;
@@ -227,9 +216,8 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_ctrl(const FDFuncArgs& 
     return result;
 }
 
-template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::state_vel_jacobian
-FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
+typename FiniteDifference::state_vel_jacobian
+FiniteDifference::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
 {
     state_vel_jacobian result;
     auto row = _m->nv;
@@ -266,9 +254,8 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_vel(const FDFuncA
 }
 
 
-template<int state_size, int ctrl_size>
-typename FiniteDifference<state_size, ctrl_size>::state_pos_jacobian
-FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
+typename FiniteDifference::state_pos_jacobian
+FiniteDifference::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
                                                                    const mjData *d,
                                                                    const WithRespectTo id)
 {
@@ -305,10 +292,6 @@ FiniteDifference<state_size, ctrl_size>::finite_diff_wrt_state_pos(const FDFuncA
     return result;
 
 }
-
-
-using namespace SimulationParameters;
-template class FiniteDifference<n_jpos + n_jvel, n_ctrl>;
 
 
 

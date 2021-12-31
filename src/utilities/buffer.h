@@ -65,7 +65,6 @@ class DataBuffer : public BaseBuffer<DataBuffer<BufferType>, BufferType>
 
     void push_buffers()
     {
-
         for(auto buffer = 0; buffer < m_buffer_file_pair.size(); ++buffer )
         {
             typename BufferType::type temp;
@@ -90,19 +89,11 @@ template<typename BufferType>
 class DummyBuffer : public BaseBuffer<DummyBuffer<BufferType>, BufferType>
 {
     friend class BaseBuffer<DummyBuffer<BufferType>, BufferType> ;
-    void add_buffer_file_pair(const FastPair<BufferType*, std::fstream*>& buffer_file_pair){
+    void add_buffer_file_pair(const FastPair<BufferType*, std::fstream*>& buffer_file_pair){}
 
-    }
+    void push_buffers(){}
 
-    void push_buffers()
-    {
-
-    }
-
-    void save_data()
-    {
-
-    }
+    void save_data(){}
 };
 
 #endif //OPTCONTROL_MUJOCO_BUFFER_H

@@ -8,10 +8,7 @@
 using namespace SimulationParameters;
 using namespace MujocoUtils;
 
-template<int state_size, int ctrl_size>
-MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
-                                        QRCostDDP<state_size, ctrl_size>& cost,
-                                        MPPIDDPParams& params):
+MPPIDDP::MPPIDDP(const mjModel* m, QRCostDDP& cost, MPPIDDPParams& params):
         m_params(params),
         m_cost_func(cost),
         m_m(m),
@@ -19,13 +16,13 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 
 {
     m_d_cp = mj_makeData(m_m);
-    _cached_control = CtrlVector::Zero();
+    cached_control = CtrlVector::Zero();
 
-    m_state_new.assign(m_params.m_sim_time + 1, Eigen::Matrix<double, state_size, 1>::Zero());
-    m_control.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
-    m_control_filtered.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
-    m_control_new.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
-    m_control_cp.assign(m_params.m_sim_time, Eigen::Matrix<double, ctrl_size, 1>::Zero());
+    m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
+    m_u_traj.assign(m_params.m_sim_time, CtrlVector::Zero());
+    m_control_filtered.assign(m_params.m_sim_time, CtrlVector::Zero());
+    m_u_traj_new.assign(m_params.m_sim_time, CtrlVector ::Zero());
+    m_u_traj_cp.assign(m_params.m_sim_time, CtrlVector::Zero());
 
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
@@ -33,10 +30,10 @@ MPPIDDP<state_size, ctrl_size>::MPPIDDP(const mjModel* m,
 }
 
 
-template<int state_size, int ctrl_size>
 FastPair<CtrlVector, CtrlMatrix>
-MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_cost, const double normaliser)
+MPPIDDP::total_entropy(const int time, const double min_cost, const double normaliser)
 {
+    constexpr const size_t ctrl_rows = CtrlVector::RowsAtCompileTime;
 
     // Computing the new covariance is taken from:
     // "Path Integral Policy Improvement with Covariance Matrix Adaptation"
@@ -50,7 +47,7 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
     {
 
         numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /normaliser;
-        auto ctrl_sample = ctrl_time_samples.block(time*ctrl_size, col, ctrl_size, 1);
+    auto ctrl_sample = ctrl_time_samples.block(time*ctrl_rows, col, ctrl_rows, 1);
         numerator_mean += (numerator_weight * ctrl_sample);
         numerator_cov += (
                 numerator_weight * (ctrl_sample - m_params.pi_ctrl_mean) *
@@ -61,11 +58,10 @@ MPPIDDP<state_size, ctrl_size>::total_entropy(const int time, const double min_c
 }
 
 
-template <int state_size, int ctrl_size>
-bool MPPIDDP<state_size, ctrl_size>::MPPIDDP::accepted_trajectory()
+bool MPPIDDP::MPPIDDP::accepted_trajectory()
 {
-    MujocoUtils::rollout_dynamics(m_control_new, m_state_new, m_d_cp, m_m);
-    auto total_cost = compute_trajectory_cost(m_control_new, m_state_new);
+    MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m);
+    auto total_cost = compute_trajectory_cost(m_u_traj_new, m_x_traj);
     std::cout << total_cost << " " << m_prev_cost << "\n";
     if(total_cost < m_prev_cost)
     {
@@ -76,15 +72,13 @@ bool MPPIDDP<state_size, ctrl_size>::MPPIDDP::accepted_trajectory()
 }
 
 
-template <int state_size, int ctrl_size>
-double MPPIDDP<state_size, ctrl_size>::MPPIDDP::compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state)
+double MPPIDDP::MPPIDDP::compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state)
 {
     return m_cost_func.compute_trajectory_cost(ctrl, state, m_d_cp, m_m);
 }
 
 
-template <int state_size, int ctrl_size>
-FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::compute_control_trajectory()
+FastPair<CtrlVector, CtrlMatrix> MPPIDDP::compute_control_trajectory()
 {
     const auto min_cost = std::min_element(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end());
     double temp_mean_denomenator = 0;
@@ -104,7 +98,7 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
     for (auto time = 0; time < m_params.m_sim_time; ++time)
     {
         const auto [ctrl_pert, ctrl_variance] = (total_entropy(time, *min_cost, normaliser));
-        m_control[time] += ctrl_pert;
+        m_u_traj[time] += ctrl_pert;
 
         // Temporal average for the mean and covariance
         new_mean_numerator += (ctrl_pert * ((m_params.m_sim_time - 1) - time));
@@ -118,23 +112,21 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP<state_size, ctrl_size>::MPPIDDP::comput
 }
 
 
-template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::prepare_control_mpc(const bool skip)
+void MPPIDDP::prepare_control_mpc(const bool skip)
 {
     if (not skip)
     {
-        MujocoUtils::rollout_dynamics(m_control_new, m_state_new, m_d_cp, m_m);
-        traj_cost = compute_trajectory_cost(m_control_new, m_state_new);
-        _cached_control = m_control.front();
-        m_control_cp = m_control;
+        MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m);
+        traj_cost = compute_trajectory_cost(m_u_traj_new, m_x_traj);
+        cached_control = m_u_traj.front();
+        m_u_traj_cp = m_u_traj;
     }
-    std::rotate(m_control.begin(), m_control.begin() + 1, m_control.end());
-    m_control.back() = Eigen::Matrix<double, ctrl_size, 1>::Zero();
+    std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
+    m_u_traj.back() = CtrlVector::Zero();
 }
 
 
-template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
+void MPPIDDP::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
 {
     for (auto elem = 0; elem < m_params.m_sim_time; ++elem)
     {
@@ -143,17 +135,16 @@ void MPPIDDP<state_size, ctrl_size>::regularise_ddp_variance(std::vector<CtrlMat
 }
 
 
-template<int state_size, int ctrl_size>
-void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance, const bool skip) {
+void MPPIDDP::control(const mjData* d, const bool skip) {
 
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     if (not skip)
     {
-        regularise_ddp_variance(ddp_variance);
+        regularise_ddp_variance(m_params.m_ddp_args.second);
         for (auto iteration = 0; iteration < m_params.iteration; ++iteration)
         {
             CtrlVector instant_control;
-            fill_state_vector(d, m_state_new.front(), m_m);
+            fill_state_vector(d, m_x_traj.front(), m_m);
             std::fill(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0);
     /*      Update distribution params.
             m_normX_cholesk.setMean(m_params.pi_ctrl_mean);
@@ -171,11 +162,13 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
                     // Set sampled perturbation
                     const CtrlVector pert_sample = samples.block(0, time, n_ctrl, 1);
                     m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample.transpose();
-                    instant_control = m_control[time] + pert_sample;
+                    instant_control = m_u_traj[time] + pert_sample;
                     // Forward simulate controls and compute running costl
-                    MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new[time + 1], m_d_cp, m_m);
+                    MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
                     m_delta_cost_to_go[sample] += m_cost_func(
-                            m_state_new[time + 1], m_control[time], pert_sample, ddp_ctrl[time], m_ddp_cov_inv_vec[time],
+                            m_x_traj[time + 1], m_u_traj[time],
+                            pert_sample, m_params.m_ddp_args.first[time],
+                            m_ddp_cov_inv_vec[time],
                             m_d_cp, m_m
                     );
                 }
@@ -186,12 +179,12 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
                                           n_ctrl) = final_sample.transpose();
 
                 // Apply final sample
-                instant_control = m_control.back() + final_sample;
-                MujocoUtils::apply_ctrl_update_state(instant_control, m_state_new.back(), m_d_cp, m_m);
+                instant_control = m_u_traj.back() + final_sample;
+                MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj.back(), m_d_cp, m_m);
 
                 // Compute terminal cost
                 m_delta_cost_to_go[sample] =
-                        m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_state_new.back(), m_d_cp, m_m);
+                        m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
             }
             const auto[new_mean, new_variance] = compute_control_trajectory();
             m_params.pi_ctrl_mean = new_mean;
@@ -202,10 +195,7 @@ void MPPIDDP<state_size, ctrl_size>::control(const mjData* d, const std::vector<
 }
 
 
-template<int state_size, int ctrl_size>
-MPPIDDP<state_size, ctrl_size>::~MPPIDDP()
+MPPIDDP::~MPPIDDP()
 {
     mj_deleteData(m_d_cp);
 }
-
-template class MPPIDDP<state_size, n_ctrl>;

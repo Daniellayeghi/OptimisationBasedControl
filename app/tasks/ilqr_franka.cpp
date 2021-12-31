@@ -241,17 +241,20 @@ int main(int argc, const char** argv)
     d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0; d->qpos[3] = -0; d->qpos[4] = 0; d->qpos[5] = 0; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
-    MPPIDDPParams params_pi {20, 100, 1, 1, 1, 1, 1,ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params_pi, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params_pi);
-
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
+    FiniteDifference fd(m);
+    CostFunction cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 100, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
+    ILQR ilqr(fd, cost_func, params, m, d, nullptr);
+
+    MPPIDDPParams params_pi {
+        20, 100, 1, 1, 1, 1, 1,ctrl_mean,
+        ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+    };
+    QRCostDDP qrcost(params_pi, running_cost, terminal_cost);
+    MPPIDDP pi(m, qrcost, params_pi);
 
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+    using ControlType = MPPIDDP;
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
@@ -297,10 +300,10 @@ int main(int argc, const char** argv)
         {
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
-            pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-            ilqr._u_traj = pi.m_control;
-            ctrl_buffer.update(ilqr._cached_control.data(), true);
-            pi_buffer.update(pi._cached_control.data(), false);
+            pi.control(d);
+            ilqr.m_u_traj = pi.m_u_traj;
+            ctrl_buffer.update(ilqr.cached_control.data(), true);
+            pi_buffer.update(pi.cached_control.data(), false);
             zmq_buffer.send_buffers();
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;

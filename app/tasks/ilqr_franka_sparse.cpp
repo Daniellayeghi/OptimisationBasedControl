@@ -222,14 +222,14 @@ int main(int argc, const char** argv)
     d->qpos[0] = 0; d->qpos[1] = -M_PI/4; d->qpos[2] = 0; d->qpos[3] = -3*M_PI/4; d->qpos[4] = 0; d->qpos[5] = M_PI_2; d->qpos[6] = 0;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0; d->qvel[3] = -0.0; d->qvel[4] = 0; d->qvel[5] = 0; d->qvel[6] = 0;
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
+    FiniteDifference fd(m);
+    CostFunction cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 20, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
+    ILQR ilqr(fd, cost_func, params, m, d, nullptr);
     // install control callback
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+    MyController<ILQR, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+    MyController<ILQR, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
 
 /* ==================================================GUI Setup=======================================================*/
 
@@ -309,10 +309,10 @@ int main(int argc, const char** argv)
 
         while( d->time - simstart < 1.0/60.0 )
         {
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

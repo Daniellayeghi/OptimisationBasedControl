@@ -177,13 +177,13 @@ namespace uoe {
             //Update state
             _lastPosError = error;
             _lastEffort = effort;
-            _cached_control = effort;
+            cached_control = effort;
             return effort;
         }
 
 
     public:
-        CtrlVector  _cached_control;
+        CtrlVector cached_control;
 
     private:
 

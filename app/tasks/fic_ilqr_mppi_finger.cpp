@@ -249,15 +249,18 @@ int main(int argc, const char** argv)
         d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
         d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-        MPPIDDPParams params{20, 75, 0.1, 1, 1, 1, 100, ctrl_mean, ddp_var, ctrl_var, seed};
-        QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-        MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
-
-        FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,
-                                                        m);
+        FiniteDifference fd(m);
+        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,m);
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75,  5};
-        ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+        ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+
+        MPPIDDPParams params{
+            20, 75, 0.1, 1, 1,
+            1, 100, ctrl_mean, ddp_var, ctrl_var,
+            {ilqr.m_u_traj_cp, ilqr._covariance},seed
+        };
+        QRCostDDP qrcost(params, running_cost, terminal_cost);
+        MPPIDDP pi(m, qrcost, params);
         uoe::FICController fic_ctrl;
 
         // install control callback
@@ -320,10 +323,10 @@ int main(int argc, const char** argv)
                 iteration = (iteration == static_cast<int>(params.m_sim_time) ? 0 : iteration);
                 //pi.control(d, ilqr._u_traj, ilqr._covariance, skip);
 //                ilqr._u_traj = pi.m_control;
-                CtrlVector pos_error =  ilqr._x_traj[iteration].block<n_ctrl, 1>(0, 0) - mapped_pos;
+                CtrlVector pos_error =  ilqr.m_x_traj[iteration].block<n_ctrl, 1>(0, 0) - mapped_pos;
                 CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
-                ilqr_buffer.update(ilqr._cached_control.data(), true);
-                pi_buffer.update(fic_ctrl._cached_control.data(), false);
+                ilqr_buffer.update(ilqr.cached_control.data(), true);
+                pi_buffer.update(fic_ctrl.cached_control.data(), false);
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 MujocoUtils::fill_ctrl_vector(d, temp_ctrl, m);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
