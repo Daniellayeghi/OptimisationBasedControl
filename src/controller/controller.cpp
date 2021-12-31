@@ -13,8 +13,8 @@
 
 using namespace MujocoUtils;
 using namespace SimulationParameters;
-static MyController<ILQR<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr;
-static MyController<MPPIDDP<n_jvel + n_jpos, n_ctrl>, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
+static MyController<ILQR, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr;
+static MyController<MPPIDDP, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
 static MyController<uoe::FICController, state_size, n_ctrl> *my_ctrl_fic;
 static int _mark;
 
@@ -64,18 +64,18 @@ template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
 //    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
-    set_control_data(_d, controls._cached_control, _m);
+    set_control_data(_d, controls.cached_control, _m);
 }
 
 
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::set_instance(MyController<T, state_size, ctrl_size> *myctrl)
 {
-    if constexpr(std::is_same<T, ILQR<state_size, ctrl_size>>::value)
+    if constexpr(std::is_same<T, ILQR>::value)
     {
         my_ctrl_ilqr = myctrl;
     }
-    else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
+    else if constexpr(std::is_same<T, MPPIDDP>::value)
     {
         my_ctrl_mppi_ddp = myctrl;
     }
@@ -90,11 +90,11 @@ void MyController<T, state_size, ctrl_size>::set_instance(MyController<T, state_
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size,ctrl_size>::callback_wrapper(const mjModel *m, mjData *d)
 {
-    if constexpr(std::is_same<T, ILQR<state_size, ctrl_size>>::value)
+    if constexpr(std::is_same<T, ILQR>::value)
     {
         my_ctrl_ilqr->controller();
     }
-    else if constexpr(std::is_same<T, MPPIDDP<state_size, ctrl_size>>::value)
+    else if constexpr(std::is_same<T, MPPIDDP>::value)
     {
         my_ctrl_mppi_ddp->controller();
     }
@@ -119,6 +119,6 @@ void MyController<T, state_size, ctrl_size>::fill_control_buffer(const std::vect
 }
 
 
-template class MyController<ILQR<state_size, n_ctrl>, state_size, n_ctrl>;
-template class MyController<MPPIDDP<state_size, n_ctrl>, state_size, n_ctrl>;
+template class MyController<ILQR, state_size, n_ctrl>;
+template class MyController<MPPIDDP, state_size, n_ctrl>;
 template class MyController<uoe::FICController, state_size, n_ctrl>;

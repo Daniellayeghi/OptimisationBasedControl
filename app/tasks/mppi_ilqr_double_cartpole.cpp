@@ -230,8 +230,8 @@ int main(int argc, const char** argv)
 
     MPPIDDPParams params {100, 100,0.0001, 0, 1, 1, 25, ctrl_mean, ddp_var, ctrl_var};
 
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
+    QRCostDDP qrcost(params, running_cost, terminal_cost);
+    MPPIDDP pi(m, qrcost, params);
 
     // initial position
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;

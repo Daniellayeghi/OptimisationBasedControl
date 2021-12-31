@@ -271,8 +271,8 @@ int main(int argc, const char** argv)
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
     MPPIDDPParams params {100, 75, 0.1, 1, 1, 1, 1e3, ctrl_mean, ddp_var, ctrl_var};
-    QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-    MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m_ng, qrcost, params);
+    QRCostDDP qrcost(params, running_cost, terminal_cost);
+    MPPIDDP pi(m_ng, qrcost, params);
 
     CtrlMatrix R;
     StateMatrix Q;
@@ -283,7 +283,7 @@ int main(int argc, const char** argv)
     ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
 
     // install control callback
-    using ControlType = MPPIDDP<n_jpos + n_jvel, n_ctrl>;
+    using ControlType = MPPIDDP;
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;

@@ -8,6 +8,7 @@
 #include "../parameters/simulation_params.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
+#include"generic_control.h"
 
 
 struct ILQRParams
@@ -21,12 +22,12 @@ struct ILQRParams
 };
 
 
-template<int state_size, int ctrl_size>
-class ILQR
+class ILQR : public BaseController<ILQR>
 {
+    friend class BaseController<ILQR>;
 public:
-    ILQR(FiniteDifference<state_size, ctrl_size>& fd,
-         CostFunction<state_size, ctrl_size>& cf,
+    ILQR(FiniteDifference& fd,
+         CostFunction& cf,
          ILQRParams& params,
          const mjModel * m,
          const mjData* d,
@@ -65,8 +66,6 @@ private:
     };
 
     // Control containers
-    std::vector<StateVector> _x_traj_new;
-    std::vector<CtrlVector>  _u_traj_new;
     std::vector<Derivatives> m_d_vector;
     std::vector<BackPassVars> m_bp_vector;
 
@@ -77,8 +76,8 @@ private:
     double _prev_total_cost = 0;
     bool m_good_backpass = true;
 
-    FiniteDifference<state_size, ctrl_size>& _fd;
-    CostFunction<state_size, ctrl_size>& _cf;
+    FiniteDifference& _fd;
+    CostFunction& _cf;
     const mjModel* _m;
     ILQRParams& m_params;
     mjData* _d_cp = nullptr;
@@ -87,12 +86,8 @@ private:
     StateMatrix m_regularizer;
 
 public:
-    CtrlVector _cached_control;
     std::vector<CtrlMatrix> _covariance;
     std::vector<CtrlMatrix> _covariance_new;
-    std::vector<CtrlVector> _u_traj;
-    std::vector<StateVector> _x_traj;
-    std::vector<CtrlVector> _u_traj_cp;
     std::vector<double> cost;
 };
 

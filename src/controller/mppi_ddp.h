@@ -3,6 +3,7 @@
 #define OPTCONTROL_MUJOCO_MPPI_DDP_H
 
 #include "mujoco.h"
+#include "generic_control.h"
 #include "../parameters/simulation_params.h"
 #include "../utilities/eigen_norm_dist.h"
 #include "../utilities/generic_utils.h"
@@ -26,11 +27,10 @@ struct MPPIDDPParams{
     CtrlVector pi_ctrl_mean;
     CtrlMatrix ddp_variance;
     CtrlMatrix ctrl_variance;
+    FastPair<std::vector<CtrlVector>&, std::vector<CtrlMatrix>&> m_ddp_args;
     unsigned int m_seed = 1;
 };
 
-
-template<int state_size, int ctrl_size>
 class QRCostDDP
 {
 public:
@@ -94,22 +94,16 @@ public:
 };
 
 
-template<int state_size, int ctrl_size>
-class MPPIDDP
+class MPPIDDP : public BaseController<MPPIDDP>
 {
+    friend class BaseController<MPPIDDP>;
 public:
-    explicit MPPIDDP(const mjModel* m, QRCostDDP<state_size, ctrl_size>& cost, MPPIDDPParams& params);
+    explicit MPPIDDP(const mjModel* m, QRCostDDP& cost, MPPIDDPParams& params);
 
     ~MPPIDDP();
 
-    void control(const mjData* d, const std::vector<CtrlVector>& ddp_ctrl, std::vector<CtrlMatrix>& ddp_variance, bool skip = false);
-
-    CtrlVector _cached_control;
-    std::vector<CtrlVector> m_control;
+    void control(const mjData* d, bool skip = false);
     std::vector<CtrlVector> m_control_filtered;
-    std::vector<CtrlVector> m_control_new;
-    std::vector<CtrlVector> m_control_cp;
-    std::vector<StateVector> m_state_new;
     double traj_cost{};
 
 private:
@@ -118,11 +112,11 @@ private:
     void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);
     void prepare_control_mpc(bool skip = false);
     double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
-
     bool accepted_trajectory();
+
     MPPIDDPParams& m_params;
     std::vector<CtrlMatrix> covariance;
-    QRCostDDP<state_size, ctrl_size>& m_cost_func;
+    QRCostDDP& m_cost_func;
     std::vector<double> m_delta_cost_to_go;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
     std::vector<CtrlMatrix> m_ddp_cov_inv_vec;

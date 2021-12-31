@@ -10,7 +10,6 @@
 
 using namespace InternalTypes;
 using namespace SimulationParameters;
-template<int state_size, int ctrl_size>
 class CostFunction
 {
 public:

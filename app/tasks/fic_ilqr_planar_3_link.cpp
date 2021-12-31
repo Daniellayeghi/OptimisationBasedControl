@@ -239,8 +239,8 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParams params{10, 75, 0.1, 0, 1, 1, 0.00001, ctrl_mean, ddp_var, ctrl_var, seed};
-        QRCostDDP<n_jpos + n_jvel, n_ctrl> qrcost(params, running_cost, terminal_cost);
-        MPPIDDP<n_jpos + n_jvel, n_ctrl> pi(m, qrcost, params);
+        QRCostDDP qrcost(params, running_cost, terminal_cost);
+        MPPIDDP pi(m, qrcost, params);
 
         FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
         CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);

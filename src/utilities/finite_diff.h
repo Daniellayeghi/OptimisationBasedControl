@@ -13,20 +13,20 @@
 #include "../utilities/generic_utils.h"
 
 using namespace GenericUtils;
-template<int state_size, int ctrl_size>
+using namespace SimulationParameters;
 class FiniteDifference
 {
-    using ctrl_jacobian          = Eigen::Matrix<double, state_size, ctrl_size>;
-    using state_vel_jacobian     = Eigen::Matrix<double, state_size, SimulationParameters::n_jvel>;
-    using state_pos_jacobian     = Eigen::Matrix<double, state_size, SimulationParameters::n_jpos>;
-    using complete_jacobian      = Eigen::Matrix<double, state_size, state_size + ctrl_size>;
 public:
+    using ctrl_jacobian          = StateCtrlMatrix;
+    using state_vel_jacobian     = Eigen::Matrix<double, state_size, n_jvel>;
+    using state_pos_jacobian     = Eigen::Matrix<double, state_size, n_jpos>;
+    using complete_jacobian      = Eigen::Matrix<double, state_size, state_size + n_ctrl>;
 
     enum class WithRespectTo{ACC, VEL, POS, CTRL, FRC};
     explicit FiniteDifference(const mjModel* m);
     ~FiniteDifference();
     Eigen::Block<complete_jacobian, state_size, state_size> f_x();
-    Eigen::Block<complete_jacobian, state_size, ctrl_size> f_u();
+    Eigen::Block<complete_jacobian, state_size, n_ctrl> f_u();
     void f_x_f_u(mjData *d);
 
 private:
