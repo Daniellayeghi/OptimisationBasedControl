@@ -256,14 +256,18 @@ int main(int argc, const char** argv)
     {
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
-        MPPIDDPParams params{50, 75, 0.25, 1, 1, 1, 5, ctrl_mean, ddp_var, ctrl_var, seed};
+
+        FiniteDifference fd(m);
+        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+
+        MPPIDDPParams params{
+            50, 75, 0.25, 1, 1, 1,5,
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);
-
-        FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
-        ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // install control callback
         using ControlType = MPPIDDP;
@@ -317,10 +321,10 @@ int main(int argc, const char** argv)
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
-                pi.control(d, ilqr._u_traj_cp, ilqr._covariance);
-                ilqr._u_traj = pi.m_control;
-                ilqr_buffer.update(ilqr._cached_control.data(), true);
-                pi_buffer.update(pi._cached_control.data(), false);
+                pi.control(d);
+                ilqr.m_u_traj = pi.m_u_traj;
+                ilqr_buffer.update(ilqr.cached_control.data(), true);
+                pi_buffer.update(pi.cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);

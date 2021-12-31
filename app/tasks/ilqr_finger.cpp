@@ -193,15 +193,15 @@ int main(int argc, const char** argv)
     d->qpos[0] = .57; d->qpos[1] = 0; d->qpos[2] = -4.5;
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
-    FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-    CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+    FiniteDifference fd(m);
+    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, params, m, d, nullptr);
+    ILQR ilqr(fd, cost_func, params, m, d, nullptr);
 
     // install control callback
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
-    MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    MyController<ILQR, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
+    MyController<ILQR, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
 /* ============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
@@ -241,12 +241,12 @@ int main(int argc, const char** argv)
         mjtNum simstart = d->time;
         while( d->time - simstart < 1.0/60.0 )
         {
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+            mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
-            ilqr_buffer.update(ilqr._cached_control.data(), true);
+            ilqr_buffer.update(ilqr.cached_control.data(), true);
             zmq_buffer.send_buffers();
-            mjcb_control = MyController<ILQR<n_jpos + n_jvel, n_ctrl>, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
+            mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }
 

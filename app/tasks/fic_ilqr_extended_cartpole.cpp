@@ -237,15 +237,18 @@ int main(int argc, const char** argv)
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d_h->qvel);
         MujocoUtils::copy_data(m_h, d_h, d);
 
+        FiniteDifference fd(m);
+        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{10, 75, 0.1, 0, 1, 1, 1000, ctrl_mean, ddp_var, ctrl_var, seed};
+        MPPIDDPParams params{
+            10, 75, 0.1, 0, 1, 1, 1000,
+            ctrl_mean, ddp_var, ctrl_var,
+            {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);
-
-        FiniteDifference<n_jpos + n_jvel, n_ctrl> fd(m);
-        CostFunction<n_jpos + n_jvel, n_ctrl> cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
-        ILQR<n_jpos + n_jvel, n_ctrl> ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         uoe::FICController fic_ctrl;
 
         // install control callback
@@ -302,13 +305,13 @@ int main(int argc, const char** argv)
             while (d_h->time - simstart < 1.0 / 60.0)
             {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                PosVector pos_error = ilqr._x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
+                PosVector pos_error = ilqr.m_x_traj[iteration].block<n_jpos, 1>(0, 0) - mapped_pos;
                 auto skip = false; //iteration != static_cast<int>(params.m_sim_time / 2);
                 ilqr.control(d_h);
                 iteration = (not skip) ? 0 : iteration;
 //                CtrlVector ctrl_vec = fic_ctrl.control(pos_error);
-                ilqr_buffer.update(ilqr._cached_control.data(), true);
-                fic_buffer.update(fic_ctrl._cached_control.data(), false);
+                ilqr_buffer.update(ilqr.cached_control.data(), true);
+                fic_buffer.update(fic_ctrl.cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 StateVector curr_state;
                 curr_state << mapped_pos, mapped_vel;
