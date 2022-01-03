@@ -157,26 +157,24 @@ void MPPIDDP::control(const mjData* d, const bool skip) {
                 // Variance not adapted in this case
                 // dU ~ N(mean, variance). Generate samples = to the number of time steps
                 copy_data(m_m, d, m_d_cp);
-                const auto samples = m_normX_cholesk.samples_vector();
-                for (auto time = 0; time < m_params.m_sim_time; ++time) {
+                m_normX_cholesk.samples_fill(m_ctrl_samples_time.row(sample));
+                for (auto time = 0; time < m_params.m_sim_time; ++time){
                     // Set sampled perturbation
-                    const CtrlVector pert_sample = samples.block(0, time, n_ctrl, 1);
-                    m_ctrl_samples_time.block(sample, time * n_ctrl, 1, n_ctrl) = pert_sample.transpose();
+                    const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time, n_ctrl, 1);
                     instant_control = m_u_traj[time] + pert_sample;
                     // Forward simulate controls and compute running costl
                     MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
-                    m_delta_cost_to_go[sample] += m_cost_func(
+                    m_delta_cost_to_go[sample] +=m_cost_func(
                             m_x_traj[time + 1], m_u_traj[time],
                             pert_sample, m_params.m_ddp_args.first[time],
                             m_ddp_cov_inv_vec[time],
-                            m_d_cp, m_m
-                    );
+                            m_d_cp, m_m);
                 }
 
                 // Set final pert sample
-                const CtrlVector final_sample = samples.block(0, m_params.m_sim_time - 1, n_ctrl, 1);
-                m_ctrl_samples_time.block(sample, (m_params.m_sim_time - 1) * n_ctrl, 1,
-                                          n_ctrl) = final_sample.transpose();
+                const CtrlVector& final_sample = m_ctrl_samples_time.block(
+                        m_params.m_k_samples-1, m_params.m_sim_time - 1, n_ctrl, 1
+                        );
 
                 // Apply final sample
                 instant_control = m_u_traj.back() + final_sample;

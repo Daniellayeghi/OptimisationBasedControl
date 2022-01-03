@@ -23,10 +23,7 @@ public:
 
     static void dummy_controller(const mjModel* m, mjData* d);
 
-    void fill_control_buffer(const std::vector<Eigen::Matrix<double, ctrl_size, 1>> buffer);
-
 private:
-    std::vector<SimulationParameters::CtrlVector> ctrl_buffer;
     const T& controls;
     const mjModel* _m;
     mjData* _d;

@@ -34,7 +34,7 @@ public:
          const std::vector<CtrlVector>* init_u = nullptr);
 
     ~ILQR();
-    void control(const mjData* d, bool skip = false);
+    void control(const mjData* d, bool skip = false) override;
 
 private:
     void forward_simulate(const mjData* d);
@@ -73,15 +73,15 @@ private:
     std::vector<CtrlVector> m_Qu_traj;
     std::vector<CtrlMatrix> m_Quu_traj;
     std::vector<double> exp_cost_reduction;
-    double _prev_total_cost = 0;
-    bool m_good_backpass = true;
 
     FiniteDifference& _fd;
     CostFunction& _cf;
     const mjModel* _m;
     ILQRParams& m_params;
-    mjData* _d_cp = nullptr;
 
+    mjData* _d_cp = nullptr;
+    double _prev_total_cost = 0;
+    bool m_good_backpass = true;
     std::array<double, 11> m_backtrackers{};
     StateMatrix m_regularizer;
 

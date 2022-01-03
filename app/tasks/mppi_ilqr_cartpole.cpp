@@ -224,7 +224,7 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParams params{
-            10, 75, 0.01, 1, 1, 1, 1000000,ctrl_mean,
+            4, 75, 0.01, 0, 1, 1, 1000,ctrl_mean,
             ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
@@ -285,7 +285,7 @@ int main(int argc, const char** argv)
                 cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

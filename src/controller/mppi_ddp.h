@@ -102,29 +102,29 @@ public:
 
     ~MPPIDDP();
 
-    void control(const mjData* d, bool skip = false);
-    std::vector<CtrlVector> m_control_filtered;
-    double traj_cost{};
-
+    void control(const mjData* d, bool skip = false) override;
 private:
-    FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
-    FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost, double normaliser);
-    void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);
-    void prepare_control_mpc(bool skip = false);
-    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
-    bool accepted_trajectory();
 
+    bool accepted_trajectory();
+    void prepare_control_mpc(bool skip = false);
+    FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
+    void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);
+    FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost, double normaliser);
+    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
     MPPIDDPParams& m_params;
-    std::vector<CtrlMatrix> covariance;
+
     QRCostDDP& m_cost_func;
     std::vector<double> m_delta_cost_to_go;
+    std::vector<CtrlVector> m_control_filtered;
     [[maybe_unused]] std::vector<mjtNum> m_cost;
     std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
-
     // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
     // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
+
+    double traj_cost = 0;
     double m_prev_cost = 0;
+
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;
     Eigen::EigenMultivariateNormal<double> m_normX_cholesk;

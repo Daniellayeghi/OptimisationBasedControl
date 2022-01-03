@@ -55,9 +55,7 @@ namespace
 template<typename T, int state_size, int ctrl_size>
 MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls, const bool comp_gravity) :
 controls(controls), _m(m), _d(d), m_comp_gravity(comp_gravity), m_grav_comp(_d->qfrc_bias, _m->nu, 1)
-{
-    ctrl_buffer.assign(10, CtrlVector::Zero());
-}
+{}
 
 
 template<typename T, int state_size, int ctrl_size>
@@ -110,14 +108,6 @@ void MyController<T, state_size, ctrl_size>::dummy_controller(const mjModel *m, 
 {
 
 }
-
-
-template<typename T, int state_size, int ctrl_size>
-void MyController<T, state_size, ctrl_size>::fill_control_buffer(const std::vector<Eigen::Matrix<double, ctrl_size, 1>> buffer)
-{
-    ctrl_buffer = buffer;
-}
-
 
 template class MyController<ILQR, state_size, n_ctrl>;
 template class MyController<MPPIDDP, state_size, n_ctrl>;

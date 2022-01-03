@@ -148,6 +148,12 @@ namespace Eigen {
         {
             return (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
+
+
+        inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
+        {
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+        }
     }; // end class EigenMultivariateNormal
-} // end namespace Eigen
+} // end namespace Eigenm_normX_cholesk
 #endif
