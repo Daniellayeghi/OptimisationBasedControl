@@ -18,5 +18,5 @@ FetchContent_MakeAvailable(googletest)
 
 
 add_executable(open_mp_tests open_mp_tests.cpp)
-target_link_libraries(open_mp_tests gtest_main gtest util_lib Eigen3::Eigen)
-target_link_libraries(open_mp_tests OpenMP::OpenMP_CXX)
+target_link_libraries(open_mp_tests PUBLIC gtest_main gtest util_lib Eigen3::Eigen)
+target_link_libraries(open_mp_tests PUBLIC OpenMP::OpenMP_CXX)

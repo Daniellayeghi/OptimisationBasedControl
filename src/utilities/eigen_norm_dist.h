@@ -138,6 +138,7 @@ namespace Eigen {
             return (_transform * Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, randN)).colwise() + _mean;
         }
 
+
         Matrix<Scalar,Dynamic,-1>& samples_vector_res()
         {
             _samples_result = (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
@@ -154,6 +155,7 @@ namespace Eigen {
         {
             samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
+
     }; // end class EigenMultivariateNormal
 } // end namespace Eigenm_normX_cholesk
 #endif

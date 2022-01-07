@@ -53,12 +53,23 @@ namespace GenericUtils
         {
             m_start = std::chrono::steady_clock::now();
         }
+
     public:
         ~TimeBench()
         {
             m_end = std::chrono::steady_clock::now();
             duration = m_end - m_start;
-            std::cout << "["<< m_id << "]" << " Computation took: " << duration.count() * 1000.0 << " ms" << "\n";
+            auto ts = duration.count() * 1000.0;
+            printf("[%s] Computation took: %f\n", m_id.c_str(), ts);
+        }
+
+        void measure()
+        {
+            m_end = std::chrono::steady_clock::now();
+            duration = m_end - m_start;
+            auto ts = duration.count() * 1000.0;
+            printf("[%s] Computation took: %f\n", m_id.c_str(), ts);
+
         }
     };
 }
