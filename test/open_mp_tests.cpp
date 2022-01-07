@@ -490,35 +490,41 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
     };
 
     constexpr const int time = 75; int samples = 1e5;
-    std::vector<double> cst(samples);
+    std::vector<std::vector<double>> cst(samples, {0, 0, 0, 0, 0, 0, 0, 0});
     EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
-    Matrix<double, -1, -1> ctrl_samples; ctrl_samples.resize(samples, time);
+    std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
 
+#pragma omp parallel for default(none)shared(samples, ctrl_samples) num_threads(14)
+    for(auto sample = 0; sample < samples; ++sample)
+        ctrl_samples[sample].resize(1, time);
+
+
+#pragma omp parallel for default(none)shared(normX_cholesk, samples, ctrl_samples) num_threads(14)
     for(auto sample = 0; sample < samples; ++sample)
     {
-        normX_cholesk.samples_fill(ctrl_samples.row(sample));
+        normX_cholesk.samples_fill(ctrl_samples[sample]);
     }
 
     int t;
     GenericUtils::TimeBench timer("Basic_Path_Integral");
-//#pragma omp parallel for default(none) private(t) shared(step, cost, cst, samples, ctrl_samples) num_threads(10)
+#pragma omp parallel for default(none) private(t) shared(step, cost, cst, samples, ctrl_samples) num_threads(14)
     for(int sample = 0; sample < samples; ++sample)
     {
         Data d;
         d.u = CtrlVec::Zero(); d.x = StateVec::Zero();
-        const auto& ctrl_traj = ctrl_samples.row(sample);
+        const auto& ctrl_traj = ctrl_samples[sample];
         for(t = 0; t < time; ++t)
         {
             d.u = ctrl_traj.block(0, t, 1, 1);
             step(d);
-            cst[sample] += cost(d);
+            cst[sample][0] += cost(d);
         }
     }
 
     double total_sum = 0.0;
-//#pragma omp parallel for reduction(+:total_sum) default(none) shared(cst, samples) num_threads(10)
+#pragma omp parallel for reduction(+:total_sum) default(none) shared(cst, samples) num_threads(14)
     for(auto i=0; i<samples; ++i) {
-        total_sum += cst[i];
+        total_sum += cst[i][0];
     }
 
     std::cout << total_sum << std::endl;
