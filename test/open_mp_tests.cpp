@@ -493,20 +493,17 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
     std::vector<std::vector<double>> cst(samples, {0, 0, 0, 0, 0, 0, 0, 0});
     EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
     std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
-
-#pragma omp parallel for default(none)shared(samples, ctrl_samples) num_threads(14)
-    for(auto sample = 0; sample < samples; ++sample)
-        ctrl_samples[sample].resize(1, time);
+    GenericUtils::TimeBench timer("Basic_Path_Integral");
 
 
-#pragma omp parallel for default(none)shared(normX_cholesk, samples, ctrl_samples) num_threads(14)
+#pragma omp parallel for default(none) shared(normX_cholesk, samples, ctrl_samples) num_threads(14)
     for(auto sample = 0; sample < samples; ++sample)
     {
+        ctrl_samples[sample].resize(1, time);
         normX_cholesk.samples_fill(ctrl_samples[sample]);
     }
 
     int t;
-    GenericUtils::TimeBench timer("Basic_Path_Integral");
 #pragma omp parallel for default(none) private(t) shared(step, cost, cst, samples, ctrl_samples) num_threads(14)
     for(int sample = 0; sample < samples; ++sample)
     {
@@ -523,9 +520,8 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
 
     double total_sum = 0.0;
 #pragma omp parallel for reduction(+:total_sum) default(none) shared(cst, samples) num_threads(14)
-    for(auto i=0; i<samples; ++i) {
+    for(auto i=0; i<samples; ++i)
         total_sum += cst[i][0];
-    }
 
     std::cout << total_sum << std::endl;
 }
