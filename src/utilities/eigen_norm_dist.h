@@ -156,7 +156,7 @@ namespace Eigen {
             samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
 
-        inline void samples_fill(Matrix<double, -1, -1>& samp_container)
+        inline void samples_fill(Matrix<double, -1, -1>& samp_container) const
         {
             samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }

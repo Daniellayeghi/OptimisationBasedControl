@@ -491,7 +491,7 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
 
     constexpr const int time = 75; int samples = 1e5;
     std::vector<std::vector<double>> cst(samples, {0, 0, 0, 0, 0, 0, 0, 0});
-    EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
+    const EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
     std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
     GenericUtils::TimeBench timer("Basic_Path_Integral");
 
