@@ -138,7 +138,6 @@ namespace Eigen {
             return (_transform * Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, randN)).colwise() + _mean;
         }
 
-
         Matrix<Scalar,Dynamic,-1>& samples_vector_res()
         {
             _samples_result = (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
@@ -150,8 +149,7 @@ namespace Eigen {
             return (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
 
-
-        inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
+        inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container) const
         {
             samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }

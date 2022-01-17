@@ -7,7 +7,7 @@
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/zmq_utils.h"
-#include "../../src/controller/mppi_ddp.h"
+#include "../../src/controller/par_mppi_ddp.h"
 #include "../../src/utilities/mujoco_utils.h"
 
 // for sleep timers
@@ -179,7 +179,7 @@ int main(int argc, const char** argv)
     glfwSetCursorPosCallback(window, mouse_move);
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback//                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
-(window, scroll);
+            (window, scroll);
 
 
     CtrlMatrix ddp_var; ddp_var.setIdentity();
@@ -223,15 +223,15 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{
-            4, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
-            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        MPPIDDPParamsPar params{
+                100, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
-        QRCostDDP qrcost(params, running_cost, terminal_cost);
-        MPPIDDP pi(m, qrcost, params);
+        QRCostDDPPar qrcost(params, running_cost, terminal_cost);
+        MPPIDDPPar pi(m, qrcost, params);
 
         // install control callback
-        using ControlType = MPPIDDP;
+        using ControlType = MPPIDDPPar;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
 
@@ -280,8 +280,8 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-                std::cout << "CTRL " << pi.cached_control << std::endl;
-                std::this_thread::sleep_for(chrono::seconds(10));
+//                std::cout << "CTRL " << pi.cached_control << std::endl;
+//                std::this_thread::sleep_for(chrono::seconds(10));
                 ilqr.m_u_traj = pi.m_u_traj;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);

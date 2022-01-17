@@ -30,6 +30,9 @@ namespace SimulationParameters
         using scalar = typename T::Scalar;
         static constexpr const unsigned int size = sizeof(T);
     };
+
+    /* Threading */
+    constexpr const unsigned int n_threads = 5;
 }
 
 #endif //OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H

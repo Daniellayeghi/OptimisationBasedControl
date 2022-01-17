@@ -9,6 +9,7 @@ set(SOURCE_FILES
         ilqr_planar.cpp
         mppi_ilqr_planar_obstacle.cpp
         mppi_ilqr_cartpole.cpp
+        par_mppi_ilqr_cartpole.cpp
         mppi_ilqr_double_cartpole.cpp
         mppi_ilqr_finger.cpp
         mppi_ilqr_planar_push.cpp
@@ -41,6 +42,8 @@ foreach(source ${SOURCE_FILES})
     #target_link_libraries(${BIN_NAME} autodiff::autodiff)
     #target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
     target_link_libraries(${BIN_NAME} /usr/local/lib/libzmq.so.5)
-#    target_link_libraries(${BIN_NAME} ${ZMQPP})
+    target_link_libraries(${BIN_NAME} OpenMP::OpenMP_CXX)
+
+    #    target_link_libraries(${BIN_NAME} ${ZMQPP})
     ## add the include directory to our compile directives
 endforeach(source ${SOURCE_FILES})

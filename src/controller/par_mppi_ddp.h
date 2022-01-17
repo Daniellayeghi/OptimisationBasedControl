@@ -1,22 +1,25 @@
 
-#ifndef OPTCONTROL_MUJOCO_MPPI_DDP_H
-#define OPTCONTROL_MUJOCO_MPPI_DDP_H
+#ifndef OPTCONTROL_MUJOCO_PAR_MPPI_DDP_H
+#define OPTCONTROL_MUJOCO_PAR_MPPI_DDP_H
 
+#include <utility>
+#include <vector>
+#include <iostream>
 #include "mujoco.h"
 #include "generic_control.h"
 #include "../parameters/simulation_params.h"
 #include "../utilities/eigen_norm_dist.h"
 #include "../utilities/generic_utils.h"
 #include "Eigen/Core"
-#include <utility>
-#include <vector>
-#include <iostream>
 
 
 using namespace SimulationParameters;
 using namespace GenericUtils;
 
-struct MPPIDDPParams{
+using namespace SimulationParameters;
+using namespace GenericUtils;
+
+struct MPPIDDPParamsPar{
     const unsigned int m_k_samples  = 0;
     const int m_sim_time   = 0;
     const float m_lambda   = 0;
@@ -31,10 +34,10 @@ struct MPPIDDPParams{
     const unsigned int m_seed = 1;
 };
 
-class QRCostDDP
+class QRCostDDPPar
 {
 public:
-    QRCostDDP(const MPPIDDPParams &params,
+    QRCostDDPPar(const MPPIDDPParamsPar &params,
               std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
               std::function<double(const StateVector&, const mjData* data, const mjModel *model)> terminal_cost
     ):
@@ -54,22 +57,22 @@ public:
     {
         CtrlVector new_control = control + delta_control;
         double ddp_bias = (
-                (new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
-                )(0, 0) * m_params.importance;
+                                  (new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
+                          )(0, 0) * m_params.importance;
 
         double passive_bias = (
-                new_control.transpose() * ddp_covariance_inv * new_control
-                )(0, 0) * (1 - m_params.importance);
+                                      new_control.transpose() * ddp_covariance_inv * new_control
+                              )(0, 0) * (1 - m_params.importance);
 
         double common_bias = (
                 (new_control - control).transpose() * m_ctrl_variance_inv * (new_control - control)
-                )(0, 0);
+        )(0, 0);
 
         const double cost_power = 1;
         return 0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
     }
 
-    const MPPIDDPParams& m_params;
+    const MPPIDDPParamsPar& m_params;
     CtrlMatrix m_ctrl_variance_inv;
 
 public:
@@ -90,40 +93,41 @@ public:
 };
 
 
-class MPPIDDP : public BaseController<MPPIDDP>
-{
-    friend class BaseController<MPPIDDP>;
+class MPPIDDPPar : public BaseController<MPPIDDPPar> {
+    friend class BaseController<MPPIDDPPar>;
+
 public:
-    explicit MPPIDDP(const mjModel* m, QRCostDDP& cost, MPPIDDPParams& params);
+    // Functions
+    explicit MPPIDDPPar(const mjModel *m, QRCostDDPPar &cost, MPPIDDPParamsPar &params);
+    void control(const mjData *d, bool skip = false) override;
+    ~MPPIDDPPar() = default;
 
-    ~MPPIDDP();
-
-    void control(const mjData* d, bool skip = false) override;
 private:
+    void compute_cov_from_hess(const std::vector<CtrlMatrix>& ddp_variance);
+    void rollout_trajectories(const mjData *d);
+    void fill_ctrl_samples();
+    void exponentiate_costs(double min_cost);
+    void convert_costs_to_is_weight();
+    double compute_normalisation_constant();
+    void weight_samples_ctrl_traj();
+    void perturb_ctrl_traj();
 
-    bool accepted_trajectory();
-    void prepare_control_mpc(bool skip = false);
-    FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
-    void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);
-    FastPair<CtrlVector, CtrlMatrix> total_entropy(int time, double min_cost, double normaliser);
-    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state);
-
-    MPPIDDPParams& m_params;
-    QRCostDDP& m_cost_func;
-    std::vector<double> m_delta_cost_to_go;
-    std::vector<CtrlVector> m_control_filtered;
-    [[maybe_unused]] std::vector<mjtNum> m_cost;
-    std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
-    // Cache friendly structure [ctrl1_1, ctrl2_1, ctrl1_2, ctrl2_2, ...]
-    // Each row contains one ctrl trajectory sample the size of the sim_time * n_ctrl
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_ctrl_samples_time;
-
-    double traj_cost = 0;
-    double m_prev_cost = 0;
-
+    // Data
     const mjModel* m_m;
-    mjData*  m_d_cp = nullptr;
-    const Eigen::EigenMultivariateNormal<double> m_normX_cholesk;
+    MPPIDDPParamsPar& m_params;
+    const QRCostDDPPar& m_cost_func;
+    std::vector<mjData *> m_thread_mjdata;
+    std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
+    std::vector<std::vector<double>> m_padded_cst;
+    const Eigen::EigenMultivariateNormal<double> m_normal_dist;
+    std::vector<Eigen::Matrix<double, -1, -1>> m_sample_ctrl_traj;
+    struct ThreadData{
+        StateVector current = StateVector::Zero(), next = StateVector::Zero();
+        CtrlVector instant_ctrl = CtrlVector::Zero();
+    };
+
+    unsigned int m_per_thread_sample;
+
 };
 
-#endif //OPTCONTROL_MUJOCO_MPPI_DDP_H
+#endif //OPTCONTROL_MUJOCO_PAR_MPPI_DDP_H

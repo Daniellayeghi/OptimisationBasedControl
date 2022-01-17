@@ -10,11 +10,13 @@
 #include "../utilities/mujoco_utils.h"
 #include "ilqr.h"
 #include "mppi_ddp.h"
+#include "par_mppi_ddp.h"
 
 using namespace MujocoUtils;
 using namespace SimulationParameters;
 static MyController<ILQR, n_jvel + n_jpos, n_ctrl> *my_ctrl_ilqr;
 static MyController<MPPIDDP, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
+static MyController<MPPIDDPPar, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp_par;
 static MyController<uoe::FICController, state_size, n_ctrl> *my_ctrl_fic;
 static int _mark;
 
@@ -77,6 +79,10 @@ void MyController<T, state_size, ctrl_size>::set_instance(MyController<T, state_
     {
         my_ctrl_mppi_ddp = myctrl;
     }
+    else if constexpr(std::is_same<T, MPPIDDPPar>::value)
+    {
+        my_ctrl_mppi_ddp_par = myctrl;
+    }
     else if constexpr(std::is_same<T, uoe::FICController>::value)
     {
         my_ctrl_fic = myctrl;
@@ -96,6 +102,10 @@ void MyController<T, state_size,ctrl_size>::callback_wrapper(const mjModel *m, m
     {
         my_ctrl_mppi_ddp->controller();
     }
+    else if constexpr(std::is_same<T, MPPIDDPPar>::value)
+    {
+        my_ctrl_mppi_ddp_par->controller();
+    }
     else if constexpr(std::is_same<T, uoe::FICController>::value)
     {
         my_ctrl_fic->controller();
@@ -111,4 +121,5 @@ void MyController<T, state_size, ctrl_size>::dummy_controller(const mjModel *m, 
 
 template class MyController<ILQR, state_size, n_ctrl>;
 template class MyController<MPPIDDP, state_size, n_ctrl>;
+template class MyController<MPPIDDPPar, state_size, n_ctrl>;
 template class MyController<uoe::FICController, state_size, n_ctrl>;

@@ -156,7 +156,7 @@ public:
 //    constexpr const int nthreads_req = 4;
 //    double step = 1.0/(double) duration_step, pi = 0;
 //    int nthreads_given = 0;
-//    omp_set_num_threads(nthreads_req);
+//    ompconst_set_num_threads(nthreads_req);
 //    GenericUtils::TimeBench timer("Parallel_Integration_Critical_Sum_1");
 //    // The segment insisde the pragma is a program for each thread with any declaration as data per thread
 //    // Any decleration outside requires protection if writing or reading to
@@ -504,7 +504,7 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
     }
 
     int t;
-#pragma omp parallel for default(none) private(t) shared(step, cost, cst, samples, ctrl_samples) num_threads(14)
+    #pragma omp parallel for default(none) private(t) shared(step, cost, cst, samples, ctrl_samples) num_threads(10)
     for(int sample = 0; sample < samples; ++sample)
     {
         Data d;
@@ -524,4 +524,107 @@ TEST_F(OpenMPTests, Basic_Path_Integral)
         total_sum += cst[i][0];
 
     std::cout << total_sum << std::endl;
+}
+
+
+TEST_F(OpenMPTests, Basic_Path_Integral_Data_Vec)
+{
+    using namespace Eigen;
+    using StateVec = Matrix<double, 2, 1>;
+    using StateMat = Matrix<double, 2, 2>;
+    using CtrlVec  = Matrix<double, 1, 1>;
+    using CtrlMat  = Eigen::Matrix<double, 1, 1>;
+    const auto state_gain = StateMat::Identity();
+    const auto ctrl_gain  = CtrlMat::Identity();
+
+    struct Data{StateVec x = StateVec::Zero(); CtrlVec u = CtrlVec::Zero(); const double t = 0.01; double acc = 0; double pad[3];};
+
+    auto step = [](Data &d)
+    {
+        constexpr const double m = 1;
+        d.acc = d.u(0, 0) / m;
+        d.x(0, 0) += d.acc * d.t;
+        d.x(1, 0) += d.x(0, 0) * d.t;
+    };
+
+    auto cost = [&](Data& data)-> double
+    {
+        return (data.x.transpose() * state_gain * data.x + data.u.transpose() * ctrl_gain * data.u)(0, 0);
+    };
+
+    constexpr const int time = 75, nthreads = 10; int samples = 1e5;
+    std::vector<std::vector<double>> cst(samples, {0, 0, 0, 0, 0, 0, 0, 0});
+    const EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
+    std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
+    std::vector<Data> data_vec(14);
+    GenericUtils::TimeBench timer("Basic_Path_Integral");
+    static int segments = samples/nthreads;
+
+
+#pragma omp parallel for default(none) shared(normX_cholesk, samples, ctrl_samples) num_threads(14)
+    for(auto sample = 0; sample < samples; ++sample)
+    {
+        ctrl_samples[sample].resize(1, time);
+        normX_cholesk.samples_fill(ctrl_samples[sample]);
+    }
+
+    int t;
+#pragma omp parallel default(none) private(t) shared(data_vec, step, cost, cst, samples, ctrl_samples, segments) num_threads(nthreads)
+    {
+        int id = omp_get_thread_num(); int adjust = 0;
+        if (id == nthreads) adjust = samples % nthreads;
+        for (int thread = id * segments; thread < (id+1) * segments - adjust; ++thread) {
+            data_vec[id].u = CtrlVec::Zero();
+            data_vec[id].x = StateVec::Zero();
+            const auto &ctrl_traj = ctrl_samples[thread];
+            for (t = 0; t < time; ++t)
+            {
+                data_vec[id].u = ctrl_traj.block(0, t, 1, 1);
+                step(data_vec[id]);
+                cst[thread][0] += cost(data_vec[id]);
+            }
+        }
+    }
+
+    double total_sum = 0.0;
+#pragma omp parallel for reduction(+:total_sum) default(none) shared(cst, samples) num_threads(14)
+    for(auto i=0; i<samples; ++i)
+        total_sum += cst[i][0];
+
+    std::cout << total_sum << std::endl;
+}
+
+
+TEST_F(OpenMPTests, Minimum_Array)
+{
+
+    struct Compare { double val = std::numeric_limits<double>::max(); std::size_t index = 0; };
+#pragma omp declare reduction(minimum : struct Compare : omp_out = omp_in.val < omp_out.val ? omp_in : omp_out)
+
+    auto par_min = [](std::vector<int>& input)
+    {
+        struct Compare min;
+#pragma omp parallel for reduction(minimum:min)
+        for (int i = 1; i < input.size(); i++) {
+            if (input[i] < min.val) {
+                min.val = input[i];
+                min.index = i;
+            }
+        }
+        return min;
+    };
+
+    constexpr const unsigned int samples = 1000;
+    std::vector<int> rand_arr;
+    for(auto i=0; i < samples; ++i)
+    {
+        rand_arr.push_back({rand()+1});
+        std::cout << rand_arr[i] << "\n";
+    }
+
+    auto res = par_min(rand_arr);
+    std::cout << "MIN: " << res.val << std::endl;
+
+    const auto min = std::min_element(rand_arr.begin(), rand_arr.end());
+    std::cout << "MIN: " << *min << std::endl;
 }

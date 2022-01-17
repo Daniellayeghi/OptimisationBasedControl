@@ -72,6 +72,23 @@ namespace GenericUtils
 
         }
     };
+
+    struct Compare { double val = std::numeric_limits<double>::max(); std::size_t index = 0; };
+#pragma omp declare reduction(minimum : struct Compare : omp_out = omp_in.val < omp_out.val ? omp_in : omp_out)
+
+    template<typename T>
+    Compare parallel_min(std::vector<std::vector<T>>& input)
+    {
+        struct Compare min {};
+#pragma omp parallel for reduction(minimum:min) default(none) shared(input)
+        for (int i = 1; i < input.size(); i++) {
+            if (input[i][0] < min.val) {
+                min.val = input[i][0];
+                min.index = i;
+            }
+        }
+        return min;
+    }
 }
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_UTILS_H
