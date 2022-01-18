@@ -6,7 +6,6 @@
 #include <fstream>
 #include <iomanip>
 
-
 namespace BufferUtilities
 {
 

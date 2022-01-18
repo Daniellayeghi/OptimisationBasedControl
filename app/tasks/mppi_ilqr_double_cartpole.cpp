@@ -1,10 +1,8 @@
 
 #include "mujoco.h"
 #include "cstdio"
-#include "cstdlib"
 #include "cstring"
 #include "glfw3.h"
-#include "random"
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"

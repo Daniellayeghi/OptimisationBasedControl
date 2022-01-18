@@ -119,7 +119,8 @@ private:
     std::vector<mjData *> m_thread_mjdata;
     std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
     std::vector<std::vector<double>> m_padded_cst;
-    const Eigen::EigenMultivariateNormal<double> m_normal_dist;
+    Eigen::EigenMultivariateNormal<double> m_normal_dist;
+    std::vector<Eigen::internal::scalar_normal_dist_op<double>> m_dist_gens;
     std::vector<Eigen::Matrix<double, -1, -1>> m_sample_ctrl_traj;
     struct ThreadData{
         StateVector current = StateVector::Zero(), next = StateVector::Zero();

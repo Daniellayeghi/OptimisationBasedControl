@@ -158,7 +158,7 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1000, 500, 10, 5;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
     StateVector x_gain_vec; x_gain_vec << 2, 2, 0, 0;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
@@ -224,7 +224,7 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                100, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
+                10, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
                 ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
@@ -266,6 +266,7 @@ int main(int argc, const char** argv)
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
+        auto iter = 1;
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -280,8 +281,6 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-//                std::cout << "CTRL " << pi.cached_control << std::endl;
-//                std::this_thread::sleep_for(chrono::seconds(10));
                 ilqr.m_u_traj = pi.m_u_traj;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);
@@ -291,6 +290,7 @@ int main(int argc, const char** argv)
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
+                ++iter;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

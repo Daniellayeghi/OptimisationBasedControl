@@ -10,9 +10,10 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
         m_m(m),
         m_params(params),
         m_cost_func(cost),
-        m_padded_cst(m_params.m_k_samples, {0, 0, 0, 0, 0, 0, 0, 0}),
+        m_padded_cst(m_params.m_k_samples, std::vector<double>(8)),
         m_normal_dist(m_params.pi_ctrl_mean, params.ctrl_variance,
                       m_params.m_sim_time, true,  m_params.m_seed),
+        m_dist_gens(nthreads),
         m_sample_ctrl_traj(m_params.m_k_samples)
 
 {
@@ -21,7 +22,9 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
         m_sample_ctrl_traj[sample].resize(1, m_params.m_sim_time);
 
     for(auto thread = 0; thread < nthreads; ++thread)
+    {
         m_thread_mjdata.emplace_back(mj_makeData(m_m));
+    }
 
     cached_control = CtrlVector::Zero();
     m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
@@ -56,13 +59,26 @@ void MPPIDDPPar::perturb_ctrl_traj()
 }
 
 
+//TODO: remove critical need one rng per thread.
 void MPPIDDPPar::fill_ctrl_samples()
 {
-#pragma omp  parallel for default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params) num_threads(nthreads)
-    for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
+
+#pragma omp  parallel default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(nthreads)
     {
-        m_normal_dist.samples_fill(m_sample_ctrl_traj[sample]);
+        int id = omp_get_thread_num();
+        unsigned int adjust = 0;
+        if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
+        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample)
+        {
+            m_normal_dist.samples_fill(m_sample_ctrl_traj[sample], m_dist_gens[id]);
+        }
     }
+
+//#pragma omp  parallel for default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params) num_threads(nthreads)
+//    for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
+//    {
+//        m_normal_dist.samples_fill(m_sample_ctrl_traj[sample]);
+//    }
 }
 
 
@@ -73,8 +89,8 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
     {
         int id = omp_get_thread_num();
         unsigned int adjust = 0;
-        if (id == nthreads) adjust = m_params.m_k_samples % n_threads;
-        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample - adjust; ++sample) {
+        if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
+        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample) {
             ThreadData t_d;
             fill_state_vector(d, t_d.current, m_m);
             copy_data(m_m, d, m_thread_mjdata[id]);
@@ -161,10 +177,12 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
         compute_cov_from_hess(m_params.m_ddp_args.second);
         for (auto iteration = 0; iteration < m_params.iteration; ++iteration)
         {
-            m_padded_cst.assign(m_params.m_k_samples, {0});
+            std::fill(m_padded_cst.begin(), m_padded_cst.end(), std::vector<double>(8, 0));
             fill_ctrl_samples();
+//            std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << std::endl;});
+//            auto k = 1;
+//            std::cin >> k;
             rollout_trajectories(d);
-            auto sum = 0.0;
             weight_samples_ctrl_traj();
             perturb_ctrl_traj();
             cached_control = m_u_traj.front();

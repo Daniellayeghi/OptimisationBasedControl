@@ -614,7 +614,7 @@ TEST_F(OpenMPTests, Minimum_Array)
         return min;
     };
 
-    constexpr const unsigned int samples = 1000;
+    constexpr const unsigned int samples = 100000;
     std::vector<int> rand_arr;
     for(auto i=0; i < samples; ++i)
     {

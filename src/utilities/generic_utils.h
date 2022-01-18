@@ -80,8 +80,8 @@ namespace GenericUtils
     Compare parallel_min(std::vector<std::vector<T>>& input)
     {
         struct Compare min {};
-#pragma omp parallel for reduction(minimum:min) default(none) shared(input)
-        for (int i = 1; i < input.size(); i++) {
+#pragma omp parallel for reduction(minimum:min) default(none) shared(input, std::cout)
+        for (int i = 0; i < input.size(); i++) {
             if (input[i][0] < min.val) {
                 min.val = input[i][0];
                 min.index = i;

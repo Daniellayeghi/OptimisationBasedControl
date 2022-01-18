@@ -32,7 +32,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 5;
+    constexpr const unsigned int n_threads = 8;
 }
 
 #endif //OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H

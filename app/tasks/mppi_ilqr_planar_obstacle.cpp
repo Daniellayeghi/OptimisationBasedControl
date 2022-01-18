@@ -12,8 +12,6 @@
 #include <thread>
 
 // for sleep timers
-#include <chrono>
-#include <thread>
 #include <random>
 using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;

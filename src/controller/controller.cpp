@@ -1,14 +1,10 @@
 
-#include <iostream>
 #include <chrono>
-#include <random>
 #include "controller.h"
 #include "cost_function.h"
 #include "ilqr.h"
 #include "../third_party/FIC/fic.h"
-#include "../parameters/simulation_params.h"
 #include "../utilities/mujoco_utils.h"
-#include "ilqr.h"
 #include "mppi_ddp.h"
 #include "par_mppi_ddp.h"
 
@@ -65,6 +61,7 @@ void MyController<T, state_size, ctrl_size>::controller()
 {
 //    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
     set_control_data(_d, controls.cached_control, _m);
+//    std::cout << "CTRL: " << controls.cached_control << "\n";
 }
 
 

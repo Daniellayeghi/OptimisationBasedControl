@@ -49,18 +49,20 @@ namespace Eigen {
         template<typename Scalar>
         struct scalar_normal_dist_op
         {
-            static std::mt19937 rng;                        // The uniform pseudo-random algorithm
+            std::mt19937 rng;                        // The uniform pseudo-random algorithm
             mutable std::normal_distribution<Scalar> norm; // gaussian combinator
 
-            EIGEN_EMPTY_STRUCT_CTOR(scalar_normal_dist_op)
+//            EIGEN_EMPTY_STRUCT_CTOR(scalar_normal_dist_op)
 
             template<typename Index>
             inline const Scalar operator() (Index, Index = 0) const { return norm(rng); }
             inline void seed(const uint64_t &s) { rng.seed(s); }
+        public:
+            scalar_normal_dist_op(){rng = std::mt19937(std::mt19937::default_seed);};
         };
-
-        template<typename Scalar>
-        std::mt19937 scalar_normal_dist_op<Scalar>::rng;
+//
+//        template<typename Scalar>
+//        std::mt19937 scalar_normal_dist_op<Scalar>::rng;
 
         template<typename Scalar>
         struct functor_traits<scalar_normal_dist_op<Scalar> >
@@ -157,6 +159,11 @@ namespace Eigen {
         inline void samples_fill(Matrix<double, -1, -1>& samp_container) const
         {
             samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+        }
+
+        inline void samples_fill(Matrix<double, -1, -1>& samp_container, Eigen::internal::scalar_normal_dist_op<Scalar>& randn) const
+        {
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randn)).colwise() + _mean;
         }
 
     }; // end class EigenMultivariateNormal

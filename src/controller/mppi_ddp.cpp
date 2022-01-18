@@ -1,9 +1,7 @@
 
 #include "mppi_ddp.h"
-#include "../../src/utilities/buffer.h"
 #include "../../src/utilities/mujoco_utils.h"
 #include <iostream>
-#include <numeric>
 
 using namespace SimulationParameters;
 using namespace MujocoUtils;
@@ -90,6 +88,7 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP::compute_control_trajectory()
     for (auto& sample_cost: m_delta_cost_to_go)
     {
         auto cost_diff = sample_cost - *min_cost;
+        auto val = (std::exp(-(1 / m_params.m_lambda) * (cost_diff)));
         normaliser += (std::exp(-(1 / m_params.m_lambda) * (cost_diff)));
     }
 
@@ -134,8 +133,8 @@ void MPPIDDP::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
 }
 
 
-void MPPIDDP::control(const mjData* d, const bool skip) {
-
+void MPPIDDP::control(const mjData* d, const bool skip)
+{
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     if (not skip)
     {
@@ -150,7 +149,7 @@ void MPPIDDP::control(const mjData* d, const bool skip) {
                 // dU ~ N(mean, variance). Generate samples = to the number of time steps
                 copy_data(m_m, d, m_d_cp);
                 m_normX_cholesk.samples_fill(m_ctrl_samples_time.row(sample));
-                for (auto time = 0; time < m_params.m_sim_time-1; ++time){
+                for (auto time = 0; time < m_params.m_sim_time-1 ; ++time){
                     // Set sampled perturbation
                     const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, n_ctrl, 1);
                     instant_control = m_u_traj[time] + pert_sample;
@@ -162,7 +161,7 @@ void MPPIDDP::control(const mjData* d, const bool skip) {
                             m_ddp_cov_inv_vec[time],
                             m_d_cp, m_m);
                 }
-                printf("sample %d cost %f \n",sample, m_delta_cost_to_go[sample]);
+//                printf("sample %d cost %f \n",sample, m_delta_cost_to_go[sample]);
                 // Set final pert sample
                 const CtrlVector& final_sample = m_ctrl_samples_time.block(
                         sample, m_params.m_sim_time - 1, n_ctrl, 1
@@ -173,10 +172,12 @@ void MPPIDDP::control(const mjData* d, const bool skip) {
                 MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj.back(), m_d_cp, m_m);
 
                 // Compute terminal cost
-                m_delta_cost_to_go[sample] =
-                        m_delta_cost_to_go[sample] + m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
+                m_delta_cost_to_go[sample] += m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
 
             }
+//            std::cout << m_ctrl_samples_time << std::endl;
+//            auto k = 1;
+//            std::cin >> k;
             const auto[new_mean, new_variance] = compute_control_trajectory();
 //            m_params.pi_ctrl_mean = new_mean;
 //        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
