@@ -11,19 +11,19 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
         m_params(params),
         m_cost_func(cost),
         m_padded_cst(m_params.m_k_samples, std::vector<double>(8)),
-        m_normal_dist(m_params.pi_ctrl_mean, params.ctrl_variance,
-                      m_params.m_sim_time, true,  m_params.m_seed),
-        m_dist_gens(nthreads),
-        m_sample_ctrl_traj(m_params.m_k_samples)
+        m_sample_ctrl_traj(m_params.m_k_samples),
+        m_dist_gens(nthreads,{m_params.pi_ctrl_mean, params.ctrl_variance,
+                              m_params.m_sim_time, true,  m_params.m_seed})
 
 {
-#pragma omp  parallel for default(none) shared(m_params, m_sample_ctrl_traj) num_threads(nthreads)
+#pragma omp parallel for default(none) shared(m_params, m_sample_ctrl_traj) num_threads(nthreads)
     for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
         m_sample_ctrl_traj[sample].resize(1, m_params.m_sim_time);
 
     for(auto thread = 0; thread < nthreads; ++thread)
     {
         m_thread_mjdata.emplace_back(mj_makeData(m_m));
+        m_dist_gens[thread].randN.seed(thread+1);
     }
 
     cached_control = CtrlVector::Zero();
@@ -53,9 +53,9 @@ void MPPIDDPPar::perturb_ctrl_traj()
 
 #pragma omp  parallel for collapse (2) default(none) shared(m_params, m_u_traj, m_sample_ctrl_traj)
     for (auto time = 0; time < m_params.m_sim_time; ++time)
-            for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
-                m_u_traj[time] += m_sample_ctrl_traj[sample].block(0, time * n_ctrl, n_ctrl, 1);
-            }
+        for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
+            m_u_traj[time] += m_sample_ctrl_traj[sample].block(0, time * n_ctrl, n_ctrl, 1);
+        }
 }
 
 
@@ -63,14 +63,14 @@ void MPPIDDPPar::perturb_ctrl_traj()
 void MPPIDDPPar::fill_ctrl_samples()
 {
 
-#pragma omp  parallel default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(nthreads)
+#pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
         unsigned int adjust = 0;
         if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
         for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample)
         {
-            m_normal_dist.samples_fill(m_sample_ctrl_traj[sample], m_dist_gens[id]);
+            m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
 

@@ -4,7 +4,6 @@
 #include <vector>
 #include "mjdata.h"
 #include "Eigen/Core"
-#include "../utilities/internal_types.h"
 #include "../parameters/simulation_params.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"

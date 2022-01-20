@@ -1,6 +1,5 @@
 #include <iostream>
 #include "finite_diff.h"
-#include "internal_types.h"
 #include "../parameters/simulation_params.h"
 
 static int _mark = 0;

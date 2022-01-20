@@ -24,15 +24,15 @@ namespace SimulationParameters
     using StateCtrlMatrix = Eigen::Matrix<SimScalarType, state_size, n_ctrl>;
 
     /* Raw Types Used */
-    template<typename T>
+    template<typename T_Eigen>
     struct RawType {
-        using type = typename T::Scalar[T::RowsAtCompileTime * T::ColsAtCompileTime];
-        using scalar = typename T::Scalar;
-        static constexpr const unsigned int size = sizeof(T);
+        using type = typename T_Eigen::Scalar[T_Eigen::RowsAtCompileTime * T_Eigen::ColsAtCompileTime];
+        using scalar = typename T_Eigen::Scalar;
+        static constexpr const unsigned int size = sizeof(T_Eigen);
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 8;
+    constexpr const unsigned int n_threads = 1;
 }
 
 #endif //OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H

@@ -58,9 +58,7 @@ namespace MujocoUtils
         CtrlVector clamped_ctrl;
 
         for (auto row = 0; row < control.rows(); ++row)
-        {
             clamped_ctrl(row, 0) = std::clamp(control(row, 0), limits[row * 2], limits[row * 2 + 1]);
-        }
 
         return clamped_ctrl;
     }
@@ -69,9 +67,7 @@ namespace MujocoUtils
     inline void clamp_control(CtrlVector &control, const mjtNum *limits)
     {
         for (auto row = 0; row < control.rows(); ++row)
-        {
             control(row, 0) = std::clamp(control(row, 0), limits[row * 2], limits[row * 2 + 1]);
-        }
     }
 
 
@@ -85,11 +81,6 @@ namespace MujocoUtils
     {
         std::copy(data->qpos, data->qpos+m->nq, state.data());
         std::copy(data->qvel, data->qvel+m->nv, state.data()+SimulationParameters::n_jpos);
-//        for (auto row = 0; row < state.rows() / 2; ++row)
-//        {
-//            state(row, 0) = data->qpos[row];
-//            state(row + state.rows() / 2, 0) = data->qvel[row];
-//        }
     }
 
 

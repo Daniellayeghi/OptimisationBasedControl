@@ -4,11 +4,9 @@
 
 #include "mujoco.h"
 #include "Eigen/Core"
-#include "../utilities/internal_types.h"
 #include "../parameters/simulation_params.h"
 #include <functional>
 
-using namespace InternalTypes;
 using namespace SimulationParameters;
 class CostFunction
 {

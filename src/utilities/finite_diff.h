@@ -8,7 +8,6 @@
 #include "mujoco.h"
 #include "string"
 #include "eigen3/Eigen/Dense"
-#include "internal_types.h"
 #include "../parameters/simulation_params.h"
 #include "../utilities/generic_utils.h"
 

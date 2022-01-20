@@ -3,8 +3,6 @@
 #include "../utilities/mujoco_utils.h"
 
 
-using namespace InternalTypes;
-
 CostFunction::CostFunction(const StateVector& x_desired,
                                                   const CtrlVector& u_desired,
                                                   const StateMatrix& x_gain,
