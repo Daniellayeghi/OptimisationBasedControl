@@ -23,7 +23,7 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
     for(auto thread = 0; thread < nthreads; ++thread)
     {
         m_thread_mjdata.emplace_back(mj_makeData(m_m));
-        m_dist_gens[thread].randN.seed(thread+1);
+        m_dist_gens[thread].randN.seed(m_params.m_seed+thread);
     }
 
     cached_control = CtrlVector::Zero();
@@ -62,7 +62,6 @@ void MPPIDDPPar::perturb_ctrl_traj()
 //TODO: remove critical need one rng per thread.
 void MPPIDDPPar::fill_ctrl_samples()
 {
-
 #pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
@@ -73,7 +72,10 @@ void MPPIDDPPar::fill_ctrl_samples()
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
-
+    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << "\n";});
+    std::cout << "----------------------------------------------" << std::endl;
+    auto k = 1;
+    std::cin >> k;
 //#pragma omp  parallel for default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params) num_threads(nthreads)
 //    for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
 //    {
@@ -179,9 +181,6 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
         {
             std::fill(m_padded_cst.begin(), m_padded_cst.end(), std::vector<double>(8, 0));
             fill_ctrl_samples();
-//            std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << std::endl;});
-//            auto k = 1;
-//            std::cin >> k;
             rollout_trajectories(d);
             weight_samples_ctrl_traj();
             perturb_ctrl_traj();

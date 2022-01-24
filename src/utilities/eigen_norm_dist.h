@@ -127,20 +127,140 @@ namespace Eigen {
 
         inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
         {
-            for(auto i = 0; i < _covar.rows() * _samples_size; ++i) {(samp_container.data()[i]) = randN();};
+            for(auto i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randN();};
             samp_container = (_transform * samp_container).colwise() + _mean;
         }
 
         inline void samples_fill(Matrix<double, -1, -1>& samp_container)
         {
-            for(int i = 0; i < _covar.rows() * _samples_size; ++i) {(samp_container.data()[i]) = randN();};
+            for(int i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randN();};
             samp_container = (_transform * samp_container).colwise() + _mean;
         }
 
         inline void samples_fill(Matrix<double, -1, -1>& samp_container, scalar_normal_dist_op<Scalar>& randn)
         {
-            for(auto i = 0; i < _covar.rows() * _samples_size; ++i) {(samp_container.data()[i]) = randn();};
+            for(auto i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randn();};
             samp_container = (_transform * samp_container).colwise() + _mean;
+        }
+
+    }; // end class EigenMultivariateNormal
+} // end namespace Eigenm_normX_cholesk
+
+namespace Eigen {
+    namespace internal {
+        template<typename Scalar>
+        struct scalar_normal_dist_op2
+        {
+            static std::mt19937 rng;                        // The uniform pseudo-random algorithm
+            mutable std::normal_distribution<Scalar> norm; // gaussian combinator
+
+            EIGEN_EMPTY_STRUCT_CTOR(scalar_normal_dist_op2)
+
+            template<typename Index>
+            inline const Scalar operator() (Index, Index = 0) const { return norm(rng); }
+            inline void seed(const uint64_t &s) { rng.seed(s); }
+        };
+
+        template<typename Scalar>
+        std::mt19937 scalar_normal_dist_op2<Scalar>::rng;
+
+        template<typename Scalar>
+        struct functor_traits<scalar_normal_dist_op<Scalar> >
+        { enum { Cost = 50 * NumTraits<Scalar>::MulCost, PacketAccess = false, IsRepeatable = false }; };
+
+    } // end namespace internal
+
+    /**
+      Find the eigen-decomposition of the covariance matrix
+      and then store it for sampling from a multi-variate normal
+    */
+    template<typename Scalar>
+    class EigenMultivariateNormal2
+    {
+        Matrix<Scalar, Dynamic, Dynamic> _samples_result;
+        Matrix<Scalar, Dynamic, Dynamic> _samples;
+        Matrix<Scalar,Dynamic,Dynamic> _covar;
+        Matrix<Scalar,Dynamic,Dynamic> _transform;
+        Matrix< Scalar, Dynamic, 1> _mean;
+        internal::scalar_normal_dist_op2<Scalar> randN; // Gaussian functor
+        bool _use_cholesky;
+        int _samples_size = 0;
+        SelfAdjointEigenSolver<Matrix<Scalar,Dynamic,Dynamic> > _eigenSolver; // drawback: this creates a useless eigenSolver when using Cholesky decomposition, but it yields access to eigenvalues and vectors
+
+    public:
+        EigenMultivariateNormal2(const Matrix<Scalar,Dynamic,1>& mean,const Matrix<Scalar,Dynamic,Dynamic>& covar, const int samples = 0,
+                                const bool use_cholesky=false,const uint64_t &seed=std::mt19937::default_seed)
+                :_use_cholesky(use_cholesky), _samples_size(samples)
+        {
+            randN.seed(seed);
+            setMean(mean);
+            setCovar(covar);
+            _samples.resize(_covar.rows(), _samples_size);
+            _samples_result.resize(_covar.rows(), _samples_size);
+        }
+
+        void setSample(const int sample_size) {_samples_size = sample_size;}
+        void setMean(const Matrix<Scalar,Dynamic,1>& mean) { _mean = mean; }
+        void setCovar(const Matrix<Scalar,Dynamic,Dynamic>& covar)
+        {
+            _covar = covar;
+
+            // Assuming that we'll be using this repeatedly,
+            // compute the transformation matrix that will
+            // be applied to unit-variance independent normals
+
+            if (_use_cholesky)
+            {
+                Eigen::LLT<Eigen::Matrix<Scalar,Dynamic,Dynamic> > cholSolver(_covar);
+                // We can only use the cholesky decomposition if
+                // the covariance matrix is symmetric, pos-definite.
+                // But a covariance matrix might be pos-semi-definite.
+                // In that case, we'll go to an EigenSolver
+                if (cholSolver.info()==Eigen::Success)
+                {
+                    // Use cholesky solver
+                    _transform = cholSolver.matrixL();
+                }
+                else
+                {
+                    throw std::runtime_error("Failed computing the Cholesky decomposition. Use solver instead");
+                }
+            }
+            else
+            {
+                _eigenSolver = SelfAdjointEigenSolver<Matrix<Scalar,Dynamic,Dynamic> >(_covar);
+                _transform = _eigenSolver.eigenvectors()*_eigenSolver.eigenvalues().cwiseMax(0).cwiseSqrt().asDiagonal();
+            }
+        }
+
+        /// Draw nn samples from the gaussian and return them
+        /// as columns in a Dynamic by nn matrix
+        Matrix<Scalar,Dynamic,-1> samples(int nn)
+        {
+            return (_transform * Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, randN)).colwise() + _mean;
+        }
+
+
+        Matrix<Scalar,Dynamic,-1>& samples_vector_res()
+        {
+            _samples_result = (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+            return _samples_result;
+        }
+
+        Matrix<Scalar,Dynamic,-1> samples_vector()
+        {
+            return (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+        }
+
+
+        inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
+        {
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+        }
+
+        inline void samples_fill(Matrix<double, -1, -1>& samp_container)
+        {
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
 
     }; // end class EigenMultivariateNormal

@@ -636,7 +636,7 @@ TEST_F(OpenMPTests, Parrallel_Samples)
     using CtrlVec  = Matrix<double, 1, 1>;
     using CtrlMat  = Eigen::Matrix<double, 1, 1>;
 
-    constexpr const int time = 100, nthreads = 10; int samples = 1000000;
+    constexpr const int time = 10, nthreads = 5, iter_limit = 5; int samples = 10;
     std::vector<EigenMultivariateNormal<double>>rng_vec;
     const EigenMultivariateNormal<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true);
     std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
@@ -644,22 +644,69 @@ TEST_F(OpenMPTests, Parrallel_Samples)
     static int segments = samples/nthreads;
 
     for(auto i = 0; i < nthreads; ++i) {
-        EigenMultivariateNormal<double> temp_rng(CtrlVec::Zero(),CtrlMat::Identity(),time,true, i);
+        EigenMultivariateNormal<double> temp_rng(CtrlVec::Zero(),CtrlMat::Identity(),time,true, i+1);
         rng_vec.emplace_back(temp_rng);
     };
 
     auto m_carry_over = samples % nthreads;
     int m_per_thread_sample = (samples - m_carry_over)/ nthreads;
 
+    for (int iteration = 0; iteration < iter_limit; ++iteration) {
+        std::cout << "----------------------------------------------------" << "\n";
 #pragma omp  parallel default(none) shared(ctrl_samples, samples, m_per_thread_sample, rng_vec) num_threads(nthreads)
-    {
-        int id = omp_get_thread_num();
-        unsigned int adjust = 0;
-        if (id == nthreads - 1) adjust = samples % nthreads;
-        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample) {
-            ctrl_samples[sample].resize(1, time);
-            rng_vec[id].samples_fill(ctrl_samples[sample]);
-        };
+        {
+            int id = omp_get_thread_num();
+            unsigned int adjust = 0;
+            if (id == nthreads - 1) adjust = samples % nthreads;
+            for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample) {
+                ctrl_samples[sample].resize(1, time);
+                rng_vec[id].samples_fill(ctrl_samples[sample]);
+            };
+        }
+    std::for_each(ctrl_samples.begin(), ctrl_samples.end(), [](const auto& elem){std::cout << elem << "\n";});
     }
-//    std::for_each(ctrl_samples.begin(), ctrl_samples.end(), [](const auto& elem){std::cout << elem << "\n";});
+}
+
+
+TEST_F(OpenMPTests, Samples_Sequential)
+{
+    using namespace Eigen;
+    using CtrlVec  = Matrix<double, 1, 1>;
+    using CtrlMat  = Eigen::Matrix<double, 1, 1>;
+
+    constexpr const int time = 10; int samples = 10, iter_limit = 5;
+    EigenMultivariateNormal2<double> normX_cholesk (CtrlVec::Zero(),CtrlMat::Identity(),time,true, 1);
+    std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
+    GenericUtils::TimeBench timer("Basic_Path_Integral");
+
+    for (int iteration = 0; iteration < iter_limit; ++iteration){
+        std::cout << "----------------------------------------------------" << "\n";
+        for (int sample = 0; sample < samples; ++sample){
+            ctrl_samples[sample].resize(1, time);
+            normX_cholesk.samples_fill(ctrl_samples[sample]);
+        };
+        std::for_each(ctrl_samples.begin(), ctrl_samples.end(), [](const auto& elem){std::cout << elem << "\n";});
+    }
+}
+
+
+TEST_F(OpenMPTests, Samples_Sequential_2)
+{
+    using namespace Eigen;
+    using CtrlVec  = Matrix<double, 1, 1>;
+    using CtrlMat  = Eigen::Matrix<double, 1, 1>;
+
+    constexpr const int time = 10; int samples = 10, iter_limit = 5;
+    EigenMultivariateNormal2<double> normX_cholesk2 (CtrlVec::Zero(),CtrlMat::Identity(),time,true, 1);
+    std::vector<Eigen::Matrix<double, -1, -1>> ctrl_samples(samples);
+    GenericUtils::TimeBench timer("Basic_Path_Integral");
+
+    for (int iteration = 0; iteration < iter_limit; ++iteration){
+        std::cout << "----------------------------------------------------" << "\n";
+        for (int sample = 0; sample < samples; ++sample){
+            ctrl_samples[sample].resize(1, time);
+            normX_cholesk2.samples_fill(ctrl_samples[sample]);
+        };
+        std::for_each(ctrl_samples.begin(), ctrl_samples.end(), [](const auto& elem){std::cout << elem << "\n";});
+    }
 }

@@ -224,7 +224,7 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParams params{
-            80, 75, 0.2, 1, 1, 1, 1000,ctrl_mean,
+            10, 10, 0.01, 1, 1, 1, 1000,ctrl_mean,
             ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);

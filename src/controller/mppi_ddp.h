@@ -123,7 +123,7 @@ private:
 
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;
-    Eigen::EigenMultivariateNormal<double> m_normX_cholesk;
+    Eigen::EigenMultivariateNormal2<double> m_normX_cholesk;
 };
 
 #endif //OPTCONTROL_MUJOCO_MPPI_DDP_H

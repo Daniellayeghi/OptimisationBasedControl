@@ -175,9 +175,9 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                 m_delta_cost_to_go[sample] += m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
 
             }
-//            std::cout << m_ctrl_samples_time << std::endl;
-//            auto k = 1;
-//            std::cin >> k;
+            std::cout << m_ctrl_samples_time << std::endl;
+            std::cout << "----------------------------------------------" << std::endl;
+            auto k = 1; std::cin >> k;
             const auto[new_mean, new_variance] = compute_control_trajectory();
 //            m_params.pi_ctrl_mean = new_mean;
 //        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
