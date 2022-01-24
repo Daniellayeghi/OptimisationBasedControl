@@ -158,7 +158,7 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1000, 500, 10, 5;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
     StateVector x_gain_vec; x_gain_vec << 2, 2, 0, 0;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
@@ -179,7 +179,7 @@ int main(int argc, const char** argv)
     glfwSetCursorPosCallback(window, mouse_move);
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback//                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
-(window, scroll);
+            (window, scroll);
 
 
     CtrlMatrix ddp_var; ddp_var.setIdentity();
@@ -204,7 +204,7 @@ int main(int argc, const char** argv)
                 (0, 0);
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
@@ -224,8 +224,8 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParams params{
-            4, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
-            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+                4, 75, 0.01, 0, 1, 1, 1000,ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);
@@ -266,8 +266,6 @@ int main(int argc, const char** argv)
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
-        auto iter = 1;
-
 /* ==================================================Simulation=======================================================*/
 
         // use the first while condition if you want to simulate for a period.
@@ -291,7 +289,6 @@ int main(int argc, const char** argv)
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
-                ++iter;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
