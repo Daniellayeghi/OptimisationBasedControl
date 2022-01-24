@@ -30,6 +30,8 @@
  * License along with this library.
  */
 
+#ifndef __EIGENMULTIVARIATENORMAL2_HPP
+#define __EIGENMULTIVARIATENORMAL2_HPP
 
 #include <Eigen/Dense>
 #include <random>
@@ -145,3 +147,4 @@ namespace Eigen {
 
     }; // end class EigenMultivariateNormal
 } // end namespace Eigenm_normX_cholesk
+#endif
