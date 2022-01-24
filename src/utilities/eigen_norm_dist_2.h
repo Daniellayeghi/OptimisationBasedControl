@@ -30,6 +30,8 @@
  * License along with this library.
  */
 
+#ifndef __EIGENMULTIVARIATENORMAL_HPP
+#define __EIGENMULTIVARIATENORMAL_HPP
 
 #include <Eigen/Dense>
 #include <random>
@@ -42,43 +44,58 @@
   Random() just calls rand(), which changes a global
   variable.
 */
-template<typename Scalar>
-struct scalar_normal_dist_op
-{
-    std::mt19937 rng;                        // The uniform pseudo-random algorithm
-    mutable std::normal_distribution<Scalar> norm; // gaussian combinator
-    inline void seed(const uint64_t &s) { rng.seed(s); }
-public:
-    inline const Scalar operator() () {return norm(rng); }
-    scalar_normal_dist_op() = default;
-};
-
 namespace Eigen {
+    namespace internal {
+        template<typename Scalar>
+        struct scalar_normal_dist_op2
+        {
+            static std::mt19937 rng;                        // The uniform pseudo-random algorithm
+            mutable std::normal_distribution<Scalar> norm; // gaussian combinator
+
+            EIGEN_EMPTY_STRUCT_CTOR(scalar_normal_dist_op2)
+
+            template<typename Index>
+            inline const Scalar operator() (Index, Index = 0) const { return norm(rng); }
+            inline void seed(const uint64_t &s) { rng.seed(s); }
+        };
+
+        template<typename Scalar>
+        std::mt19937 scalar_normal_dist_op2<Scalar>::rng;
+
+        template<typename Scalar>
+        struct functor_traits<scalar_normal_dist_op2<Scalar> >
+        { enum { Cost = 50 * NumTraits<Scalar>::MulCost, PacketAccess = false, IsRepeatable = false }; };
+
+    } // end namespace internal
 
     /**
       Find the eigen-decomposition of the covariance matrix
       and then store it for sampling from a multi-variate normal
     */
     template<typename Scalar>
-    class EigenMultivariateNormal
+    class EigenMultivariateNormal2
     {
+        Matrix<Scalar, Dynamic, Dynamic> _samples_result;
+        Matrix<Scalar, Dynamic, Dynamic> _samples;
         Matrix<Scalar,Dynamic,Dynamic> _covar;
         Matrix<Scalar,Dynamic,Dynamic> _transform;
         Matrix< Scalar, Dynamic, 1> _mean;
+        internal::scalar_normal_dist_op2<Scalar> randN; // Gaussian functor
         bool _use_cholesky;
         int _samples_size = 0;
         SelfAdjointEigenSolver<Matrix<Scalar,Dynamic,Dynamic> > _eigenSolver; // drawback: this creates a useless eigenSolver when using Cholesky decomposition, but it yields access to eigenvalues and vectors
-    public:
 
-        EigenMultivariateNormal(const Matrix<Scalar,Dynamic,1>& mean,const Matrix<Scalar,Dynamic,Dynamic>& covar, const int samples = 0,
+    public:
+        EigenMultivariateNormal2(const Matrix<Scalar,Dynamic,1>& mean,const Matrix<Scalar,Dynamic,Dynamic>& covar, const int samples = 0,
                                 const bool use_cholesky=false,const uint64_t &seed=std::mt19937::default_seed)
                 :_use_cholesky(use_cholesky), _samples_size(samples)
         {
             randN.seed(seed);
             setMean(mean);
             setCovar(covar);
+            _samples.resize(_covar.rows(), _samples_size);
+            _samples_result.resize(_covar.rows(), _samples_size);
         }
-        scalar_normal_dist_op<Scalar> randN; // Gaussian functor
 
         void setSample(const int sample_size) {_samples_size = sample_size;}
         void setMean(const Matrix<Scalar,Dynamic,1>& mean) { _mean = mean; }
@@ -118,30 +135,32 @@ namespace Eigen {
         /// as columns in a Dynamic by nn matrix
         Matrix<Scalar,Dynamic,-1> samples(int nn)
         {
-            auto temp = Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, 1);
-            for(auto i = 0; i < _covar.rows() * nn; ++i) {(temp.data()[i]) = randN();};
-            return (_transform * temp).colwise() + _mean;
+            return (_transform * Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, randN)).colwise() + _mean;
         }
+
+
+        Matrix<Scalar,Dynamic,-1>& samples_vector_res()
+        {
+            _samples_result = (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+            return _samples_result;
+        }
+
+        Matrix<Scalar,Dynamic,-1> samples_vector()
+        {
+            return (_transform * _samples.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
+        }
+
 
         inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
         {
-            for(auto i = 0; i < samp_container.rows(); ++i)
-                for(auto j = 0; j < samp_container.cols(); ++j)
-                {(samp_container(i, j)) = randN();}
-            samp_container = (_transform * samp_container).colwise() + _mean;
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
 
         inline void samples_fill(Matrix<double, -1, -1>& samp_container)
         {
-            for(int i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randN();};
-            samp_container = (_transform * samp_container).colwise() + _mean;
-        }
-
-        inline void samples_fill(Matrix<double, -1, -1>& samp_container, scalar_normal_dist_op<Scalar>& randn)
-        {
-            for(auto i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randn();};
-            samp_container = (_transform * samp_container).colwise() + _mean;
+            samp_container = (_transform * samp_container.NullaryExpr(_covar.rows(), _samples_size, randN)).colwise() + _mean;
         }
 
     }; // end class EigenMultivariateNormal
 } // end namespace Eigenm_normX_cholesk
+#endif

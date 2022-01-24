@@ -72,10 +72,10 @@ void MPPIDDPPar::fill_ctrl_samples()
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
-    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << "\n";});
-    std::cout << "----------------------------------------------" << std::endl;
-    auto k = 1;
-    std::cin >> k;
+//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << "\n";});
+//    std::cout << "----------------------------------------------" << std::endl;
+//    auto k = 1;
+//    std::cin >> k;
 //#pragma omp  parallel for default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params) num_threads(nthreads)
 //    for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
 //    {
