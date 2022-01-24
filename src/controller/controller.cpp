@@ -15,6 +15,7 @@ static MyController<MPPIDDP, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
 static MyController<MPPIDDPPar, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp_par;
 static MyController<uoe::FICController, state_size, n_ctrl> *my_ctrl_fic;
 static int _mark;
+static int iteration = 0;
 
 
 
@@ -61,7 +62,7 @@ void MyController<T, state_size, ctrl_size>::controller()
 {
 //    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
     set_control_data(_d, controls.cached_control, _m);
-//    std::cout << "CTRL: " << controls.cached_control << "\n";
+    std::cout << "iter" << iteration << "CTRL: " << controls.cached_control << "\n";
 }
 
 

@@ -158,7 +158,7 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1000, 500, 10, 5;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 100000, 50000, 500, 500;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
     StateVector x_gain_vec; x_gain_vec << 2, 2, 0, 0;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
@@ -209,7 +209,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    std::array<unsigned int, 5> seeds {{3,3,4,5,6}};
+    std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
         // initial position
         d->qpos[0] = 0;
@@ -224,7 +224,7 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                30, 45, 0.2, 1, 1, 1, 1000,ctrl_mean,
+                4, 75, 0.01, 0, 1, 1, 1000,ctrl_mean,
                 ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
@@ -236,8 +236,8 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
 
 /* ============================================CSV Output Files=======================================================*/
-        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-        const std::string mode = "check_KL" + std::to_string(int(params.importance)) + std::to_string(seed);
+        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data_comp/";
+        const std::string mode = "par" + std::to_string(seed);
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream pos_data(path + name + "_pos_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
@@ -247,14 +247,13 @@ int main(int argc, const char** argv)
         double cost;
         GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
         GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
         GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost};
         DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
-        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
         StateVector temp_state;
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
@@ -266,9 +265,7 @@ int main(int argc, const char** argv)
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
-        auto iter = 1;
 /* ==================================================Simulation=======================================================*/
-
         // use the first while condition if you want to simulate for a period.
         while (!glfwWindowShouldClose(window)) {
             //  advance interactive simulation for 1/60 sec
@@ -290,7 +287,6 @@ int main(int argc, const char** argv)
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
-                ++iter;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -310,13 +306,13 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-//                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
+                pos_buff.save_buffer(); vel_buff.save_buffer();
+                ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 break;
             }
-
         }
     }
     // free visualization storage

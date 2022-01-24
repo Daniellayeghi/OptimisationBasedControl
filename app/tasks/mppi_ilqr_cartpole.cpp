@@ -209,7 +209,7 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    std::array<unsigned int, 5> seeds {{3,3,4,5,6}};
+    std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
         // initial position
         d->qpos[0] = 0;
@@ -237,7 +237,7 @@ int main(int argc, const char** argv)
 
 /* ============================================CSV Output Files=======================================================*/
         const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-        const std::string mode = "check_KL" + std::to_string(int(params.importance)) + std::to_string(seed);
+        const std::string mode = "seq" + std::to_string(seed);
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream pos_data(path + name + "_pos_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
@@ -247,14 +247,13 @@ int main(int argc, const char** argv)
         double cost;
         GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
         GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
         GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost};
         DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
-        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
         StateVector temp_state;
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
@@ -267,7 +266,6 @@ int main(int argc, const char** argv)
         zmq_buffer.push_buffer(&ctrl_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
 /* ==================================================Simulation=======================================================*/
-
         // use the first while condition if you want to simulate for a period.
         while (!glfwWindowShouldClose(window)) {
             //  advance interactive simulation for 1/60 sec
@@ -308,7 +306,7 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-//                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
+                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));

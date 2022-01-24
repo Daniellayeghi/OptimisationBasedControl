@@ -103,7 +103,7 @@ FastPair<CtrlVector, CtrlMatrix> MPPIDDP::compute_control_trajectory()
         temp_mean_denomenator += ((m_params.m_sim_time - 1) - time);
         new_variance += (ctrl_variance * ((m_params.m_sim_time - 1) - time));
     }
-//
+
 //    sg_filter(m_control, m_control_filtered);
 //    m_control = m_control_filtered;
     return {new_mean_numerator / temp_mean_denomenator, new_variance / temp_mean_denomenator};
@@ -151,7 +151,7 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                 m_normX_cholesk.samples_fill(m_ctrl_samples_time.row(sample));
                 for (auto time = 0; time < m_params.m_sim_time-1 ; ++time){
                     // Set sampled perturbation
-                    const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, n_ctrl, 1);
+                    const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl);
                     instant_control = m_u_traj[time] + pert_sample;
                     // Forward simulate controls and compute running costl
                     MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
@@ -161,10 +161,9 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                             m_ddp_cov_inv_vec[time],
                             m_d_cp, m_m);
                 }
-//                printf("sample %d cost %f \n",sample, m_delta_cost_to_go[sample]);
                 // Set final pert sample
                 const CtrlVector& final_sample = m_ctrl_samples_time.block(
-                        sample, m_params.m_sim_time - 1, n_ctrl, 1
+                        sample, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl
                         );
 
                 // Apply final sample
@@ -179,8 +178,6 @@ void MPPIDDP::control(const mjData* d, const bool skip)
 //            std::cout << "----------------------------------------------" << std::endl;
 //            auto k = 1; std::cin >> k;
             const auto[new_mean, new_variance] = compute_control_trajectory();
-//            m_params.pi_ctrl_mean = new_mean;
-//        m_params.ctrl_variance = new_variance + CtrlMatrix::Identity() * 0.0001;
         }
     }
     prepare_control_mpc();

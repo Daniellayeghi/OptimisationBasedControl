@@ -5,7 +5,7 @@
 #include "mujoco.h"
 #include "generic_control.h"
 #include "../parameters/simulation_params.h"
-#include "../utilities/eigen_norm_dist_2.h"
+#include "../utilities/eigen_norm_dist.h"
 #include "../utilities/generic_utils.h"
 #include "Eigen/Core"
 #include <utility>
@@ -123,7 +123,7 @@ private:
 
     const mjModel* m_m;
     mjData*  m_d_cp = nullptr;
-    Eigen::EigenMultivariateNormal2<double> m_normX_cholesk;
+    Eigen::EigenMultivariateNormal<double> m_normX_cholesk;
 };
 
 #endif //OPTCONTROL_MUJOCO_MPPI_DDP_H

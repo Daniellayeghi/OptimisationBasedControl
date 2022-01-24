@@ -5,6 +5,7 @@
 using namespace SimulationParameters;
 using namespace MujocoUtils;
 constexpr const int nthreads = n_threads;
+static int iteration = 0;
 
 MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& params):
         m_m(m),
@@ -62,7 +63,7 @@ void MPPIDDPPar::perturb_ctrl_traj()
 //TODO: remove critical need one rng per thread.
 void MPPIDDPPar::fill_ctrl_samples()
 {
-#pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(nthreads)
+#pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample, std::cout) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
         unsigned int adjust = 0;
@@ -72,15 +73,13 @@ void MPPIDDPPar::fill_ctrl_samples()
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
-//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem){std::cout << elem << "\n";});
-//    std::cout << "----------------------------------------------" << std::endl;
-//    auto k = 1;
-//    std::cin >> k;
-//#pragma omp  parallel for default(none) shared(m_normal_dist, m_sample_ctrl_traj, m_params) num_threads(nthreads)
-//    for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
-//    {
-//        m_normal_dist.samples_fill(m_sample_ctrl_traj[sample]);
-//    }
+    if(iteration == 56)
+    {
+        std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem) {std::cout << elem << std::endl;});
+        auto k = 1;
+        std::cin >> k;
+    }
+    ++iteration;
 }
 
 
@@ -100,7 +99,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             auto &mjdata = m_thread_mjdata[id];
             for (time = 0; time < m_params.m_sim_time-1; ++time) {
                 // Set sampled perturbation
-                const CtrlVector &pert_sample = ctrl_traj.block(0, time*n_ctrl, n_ctrl, 1);
+                const CtrlVector &pert_sample = ctrl_traj.block(0, time*n_ctrl, 1, n_ctrl);
                 t_d.instant_ctrl = m_u_traj[time] + pert_sample;
                 // Forward simulate controls and compute running costl
                 MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
@@ -111,7 +110,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             }
             // Set final pert sample
             const CtrlVector &final_sample = ctrl_traj.block(
-                    0, m_params.m_sim_time - 1, n_ctrl, 1
+                    0, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl
                     );
             // Apply final sample
             t_d.instant_ctrl = m_u_traj.back() + final_sample;
