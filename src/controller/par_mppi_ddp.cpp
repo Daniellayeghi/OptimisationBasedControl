@@ -73,20 +73,19 @@ void MPPIDDPPar::fill_ctrl_samples()
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
-    if(iteration == 56)
-    {
-        std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem) {std::cout << elem << std::endl;});
-        auto k = 1;
-        std::cin >> k;
-    }
-    ++iteration;
+
+//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem) {std::cout << elem << std::endl;});
+    auto total_sum_ctrl = 0.0;
+    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [&](const auto& elem){total_sum_ctrl += elem.sum();});
+    std::cout << "PAR ---------------------------------------------- " << total_sum_ctrl << std::endl;
 }
 
 
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
+    std::cout << d->qpos[0] << "\n";
     int time = 0;
- #pragma omp  parallel default(none) private(time) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
+ #pragma omp  parallel default(none) private(time) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample, std::cout) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
         unsigned int adjust = 0;
@@ -97,16 +96,24 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             copy_data(m_m, d, m_thread_mjdata[id]);
             const auto &ctrl_traj = m_sample_ctrl_traj[sample];
             auto &mjdata = m_thread_mjdata[id];
-            for (time = 0; time < m_params.m_sim_time-1; ++time) {
+            for (time = 0; time < m_params.m_sim_time-1; ++time)
+            {
                 // Set sampled perturbation
                 const CtrlVector &pert_sample = ctrl_traj.block(0, time*n_ctrl, 1, n_ctrl);
+//                std::cout << ctrl_traj << std::endl;
                 t_d.instant_ctrl = m_u_traj[time] + pert_sample;
-                // Forward simulate controls and compute running costl
+//                printf("instant ctrl %f + %f\n", m_u_traj[time](0, 0), pert_sample(0, 0));
+                // Forward simulate controls and compute running cost
                 MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
                 m_padded_cst[sample][0] += m_cost_func(
                         t_d.next, m_u_traj[time], pert_sample,
                         m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m
                         );
+//                printf("cost params %f, %f, %f, %f, %f\n", t_d.next(0, 0), t_d.instant_ctrl(0, 0),
+//                       pert_sample(0, 0), m_params.m_ddp_args.first[time](0, 0),
+//                       m_ddp_cov_inv_vec[time](0, 0));
+//
+//                printf("[%d][%d] = %f \n", sample, time, m_padded_cst[sample][0]);
             }
             // Set final pert sample
             const CtrlVector &final_sample = ctrl_traj.block(
@@ -120,6 +127,12 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             m_padded_cst[sample][0] += m_cost_func.m_terminal_cost(t_d.next, mjdata, m_m);
         }
     }
+
+    auto total_sum = 0.0;
+    std::for_each(m_padded_cst.begin(), m_padded_cst.end(), [&](const std::vector<double>& elem){std::cout << elem.front() << ", ";});
+    printf("\n");
+    std::for_each(m_padded_cst.begin(), m_padded_cst.end(), [&](const std::vector<double>& elem){total_sum += elem.front();});
+    printf("\ntotal_sum_par = %f\n", total_sum);
 }
 
 
@@ -159,6 +172,8 @@ void MPPIDDPPar::exponentiate_costs(double min_cost)
 double MPPIDDPPar::compute_normalisation_constant()
 {
     auto min_cost = GenericUtils::parallel_min(m_padded_cst);
+    std::cout << "MIN Par " << min_cost.val << std::endl;
+
     exponentiate_costs(min_cost.val);
     double normalise_const = 0;
 #pragma omp  parallel for reduction(+:normalise_const) default(none) shared(m_padded_cst, m_params) num_threads(nthreads)
@@ -185,7 +200,9 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
             perturb_ctrl_traj();
             cached_control = m_u_traj.front();
             m_u_traj_cp = m_u_traj;
-        }
+            std::cout << "CTRL is\n";
+            std::for_each(m_u_traj.begin(), m_u_traj.end(), [&](const auto& elem){std::cout << elem(0, 0) << ", ";});
+            std::cout <<"\n----"<< std::endl;        }
     }
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();

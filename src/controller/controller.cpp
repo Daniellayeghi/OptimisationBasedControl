@@ -15,9 +15,6 @@ static MyController<MPPIDDP, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp;
 static MyController<MPPIDDPPar, n_jvel + n_jpos, n_ctrl> *my_ctrl_mppi_ddp_par;
 static MyController<uoe::FICController, state_size, n_ctrl> *my_ctrl_fic;
 static int _mark;
-static int iteration = 0;
-
-
 
 #define myFREESTACK d->pstack = _mark;
 
@@ -51,18 +48,18 @@ namespace
     }
 }
 
+
 template<typename T, int state_size, int ctrl_size>
 MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls, const bool comp_gravity) :
-controls(controls), _m(m), _d(d), m_comp_gravity(comp_gravity), m_grav_comp(_d->qfrc_bias, _m->nu, 1)
-{}
+controls(controls), _m(m), _d(d), m_comp_gravity(comp_gravity), m_grav_comp(_d->qfrc_bias, _m->nu, 1){}
 
 
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
-//    mju_copy(_d->qfrc_applied, _d->qfrc_bias, _m->nv);
     set_control_data(_d, controls.cached_control, _m);
-    std::cout << "iter" << iteration << "CTRL: " << controls.cached_control << "\n";
+    std::cout << "iter " << iteration << "CTRL: " << controls.cached_control << " " << _d->qpos[0]<< "\n";
+    ++iteration;
 }
 
 
@@ -112,10 +109,7 @@ void MyController<T, state_size,ctrl_size>::callback_wrapper(const mjModel *m, m
 
 
 template<typename T, int state_size, int ctrl_size>
-void MyController<T, state_size, ctrl_size>::dummy_controller(const mjModel *m, mjData *d)
-{
-
-}
+void MyController<T, state_size, ctrl_size>::dummy_controller(const mjModel *m, mjData *d) {}
 
 template class MyController<ILQR, state_size, n_ctrl>;
 template class MyController<MPPIDDP, state_size, n_ctrl>;
