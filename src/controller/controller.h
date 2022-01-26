@@ -24,7 +24,6 @@ public:
     static void dummy_controller(const mjModel* m, mjData* d);
 
 private:
-    int iteration = 0;
     const T& controls;
     const mjModel* _m;
     mjData* _d;

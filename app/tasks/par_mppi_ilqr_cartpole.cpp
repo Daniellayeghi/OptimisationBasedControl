@@ -225,20 +225,20 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                4, 4, 0.01, 0, 1, 1, 1000,ctrl_mean,
+                1000, 75, 0.01, 1, 1, 1, 1000,ctrl_mean,
                 ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);
 
-
-        MPPIDDPParams params_seq{
-                4, 4, 0.01, 0, 1, 1, 1000,ctrl_mean,
-                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
-        };
-
-        QRCostDDP qrcost_seq (params_seq, running_cost, terminal_cost);
-        MPPIDDP pi_seq(m, qrcost_seq, params_seq);
+//
+//        MPPIDDPParams params_seq{
+//                4, 4, 0.01, 0, 1, 1, 1000,ctrl_mean,
+//                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+//        };
+//
+//        QRCostDDP qrcost_seq (params_seq, running_cost, terminal_cost);
+//        MPPIDDP pi_seq(m, qrcost_seq, params_seq);
 
         // install control callback
         using ControlType = MPPIDDPPar;
@@ -288,19 +288,19 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-                pi_seq.control(d);
-
-                if(pi_seq.cached_control(0, 0) != pi.cached_control(0, 0))
-                {
-                    std::cout << "Seq: " << pi_seq.cached_control(0, 0) << " Par: " <<pi.cached_control(0, 0);
-                    auto k = 1; std::cin >> k;
-                }
+//                pi_seq.control(d);
+//
+//                if(pi_seq.cached_control(0, 0) != pi.cached_control(0, 0))
+//                {
+//                    std::cout << "Seq: " << pi_seq.cached_control(0, 0) << " Par: " <<pi.cached_control(0, 0);
+//                    auto k = 1; std::cin >> k;
+//                }
                 ilqr.m_u_traj = pi.m_u_traj;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
-//                zmq_buffer.send_buffers();
+                zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

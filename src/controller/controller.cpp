@@ -58,8 +58,6 @@ template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
     set_control_data(_d, controls.cached_control, _m);
-    std::cout << "iter " << iteration << "CTRL: " << controls.cached_control << " " << _d->qpos[0]<< "\n";
-    ++iteration;
 }
 
 

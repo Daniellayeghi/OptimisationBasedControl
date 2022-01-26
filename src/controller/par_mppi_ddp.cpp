@@ -28,10 +28,10 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
     }
 
     cached_control = CtrlVector::Zero();
-    m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
     m_u_traj.assign(m_params.m_sim_time, CtrlVector::Zero());
-    m_u_traj_new.assign(m_params.m_sim_time+1, CtrlVector ::Zero());
     m_u_traj_cp.assign(m_params.m_sim_time, CtrlVector::Zero());
+    m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
+    m_u_traj_new.assign(m_params.m_sim_time+1, CtrlVector ::Zero());
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
 
     auto m_carry_over = m_params.m_k_samples % n_threads;
@@ -47,102 +47,16 @@ void MPPIDDPPar::compute_cov_from_hess(const std::vector<CtrlMatrix> &ddp_varian
 }
 
 
-void MPPIDDPPar::perturb_ctrl_traj()
-{
-//#pragma omp  declare reduction(+:CtrlVector: omp_out=omp_out+omp_in)\
-//initializer(omp_priv=CtrlVector::Zero(omp_orig.rows(), omp_orig.cols()))
-
-#pragma omp  parallel for collapse (2) default(none) shared(m_params, m_u_traj, m_sample_ctrl_traj)
-    for (auto time = 0; time < m_params.m_sim_time; ++time)
-        for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
-            m_u_traj[time] += m_sample_ctrl_traj[sample].block(0, time * n_ctrl, n_ctrl, 1);
-        }
-}
-
-
 //TODO: remove critical need one rng per thread.
 void MPPIDDPPar::fill_ctrl_samples()
 {
-#pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample, std::cout) num_threads(nthreads)
+#pragma omp  parallel default(none) shared(m_dist_gens, m_sample_ctrl_traj, m_params, m_per_thread_sample) num_threads(1)
     {
         int id = omp_get_thread_num();
         unsigned int adjust = 0;
         if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
         for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample)
-        {
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
-        }
-    }
-
-//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [](const auto& elem) {std::cout << elem << std::endl;});
-    auto total_sum_ctrl = 0.0;
-    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [&](const auto& elem){total_sum_ctrl += elem.sum();});
-    std::cout << "PAR ---------------------------------------------- " << total_sum_ctrl << std::endl;
-}
-
-
-void MPPIDDPPar::rollout_trajectories(const mjData* d)
-{
-    std::cout << d->qpos[0] << "\n";
-    int time = 0;
- #pragma omp  parallel default(none) private(time) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample, std::cout) num_threads(nthreads)
-    {
-        int id = omp_get_thread_num();
-        unsigned int adjust = 0;
-        if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
-        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample) {
-            ThreadData t_d;
-            fill_state_vector(d, t_d.current, m_m);
-            copy_data(m_m, d, m_thread_mjdata[id]);
-            const auto &ctrl_traj = m_sample_ctrl_traj[sample];
-            auto &mjdata = m_thread_mjdata[id];
-            for (time = 0; time < m_params.m_sim_time-1; ++time)
-            {
-                // Set sampled perturbation
-                const CtrlVector &pert_sample = ctrl_traj.block(0, time*n_ctrl, 1, n_ctrl);
-//                std::cout << ctrl_traj << std::endl;
-                t_d.instant_ctrl = m_u_traj[time] + pert_sample;
-//                printf("instant ctrl %f + %f\n", m_u_traj[time](0, 0), pert_sample(0, 0));
-                // Forward simulate controls and compute running cost
-                MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
-                m_padded_cst[sample][0] += m_cost_func(
-                        t_d.next, m_u_traj[time], pert_sample,
-                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m
-                        );
-//                printf("cost params %f, %f, %f, %f, %f\n", t_d.next(0, 0), t_d.instant_ctrl(0, 0),
-//                       pert_sample(0, 0), m_params.m_ddp_args.first[time](0, 0),
-//                       m_ddp_cov_inv_vec[time](0, 0));
-//
-//                printf("[%d][%d] = %f \n", sample, time, m_padded_cst[sample][0]);
-            }
-            // Set final pert sample
-            const CtrlVector &final_sample = ctrl_traj.block(
-                    0, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl
-                    );
-            // Apply final sample
-            t_d.instant_ctrl = m_u_traj.back() + final_sample;
-            MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
-
-            // Compute terminal cost
-            m_padded_cst[sample][0] += m_cost_func.m_terminal_cost(t_d.next, mjdata, m_m);
-        }
-    }
-
-    auto total_sum = 0.0;
-    std::for_each(m_padded_cst.begin(), m_padded_cst.end(), [&](const std::vector<double>& elem){std::cout << elem.front() << ", ";});
-    printf("\n");
-    std::for_each(m_padded_cst.begin(), m_padded_cst.end(), [&](const std::vector<double>& elem){total_sum += elem.front();});
-    printf("\ntotal_sum_par = %f\n", total_sum);
-}
-
-
-void MPPIDDPPar::weight_samples_ctrl_traj()
-{
-    convert_costs_to_is_weight();
-#pragma omp  parallel for default(none) shared(m_padded_cst, m_params, m_sample_ctrl_traj) num_threads(nthreads)
-    for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
-    {
-        m_sample_ctrl_traj[sample] =  m_sample_ctrl_traj[sample] * m_padded_cst[sample][0];
     }
 }
 
@@ -169,10 +83,20 @@ void MPPIDDPPar::exponentiate_costs(double min_cost)
 }
 
 
+void MPPIDDPPar::weight_samples_ctrl_traj()
+{
+    convert_costs_to_is_weight();
+#pragma omp  parallel for default(none) shared(m_padded_cst, m_params, m_sample_ctrl_traj) num_threads(nthreads)
+    for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
+    {
+        m_sample_ctrl_traj[sample] =  m_sample_ctrl_traj[sample] * m_padded_cst[sample][0];
+    }
+}
+
+
 double MPPIDDPPar::compute_normalisation_constant()
 {
     auto min_cost = GenericUtils::parallel_min(m_padded_cst);
-    std::cout << "MIN Par " << min_cost.val << std::endl;
 
     exponentiate_costs(min_cost.val);
     double normalise_const = 0;
@@ -182,6 +106,60 @@ double MPPIDDPPar::compute_normalisation_constant()
         normalise_const += m_padded_cst[sample][0];
     }
     return normalise_const;
+}
+
+
+void MPPIDDPPar::perturb_ctrl_traj()
+{
+//#pragma omp  declare reduction(+:CtrlVector: omp_out=omp_out+omp_in)\
+//initializer(omp_priv=CtrlVector::Zero(omp_orig.rows(), omp_orig.cols()))
+
+#pragma omp parallel for default(none) collapse(2) shared(m_params, m_u_traj, m_sample_ctrl_traj) num_threads(n_threads)
+    for (auto time = 0; time < m_params.m_sim_time; ++time)
+        for (auto sample = 0; sample < m_params.m_k_samples; ++sample)
+            m_u_traj[time] += m_sample_ctrl_traj[sample].block(0, time * n_ctrl, n_ctrl, 1);
+}
+
+
+void MPPIDDPPar::rollout_trajectories(const mjData* d)
+{
+    int time = 0;
+ #pragma omp  parallel default(none) private(time) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
+    {
+        int id = omp_get_thread_num();
+        unsigned int adjust = 0;
+        if (id == nthreads-1) adjust = m_params.m_k_samples % n_threads;
+        for (int sample = id * m_per_thread_sample; sample < (id + 1) * m_per_thread_sample + adjust; ++sample) {
+            ThreadData t_d;
+            fill_state_vector(d, t_d.current, m_m);
+            copy_data(m_m, d, m_thread_mjdata[id]);
+            const auto &ctrl_traj = m_sample_ctrl_traj[sample];
+            auto &mjdata = m_thread_mjdata[id];
+            for (time = 0; time < m_params.m_sim_time-1; ++time)
+            {
+                // Set sampled perturbation
+                const CtrlVector &pert_sample = ctrl_traj.block(0, time*n_ctrl, 1, n_ctrl);
+                t_d.instant_ctrl = m_u_traj[time] + pert_sample;
+                // Forward simulate controls and compute running cost
+                MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
+                m_padded_cst[sample][0] += m_cost_func(
+                        t_d.next, m_u_traj[time], pert_sample,
+                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m
+                        );
+            }
+            // Set final pert sample
+            const CtrlVector &final_sample = ctrl_traj.block(
+                    0, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl
+                    );
+            // Apply final sample
+            t_d.instant_ctrl = m_u_traj.back() + final_sample;
+            MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
+
+            // Compute terminal cost
+            m_padded_cst[sample][0] += m_cost_func.m_terminal_cost(t_d.next, mjdata, m_m);
+
+        }
+    }
 }
 
 
@@ -200,9 +178,7 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
             perturb_ctrl_traj();
             cached_control = m_u_traj.front();
             m_u_traj_cp = m_u_traj;
-            std::cout << "CTRL is\n";
-            std::for_each(m_u_traj.begin(), m_u_traj.end(), [&](const auto& elem){std::cout << elem(0, 0) << ", ";});
-            std::cout <<"\n----"<< std::endl;        }
+        }
     }
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();

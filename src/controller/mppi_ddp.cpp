@@ -42,9 +42,8 @@ MPPIDDP::total_entropy(const int time, const double min_cost, const double norma
     auto numerator_weight = 0.0;
     for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
     {
-
         numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /normaliser;
-    auto ctrl_sample = ctrl_time_samples.block(time*ctrl_rows, col, ctrl_rows, 1);
+        auto ctrl_sample = ctrl_time_samples.block(time*ctrl_rows, col, ctrl_rows, 1);
         numerator_mean += (numerator_weight * ctrl_sample);
         numerator_cov += (
                 numerator_weight * (ctrl_sample - m_params.pi_ctrl_mean) *
@@ -59,7 +58,6 @@ bool MPPIDDP::MPPIDDP::accepted_trajectory()
 {
     MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m);
     auto total_cost = compute_trajectory_cost(m_u_traj_new, m_x_traj);
-    std::cout << total_cost << " " << m_prev_cost << "\n";
     if(total_cost < m_prev_cost)
     {
         m_prev_cost = total_cost;
@@ -78,7 +76,6 @@ double MPPIDDP::MPPIDDP::compute_trajectory_cost(const std::vector<CtrlVector>& 
 FastPair<CtrlVector, CtrlMatrix> MPPIDDP::compute_control_trajectory()
 {
     const auto min_cost = std::min_element(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end());
-    std::cout << "MIN Seq " << *min_cost << std::endl;
     double temp_mean_denomenator = 0;
     CtrlVector new_mean_numerator = CtrlVector::Zero();
     CtrlMatrix new_cov_numerator = CtrlMatrix::Zero();
@@ -137,7 +134,6 @@ void MPPIDDP::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
 void MPPIDDP::control(const mjData* d, const bool skip)
 {
 
-    std::cout << d->qpos[0] << "\n";
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     if (not skip)
     {
@@ -156,8 +152,6 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                     // Set sampled perturbation
                     const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl);
                     instant_control = m_u_traj[time] + pert_sample;
-//                    std::cout << m_ctrl_samples_time.row(sample) << std::endl;
-//                    printf("instant ctrl %f + %f\n", m_u_traj[time](0, 0), pert_sample(0, 0));
                     // Forward simulate controls and compute running costl
                     MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
                     m_delta_cost_to_go[sample] +=m_cost_func(
@@ -165,10 +159,6 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                             pert_sample, m_params.m_ddp_args.first[time],
                             m_ddp_cov_inv_vec[time],
                             m_d_cp, m_m);
-//                    printf("cost params %f, %f, %f, %f, %f\n", m_x_traj[time + 1](0, 0), m_u_traj[time](0, 0),
-//                           pert_sample(0, 0), m_params.m_ddp_args.first[time](0, 0),
-//                           m_ddp_cov_inv_vec[time](0, 0));
-//                    printf("[%d][%d] = %f \n", sample, time, m_delta_cost_to_go[sample]);
 
                 }
                 // Set final pert sample
@@ -182,17 +172,10 @@ void MPPIDDP::control(const mjData* d, const bool skip)
 
                 // Compute terminal cost
                 m_delta_cost_to_go[sample] += m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
-
             }
-            std::cout << "SEQ ---------------------------------------------- " << m_ctrl_samples_time.sum() << std::endl;
-            std::for_each(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), [&](const auto& elem){std::cout << elem << ", ";});
-            auto total_sum = std::accumulate(m_delta_cost_to_go.begin(), m_delta_cost_to_go.end(), 0.0);
-            printf("\ntotal_sum_seq = %f\n", total_sum);
-//            auto k = 1; std::cin >> k;
+
             const auto[new_mean, new_variance] = compute_control_trajectory();
-            std::cout << "CTRL is\n";
-            std::for_each(m_u_traj.begin(), m_u_traj.end(), [&](const auto& elem){std::cout << elem(0, 0) << ", ";});
-            std::cout <<"\n----"<< std::endl;
+
         }
     }
     prepare_control_mpc();
