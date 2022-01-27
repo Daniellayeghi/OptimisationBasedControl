@@ -43,7 +43,7 @@ MPPIDDP::total_entropy(const int time, const double min_cost, const double norma
     for (unsigned long col = 0; col < m_delta_cost_to_go.size(); ++col)
     {
         numerator_weight = std::exp(-(1 / m_params.m_lambda) * (m_delta_cost_to_go[col] - min_cost)) /normaliser;
-        auto ctrl_sample = ctrl_time_samples.block(time*ctrl_rows, col, ctrl_rows, 1);
+        CtrlVector ctrl_sample = ctrl_time_samples.block(time*ctrl_rows, col, ctrl_rows, 1);
         numerator_mean += (numerator_weight * ctrl_sample);
         numerator_cov += (
                 numerator_weight * (ctrl_sample - m_params.pi_ctrl_mean) *
@@ -150,7 +150,8 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                 m_normX_cholesk.samples_fill(m_ctrl_samples_time.row(sample));
                 for (auto time = 0; time < m_params.m_sim_time-1 ; ++time){
                     // Set sampled perturbation
-                    const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl);
+                    std::cout << m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl).rows() << std::endl;
+                    const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl).transpose();
                     instant_control = m_u_traj[time] + pert_sample;
                     // Forward simulate controls and compute running costl
                     MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
@@ -164,7 +165,7 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                 // Set final pert sample
                 const CtrlVector& final_sample = m_ctrl_samples_time.block(
                         sample, (m_params.m_sim_time - 1) * n_ctrl, 1, n_ctrl
-                        );
+                        ).transpose();
 
                 // Apply final sample
                 instant_control = m_u_traj.back() + final_sample;

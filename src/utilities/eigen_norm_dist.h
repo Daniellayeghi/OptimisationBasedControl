@@ -67,6 +67,7 @@ namespace Eigen {
         Matrix<Scalar,Dynamic,Dynamic> _covar;
         Matrix<Scalar,Dynamic,Dynamic> _transform;
         Matrix< Scalar, Dynamic, 1> _mean;
+        Matrix<Scalar, 1, 1> _mean_scalar;
         bool _use_cholesky;
         int _samples_size = 0;
         SelfAdjointEigenSolver<Matrix<Scalar,Dynamic,Dynamic> > _eigenSolver; // drawback: this creates a useless eigenSolver when using Cholesky decomposition, but it yields access to eigenvalues and vectors
@@ -79,6 +80,7 @@ namespace Eigen {
             randN.seed(seed);
             setMean(mean);
             setCovar(covar);
+            _mean_scalar(0, 0) = mean(0, 0);
         }
         scalar_normal_dist_op<Scalar> randN; // Gaussian functor
 
@@ -122,7 +124,7 @@ namespace Eigen {
         {
             auto temp = Matrix<Scalar,Dynamic,-1>::NullaryExpr(_covar.rows(), nn, 1);
             for(auto i = 0; i < _covar.rows() * nn; ++i) {(temp.data()[i]) = randN();};
-            return (_transform * temp).colwise() + _mean;
+            return (_transform * temp).colwise() + _mean_scalar;
         }
 
         inline void samples_fill(Block<Matrix<double, -1, -1, 0>, 1, -1, 0> samp_container)
@@ -130,19 +132,19 @@ namespace Eigen {
             for(auto i = 0; i < samp_container.rows(); ++i)
                 for(auto j = 0; j < samp_container.cols(); ++j)
                 {(samp_container(i, j)) = randN();}
-            samp_container = (_transform * samp_container).colwise() + _mean;
+            samp_container = (_transform(0, 0) * samp_container).colwise() + _mean_scalar;
         }
 
         inline void samples_fill(Matrix<double, -1, -1>& samp_container)
         {
             for(int i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randN();};
-            samp_container = (_transform * samp_container).colwise() + _mean;
+            samp_container = (_transform(0, 0) * samp_container).colwise() + _mean_scalar;
         }
 
         inline void samples_fill(Matrix<double, -1, -1>& samp_container, scalar_normal_dist_op<Scalar>& randn)
         {
             for(auto i = 0; i < samp_container.size(); ++i) {(samp_container.data()[i]) = randn();};
-            samp_container = (_transform * samp_container).colwise() + _mean;
+            samp_container = (_transform(0, 0) * samp_container).colwise() + _mean_scalar;
         }
 
     }; // end class EigenMultivariateNormal

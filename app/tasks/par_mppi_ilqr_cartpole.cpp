@@ -196,7 +196,7 @@ int main(int argc, const char** argv)
     StateMatrix r_state_reg = x_gain;
 
     CtrlMatrix control_reg;
-    control_reg = u_gain;
+    control_reg = u_gain * 0;
 
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;

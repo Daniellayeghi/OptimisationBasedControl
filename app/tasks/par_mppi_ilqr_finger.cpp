@@ -6,7 +6,7 @@
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/zmq_utils.h"
-#include "../../src/controller/mppi_ddp.h"
+#include "../../src/controller/par_mppi_ddp.h"
 #include "../../src/utilities/mujoco_utils.h"
 
 // for sleep timers
@@ -248,12 +248,12 @@ int main(int argc, const char** argv)
         CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,m);
         ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
-        MPPIDDPParams params{
-            5, 75, 0.1, 0, 1, 1, 1000, ctrl_mean,
-            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        MPPIDDPParamsPar params{
+                5, 75, 0.1, 0, 1, 1, 1000, ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
-        QRCostDDP qrcost(params, running_cost, terminal_cost);
-        MPPIDDP pi(m, qrcost, params);
+        QRCostDDPPar qrcost(params, running_cost, terminal_cost);
+        MPPIDDPPar pi(m, qrcost, params);
 
         // install control callback
         using ControlType = ILQR;

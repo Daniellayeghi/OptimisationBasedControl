@@ -10,6 +10,7 @@ set(SOURCE_FILES
         mppi_ilqr_planar_obstacle.cpp
         mppi_ilqr_cartpole.cpp
         par_mppi_ilqr_cartpole.cpp
+        par_mppi_ilqr_finger.cpp
         mppi_ilqr_double_cartpole.cpp
         mppi_ilqr_finger.cpp
         mppi_ilqr_planar_push.cpp
