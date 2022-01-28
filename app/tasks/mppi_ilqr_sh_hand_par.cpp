@@ -7,7 +7,7 @@
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/mujoco_utils.h"
 #include "../../src/utilities/zmq_utils.h"
-#include "../../src/controller/mppi_ddp.h"
+#include "../../src/controller/par_mppi_ddp.h"
 #include <chrono>
 #include <thread>
 
@@ -272,15 +272,15 @@ int main(int argc, const char** argv)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
 
-    MPPIDDPParams params {
+    MPPIDDPParamsPar params {
         1000, 75, 0.1, 1, 1, 1, 1e3,
         ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
-    QRCostDDP qrcost(params, running_cost, terminal_cost);
-    MPPIDDP pi(m_ng, qrcost, params);
+    QRCostDDPPar qrcost(params, running_cost, terminal_cost);
+    MPPIDDPPar pi(m_ng, qrcost, params);
 
     // install control callback
-    using ControlType = MPPIDDP;
+    using ControlType = MPPIDDPPar;
     MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
     MyController<ControlType , n_jpos + n_jvel, n_ctrl>::set_instance(&control);
     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
@@ -295,10 +295,10 @@ int main(int argc, const char** argv)
     std::fstream vel_data(path + name + "_vel_" + mode + std::to_string(int(params.importance)) + ".csv", std::fstream::out | std::fstream::trunc);
 
     double cost;
-    GenericBuffer<PosVector> pos_bt{d->qpos};   DataBuffer<GenericBuffer<PosVector>> pos_buff;
-    GenericBuffer<VelVector> vel_bt{d->qvel};   DataBuffer<GenericBuffer<VelVector>> vel_buff;
-    GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-    GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
+    GenericBuffer<PosVector> pos_bt{d->qpos};   DummyBuffer<GenericBuffer<PosVector>> pos_buff;
+    GenericBuffer<VelVector> vel_bt{d->qvel};   DummyBuffer<GenericBuffer<VelVector>> vel_buff;
+    GenericBuffer<CtrlVector> ctrl_bt{d->ctrl}; DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+    GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost}; DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
     pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
     vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
@@ -314,7 +314,7 @@ int main(int argc, const char** argv)
     StateVector temp_state;
     Eigen::Map<CtrlVector> ctrl_map = Eigen::Map<CtrlVector>(d->ctrl);
     mj_step(m, d);
-    /* ==================================================Simulation=======================================================*/
+    /* ==================================================Simulation===================================================*/
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {

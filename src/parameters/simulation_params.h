@@ -8,9 +8,9 @@ namespace SimulationParameters
     /* Environment Dimensions */
     using SimScalarType = double;
 
-    constexpr const int n_ctrl = 2;
-    constexpr const int n_jpos = 3;
-    constexpr const int n_jvel = 3;
+    constexpr const int n_ctrl = 3;
+    constexpr const int n_jpos = 5;
+    constexpr const int n_jvel = 5;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
@@ -32,7 +32,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 1;
+    constexpr const unsigned int n_threads = 13;
 }
 
 #endif //OPTCONTROL_MUJOCO_SIMULATION_PARAMS_H

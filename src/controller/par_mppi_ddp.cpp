@@ -130,6 +130,7 @@ void MPPIDDPPar::perturb_ctrl_traj()
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
     int time = 0;
+    TimeBench TimerPar("Parallel Rollout");
  #pragma omp  parallel default(none) private(time) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample, std::cout) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
@@ -140,7 +141,6 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             fill_state_vector(d, t_d.current, m_m);
             copy_data(m_m, d, m_thread_mjdata[id]);
             const auto &ctrl_traj = m_sample_ctrl_traj[sample];
-            std::cout << m_sample_ctrl_traj.size() << m_sample_ctrl_traj.front().cols() << std::endl;
             auto &mjdata = m_thread_mjdata[id];
             for (time = 0; time < m_params.m_sim_time-1; ++time)
             {
@@ -170,6 +170,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
 
         }
     }
+    TimerPar.measure();
 }
 
 
