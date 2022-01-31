@@ -175,6 +175,9 @@ void MPPIDDP::control(const mjData* d, const bool skip)
             }
             timer.measure();
             const auto[new_mean, new_variance] = compute_control_trajectory();
+            std::for_each(m_u_traj.begin(), m_u_traj.end(), [](const auto& elem) {std::cout << elem;});
+            auto k = 1;
+            std::cin >> k;
 
         }
     }

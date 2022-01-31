@@ -269,11 +269,11 @@ int main(int argc, const char** argv)
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
     FiniteDifference fd(m);
     CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 10, 1};
     ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
 
     MPPIDDPParams params {
-        1000, 75, 0.1, 1, 1, 1, 1e3,
+        200, 10, 0.1, 1, 1, 1, 1e3,
         ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
     QRCostDDP qrcost(params, running_cost, terminal_cost);
