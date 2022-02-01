@@ -167,7 +167,7 @@ int main(int argc, const char** argv)
     StateVector x_terminal_gain_vec; x_terminal_gain_vec << 0, 0, 0, 1000, 1000, 0, 0, 0, 10, 10;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_gain_vec; x_gain_vec << 0, 0, 0, 10, 10, 0, 0, 0, .1, .1;
+    StateVector x_gain_vec; x_gain_vec << 0, 0, 0, 100, 100, 0, 0, 0, 1, 1;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
 
@@ -184,7 +184,7 @@ int main(int argc, const char** argv)
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    StateVector initial_state; initial_state <<  -1.57, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
+    StateVector initial_state; initial_state << -1.57, 0 ,0, -0.15, 0.42, 0, 0, 0, 0, 0;
     CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
@@ -234,21 +234,26 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+    const auto running_cost =
+            [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + (not collision_cost(data, model)) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)(0, 0) +
+        (not collision_cost(data, model) * 10000) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+    const auto terminal_cost =
+            [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
-
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + not collision_cost(data, model) * 1000 * (state_error.transpose() * t_state_reg * state_error)(0, 0);
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
+    const auto importance_reg =
+            [&](const mjData* data=nullptr, const mjModel *model=nullptr){
+        return collision_cost(data, model);
+    };
 
-    std::array<unsigned int, 5> seeds {{7, 8, 9, 10, 11}};
+    std::vector<int> seeds(5, rand());
     for (const auto seed : seeds)
     {
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
@@ -260,9 +265,11 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-            200, 75, 0.01, 1, 1, 1,500,
-            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+            400, 75, 0.25, 0, 1, 1,675,
+            ctrl_mean, ddp_var, ctrl_var,{ilqr.m_u_traj_cp, ilqr._covariance},
+            seed, importance_reg
         };
+
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);
 

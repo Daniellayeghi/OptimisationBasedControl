@@ -187,13 +187,11 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0,
-                                                                                  1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0;
+    StateVector x_terminal_diag; x_terminal_diag << 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0;
     x_terminal_diag *= 100;
     x_terminal_diag.block<n_jvel, 1>(n_jpos, 0) *= m->opt.timestep;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();

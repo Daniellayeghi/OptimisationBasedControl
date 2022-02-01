@@ -8,24 +8,78 @@
     ====================================================== -->
 
 
-    <include file="assets/basic_scene.xml"/>
-    <include file="assets/assets.xml"/>
+    <include file="assets_franka/basic_scene.xml"/>
+    <include file="assets_franka/assets.xml"/>
     <compiler meshdir=""/>
 
-    <worldbody>
-        <include file="assets/chain0.xml"/>
-        <geom name="rail" pos="0.5 0 0.5" quat="0.5 0.5 0.5 -0.5" rgba="0.3 0.3 0.7 1" size="0.01 2.5" type="capsule"/>
-        <body name="cart" pos="0 0 0">
-            <joint axis="0 1 0" limited="false" margin="0.01" name="slider_cart_1" pos="0 0 0" range="-1 1" type="slide"/>
-            <geom name="cart" pos="0.5 0.75 0.5" quat="0.5 0.5 0.5 -0.5"  size="0.05 0.05" type="capsule"/>
-        </body>
+    <visual>
+        <quality shadowsize="2048" />
+        <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1" />
+    </visual>
+S
+    <default class="main">
+        <general ctrllimited="true" ctrlrange="-1 1" />
+    </default>
 
-        <body name="cart_2" pos="0 0 0">
-            <joint axis="0 1 0 " limited="false" margin="0.01" name="slider_cart_2" pos="0 0 0" range="-1 1" type="slide"/>
-            <geom name="cart_2" pos="0.5 0.5 0.5" quat="0.5 0.5 0.5 -0.5"  size="0.05 0.05" type="capsule"/>
+    <default class="object">
+        <geom material="self"/>
+    </default>
+
+    <asset>
+        <texture type="skybox" name="skybox" builtin="gradient" mark="random" rgb1="0.4 0.6 0.8" rgb2="0 0 0" markrgb="1 1 1" width="800" height="4800" />
+        <texture type="2d" name="grid" builtin="checker" mark="edge" rgb1="0.1 0.2 0.3" rgb2="0.2 0.3 0.4" markrgb="0.2 0.3 0.4" width="300" height="300" />
+        <material name="grid" texture="grid" texuniform="true" reflectance="0.2" />
+        <material name="self" rgba="0.7 0.5 0.3 1" />
+        <material name="self_default" rgba="0.7 0.5 0.3 1" />
+        <material name="self_highlight" rgba="0 0.5 0.3 1" />
+        <material name="effector" rgba="0.7 0.4 0.2 1" />
+        <material name="effector_default" rgba="0.7 0.4 0.2 1" />
+        <material name="effector_highlight" rgba="0 0.5 0.3 1" />
+        <material name="decoration" rgba="0.3 0.5 0.7 1" />
+        <material name="eye" rgba="0 0.2 1 1" />
+        <material name="target" rgba="0.6 0.3 0.3 1" />
+        <material name="target_default" rgba="0.6 0.3 0.3 1" />
+        <material name="target_highlight" rgba="0.6 0.3 0.3 0.4" />
+    </asset>
+
+    <option timestep="0.01" gravity="disable"> </option>
+    <default class="finger">
+        <site type="ellipsoid" size=".025 .03 .025" rgba=".5 .5 .5 .3" group="3"/>
+    </default>
+
+
+    <worldbody>
+	<include file="assets_franka/chain0.xml"/>
+        <body name="pointmass" pos=".5 0 .419">
+            <camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
+            <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" damping="3" frictionloss=".01"/>
+            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" damping="3" frictionloss=".01"/>
+            <geom name="pointmass" type="sphere" size=".042" material="self" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
         </body>
+        <geom name="target" pos=".8 0.3 .42" material="target" type="sphere" rgba="0.5 1 0 0.25"  size=".045" contype="0" conaffinity="0"/>
+    
+        <body name="table">
+            <!-- <geom size="0.5 0.5 0.025" type="plane" material="table2d" /> --> <!-- Plane has better contacts -->
+            <geom size="0.45 0.45 0.025" pos=".6 0 .35" type="box"/>
+            <geom size="0.04 0.175" pos="1. .4 0.175" quat="0 1 0 0" type="cylinder" contype="0" conaffinity="0" />
+            <geom size="0.04 0.175" pos="1 -.4 0.175" quat="0 1 0 0" type="cylinder" contype="0" conaffinity="0" />
+            <geom size="0.04 0.175" pos=".2 .4 0.175" quat="0 1 0 0" type="cylinder" contype="0" conaffinity="0" />
+            <geom size="0.04 0.175" pos=".2 -.4 0.175" quat="0 1 0 0" type="cylinder" contype="0" conaffinity="0" />
+        </body>
+   
     </worldbody>
 
-    <include file='assets/frc_actuator0.xml'/>
+    <tendon>
+        <fixed name="t1">
+            <joint joint="root_x" coef="1"/>
+            <joint joint="root_y" coef="0"/>
+        </fixed>
+        <fixed name="t2">
+            <joint joint="root_x" coef="0"/>
+            <joint joint="root_y" coef="1"/>
+        </fixed>
+    </tendon>
+
+    <include file='assets_franka/frc_actuator0.xml'/>
 
 </mujoco>

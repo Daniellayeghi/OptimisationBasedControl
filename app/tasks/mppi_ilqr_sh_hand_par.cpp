@@ -169,17 +169,17 @@ int main(int argc, const char** argv)
     StateVector x_desired = StateVector::Zero(); x_desired(n_jpos - 1, 0) = 4.14;
     CtrlVector u_desired = CtrlVector::Zero();
 
-    StateVector x_terminal_gain_vec = StateVector::Zero(); x_terminal_gain_vec(n_jpos - 1, 0) = 1000000;
-    x_terminal_gain_vec(state_size - 1, 0) = 10000;
+    StateVector x_terminal_gain_vec = StateVector::Zero(); x_terminal_gain_vec(n_jpos - 1, 0) = 10000;
+    x_terminal_gain_vec(state_size - 1, 0) = 100;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
 
-    StateVector x_gain_vec = StateVector::Zero(); x_gain_vec(n_jpos - 1, 0) = 1000000;
+    StateVector x_gain_vec = StateVector::Zero(); x_gain_vec(n_jpos - 1, 0) = 10000;
     StateMatrix x_gain; x_gain = x_gain_vec.asDiagonal();
 
     CtrlMatrix u_gain;
     u_gain.setIdentity();
-    u_gain *= 1;
+    u_gain *= .5;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -203,7 +203,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.05;
+        ctrl_var.diagonal()[elem] = 0.15;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -253,27 +253,25 @@ int main(int argc, const char** argv)
     const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
-
-        return (state_error.transpose() * r_state_reg * state_error +
-        ctrl_error.transpose() * control_reg * ctrl_error) (0, 0) +
-        not collision_cost(data, model) * (state_error.transpose() * r_state_reg * state_error)(0, 0) + not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
+        const double cost = ((state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error) (0, 0));
+        return cost + not collision_cost(data, model) * cost;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0); //not collision_cost(data, model) * (state_error.transpose() * t_state_reg * state_error)(0, 0) * 0.1;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
     FiniteDifference fd(m);
     CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 10, 1};
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
     ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
 
     MPPIDDPParamsPar params {
-        200, 10, 0.1, 1, 1, 1, 1e3,
+        250, 75, 0.05, 0, 1, 1, 1e2,
         ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
     QRCostDDPPar qrcost(params, running_cost, terminal_cost);
@@ -337,7 +335,7 @@ int main(int argc, const char** argv)
             cost = running_cost(temp_state, ctrl_map, d , m);
             pos_buff.push_buffer(); vel_buff.push_buffer();
             ctrl_buff.push_buffer(); cost_buff.push_buffer();
-//            zmq_buffer.send_buffers();
+            zmq_buffer.send_buffers();
             mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

@@ -133,7 +133,6 @@ void MPPIDDP::regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance)
 
 void MPPIDDP::control(const mjData* d, const bool skip)
 {
-    TimeBench timer("Seq Rollout");
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     if (not skip)
     {
@@ -173,12 +172,7 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                 // Compute terminal cost
                 m_delta_cost_to_go[sample] += m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);
             }
-            timer.measure();
             const auto[new_mean, new_variance] = compute_control_trajectory();
-            std::for_each(m_u_traj.begin(), m_u_traj.end(), [](const auto& elem) {std::cout << elem;});
-            auto k = 1;
-            std::cin >> k;
-
         }
     }
     prepare_control_mpc();

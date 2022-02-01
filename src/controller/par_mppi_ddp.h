@@ -26,24 +26,26 @@ struct MPPIDDPParamsPar{
     const float importance = 0;
     const int m_scale      = 0;
     const int iteration    = 0;
-    const double ddp_cov_reg = 1;
+    const double& ddp_cov_reg = 1;
     const CtrlVector pi_ctrl_mean;
     const CtrlMatrix ddp_variance;
     const CtrlMatrix ctrl_variance;
     const FastPair<std::vector<CtrlVector>&, std::vector<CtrlMatrix>&> m_ddp_args;
-    const unsigned int m_seed = 1;
+    const int m_seed = 1;
+    const std::function<double(const mjData* data, const mjModel *model)>&  m_importance_reg =
+            [&](const mjData* data=nullptr, const mjModel *model=nullptr){return 1.0;};
 };
 
 class QRCostDDPPar
 {
 public:
     QRCostDDPPar(const MPPIDDPParamsPar &params,
-              std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
-              std::function<double(const StateVector&, const mjData* data, const mjModel *model)> terminal_cost
-    ):
+                 const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> running_cost,
+                 const std::function<double(const StateVector&, const mjData* data, const mjModel *model)> terminal_cost
+                 ):
             m_params(params),
-            m_running_cost(std::move(running_cost)),
-            m_terminal_cost(std::move(terminal_cost))
+            m_running_cost(running_cost),
+            m_terminal_cost(terminal_cost)
     {
         m_ctrl_variance_inv = m_params.ctrl_variance.inverse();
     }
@@ -55,13 +57,14 @@ public:
                       const CtrlMatrix& ddp_covariance_inv,
                       const mjData* data, const mjModel *model) const
     {
+        const auto importance = m_params.importance * m_params.m_importance_reg(data, model);
         CtrlVector new_control = control + delta_control;
         double ddp_bias = (
                 (new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
-                )(0, 0) * m_params.importance;
+                )(0, 0) * importance;
 
         double passive_bias = (new_control.transpose() * ddp_covariance_inv * new_control)(0, 0) *
-                (1 - m_params.importance);
+                (1 - importance);
 
         double common_bias = (
                 (new_control - control).transpose() * m_ctrl_variance_inv * (new_control - control)
@@ -120,7 +123,7 @@ private:
     std::vector<std::vector<double>> m_padded_cst;
     std::vector<Eigen::Matrix<double, -1, -1>> m_sample_ctrl_traj;
     std::vector<Eigen::EigenMultivariateNormal<double>> m_dist_gens;
-    struct ThreadData{
+    struct m_ThreadData{
         StateVector current = StateVector::Zero(), next = StateVector::Zero();
         CtrlVector instant_ctrl = CtrlVector::Zero();
     };

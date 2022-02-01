@@ -231,15 +231,6 @@ int main(int argc, const char** argv)
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);
 
-//
-//        MPPIDDPParams params_seq{
-//                4, 4, 0.01, 0, 1, 1, 1000,ctrl_mean,
-//                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
-//        };
-//
-//        QRCostDDP qrcost_seq (params_seq, running_cost, terminal_cost);
-//        MPPIDDP pi_seq(m, qrcost_seq, params_seq);
-
         // install control callback
         using ControlType = MPPIDDPPar;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
