@@ -111,7 +111,7 @@
 			<camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
 			<joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" range="-1 1" damping="3" frictionloss=".01"/>
 			<joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" range="-1 1" damping="3" frictionloss=".01"/>
-			<geom name="pointmass" type="sphere" size=".042" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
+			<geom name="pointmass" type="sphere" size=".038" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
 		</body>
 
 		<geom name="target" pos="0.05 -0.25 0.048" type="sphere" rgba="0.5 1 0 0.25"  size=".045" contype="0" conaffinity="0"/>

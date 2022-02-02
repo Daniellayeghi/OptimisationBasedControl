@@ -166,9 +166,8 @@ int main(int argc, const char** argv)
                                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
-    CtrlMatrix u_gain;
-    u_gain.setIdentity();
-    u_gain *= 5;
+    CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
+    CtrlMatrix u_gain = u_gain_vector.asDiagonal();
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -187,7 +186,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.05;
+        ctrl_var.diagonal()[elem] = 0.005;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -243,7 +242,7 @@ int main(int argc, const char** argv)
     };
 
     const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-            return collision_cost(d, m);
+            return 1; //collision_cost(d, m);
         };
 
     std::array<int, 5> seeds {{1, 2, 3, 4, 5}};
@@ -258,7 +257,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                200, 75, 0.25, 1, 1, 1, 675,
+                200, 75, 0.2, 1, 1, 1, 675,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
                 1, importance_reg};
 
