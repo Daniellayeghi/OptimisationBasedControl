@@ -5,7 +5,7 @@ set(SOURCE_FILES
         ilqr_double_integrator.cpp
         ilqr_finger.cpp
         ilqr_franka.cpp
-        ilqr_franka_sparse.cpp
+        par_mppi_ilqr_hand_manip.cpp
         ilqr_planar.cpp
         mppi_ilqr_planar_obstacle.cpp
         mppi_ilqr_cartpole.cpp
@@ -15,13 +15,13 @@ set(SOURCE_FILES
         mppi_ilqr_sh_hand.cpp
         mppi_ilqr_sh_hand_par.cpp
         mppi_ilqr_double_cartpole.cpp
-        par_mppi_ilqr_cartpole.cpp
-        par_mppi_ilqr_finger.cpp
-        par_mppi_ilqr_planar_obstacle.cpp
-        par_mppi_ilqr_planar_push_2d.cpp
+        mppi_ilqr_cartpole_par.cpp
+        mppi_ilqr_finger_par.cpp
+        mppi_ilqr_planar_obstacle_par.cpp
+        mppi_ilqr_planar_push_2d_par.cpp
         fic_ilqr_mppi_finger.cpp
         fic_ilqr_extended_cartpole.cpp
-        #        fic_ilqr_planar_3_link.cpp
+#        fic_ilqr_planar_3_link.cpp
 #        fic_ilqr_cartpole.cpp
         )
 

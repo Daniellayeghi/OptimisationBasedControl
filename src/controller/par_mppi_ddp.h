@@ -115,20 +115,21 @@ private:
     void perturb_ctrl_traj();
 
     // Data
-    const mjModel* m_m;
-    MPPIDDPParamsPar& m_params;
-    const QRCostDDPPar& m_cost_func;
-    std::vector<mjData *> m_thread_mjdata;
-    std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
+
     std::vector<std::vector<double>> m_padded_cst;
     std::vector<Eigen::Matrix<double, -1, -1>> m_sample_ctrl_traj;
     std::vector<Eigen::EigenMultivariateNormal<double>> m_dist_gens;
+    std::vector<mjData *> m_thread_mjdata;
+    std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
     struct m_ThreadData{
         StateVector current = StateVector::Zero(), next = StateVector::Zero();
         CtrlVector instant_ctrl = CtrlVector::Zero();
     };
 
     unsigned int m_per_thread_sample;
+    const mjModel* m_m;
+    MPPIDDPParamsPar& m_params;
+    const QRCostDDPPar& m_cost_func;
 
 };
 

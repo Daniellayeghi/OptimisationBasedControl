@@ -8,14 +8,13 @@ constexpr const int nthreads = n_threads;
 static int iteration = 0;
 
 MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& params):
+        m_padded_cst(params.m_k_samples, std::vector<double>(8)),
+        m_sample_ctrl_traj(params.m_k_samples),
+        m_dist_gens(nthreads,{params.pi_ctrl_mean, params.ctrl_variance,
+                              params.m_sim_time, true,   params.m_seed}),
         m_m(m),
         m_params(params),
-        m_cost_func(cost),
-        m_padded_cst(m_params.m_k_samples, std::vector<double>(8)),
-        m_sample_ctrl_traj(m_params.m_k_samples),
-        m_dist_gens(nthreads,{m_params.pi_ctrl_mean, params.ctrl_variance,
-                              m_params.m_sim_time, true,  m_params.m_seed})
-
+        m_cost_func(cost)
 {
 #pragma omp parallel for default(none) shared(m_params, m_sample_ctrl_traj) num_threads(nthreads)
     for(auto sample = 0; sample < m_params.m_k_samples; ++sample)
