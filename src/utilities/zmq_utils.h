@@ -7,11 +7,12 @@
 
 template<typename T>
 struct Buffer{
-    static const constexpr bool check_bit = true;
-    static const constexpr int size = sizeof(T) + ((check_bit) ? sizeof(check_bit) : 0);
-    using buffer_array = std::array<char, size>;
-    void update(const T input, const bool check) {memcpy(m_buffer.begin(), input, size); m_buffer[size - 1] = check;}
-    const buffer_array& get() const {return m_buffer;}
+    explicit Buffer(const char buffer_type ='\0'): m_buffer_type(buffer_type){m_buffer.assign(m_size, 'c');};
+    const char m_buffer_type = '\0';
+    const int m_size = sizeof(T) + sizeof(m_buffer_type);
+    using buffer_array = std::vector<char>;
+    void update(const T input, const bool check) {memcpy(m_buffer.data(), input, m_size); m_buffer[m_size - 1] = m_buffer_type;}
+    [[nodiscard]] const buffer_array& get() const {return m_buffer;}
 private:
     buffer_array m_buffer;
 };
@@ -38,7 +39,7 @@ public:
     void send_buffers()
     {
         for(const Buffer<T>* buffer : buffers)
-            zmq_send(m_requester, buffer->get().data(), buffer->size, 0);
+            zmq_send(m_requester, buffer->get().data(), buffer->m_size, 0);
     }
 
 

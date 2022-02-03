@@ -154,16 +154,16 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, -.25, -.45,
-                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, .0, -.3,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
     StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 1000,
-                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
     StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100,
-                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
@@ -174,7 +174,7 @@ int main(int argc, const char** argv)
     du_gain *= 0;
 
     StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -233,7 +233,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        return (error(0, 0) + not collision_cost(data, model)* 1e5);
+        return (error(0, 0) + not collision_cost(data, model) * 1e5);
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -242,8 +242,8 @@ int main(int argc, const char** argv)
     };
 
     const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-            return 1; //collision_cost(d, m);
-        };
+        return 1; //collision_cost(d, m);
+    };
 
     std::array<int, 5> seeds {{1, 2, 3, 4, 5}};
     for (const auto seed : seeds) {
@@ -293,9 +293,11 @@ int main(int argc, const char** argv)
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
 
+
         printf("Connecting to viewer server…\n");
-        Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
-        Buffer<RawType<CtrlVector>::type> pi_buffer{};
+        Buffer<RawType<CtrlVector>::type> ilqr_buffer {'i'};
+        Buffer<RawType<CtrlVector>::type> pi_buffer {'p'};
+        Buffer<RawType<StateVector>::type> state_buffer{'s'};
         ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
