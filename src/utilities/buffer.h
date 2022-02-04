@@ -13,18 +13,20 @@ using namespace SimulationParameters;
 template<typename T>
 struct GenericBuffer
 {
-    explicit GenericBuffer(typename RawType<T>::scalar* ptr) : begin(ptr){};
+    explicit GenericBuffer(typename RawTypeEig<T>::scalar* ptr) : begin(ptr){};
     using type = T;
-    using scalar = typename RawType<T>::scalar;
-    static constexpr const unsigned int size = RawType<T>::size;
-    void update(typename RawType<T>::scalar* input) {begin = input;}
-    typename RawType<T>::scalar* get_begin(){return begin;}
+    using scalar = typename RawTypeEig<T>::scalar;
+    static constexpr const unsigned int size = RawTypeEig<T>::size;
+    void update(typename RawTypeEig<T>::scalar* input) { begin = input;}
+    typename RawTypeEig<T>::scalar* get_begin(){return begin;}
     unsigned int get_size(){return size;}
 private:
-    typename RawType<T>::scalar* begin;
+    typename RawTypeEig<T>::scalar* begin;
 };
 
 
+// Structure that holds Args as addresses of pointer to the beginning of each buffer,
+// Args that hold the size of each buffer and Args that hold the id of each buffer
 template<typename T, typename BufferType>
 class BaseBuffer
 {

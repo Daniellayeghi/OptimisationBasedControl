@@ -264,9 +264,9 @@ int main(int argc, const char** argv)
 /* ============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
         printf("Connecting to viewer server…\n");
-        Buffer<RawType<CtrlVector>::type> ilqr_buffer{};
-        Buffer<RawType<CtrlVector>::type> pi_buffer{};
-        ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        Buffer<RawTypeEig<CtrlVector>::type> ilqr_buffer{};
+        Buffer<RawTypeEig<CtrlVector>::type> pi_buffer{};
+        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
 

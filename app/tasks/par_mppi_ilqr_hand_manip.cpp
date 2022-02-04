@@ -293,14 +293,18 @@ int main(int argc, const char** argv)
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
 
-
+        /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
-        Buffer<RawType<CtrlVector>::type> ilqr_buffer {'i'};
-        Buffer<RawType<CtrlVector>::type> pi_buffer {'p'};
-        Buffer<RawType<StateVector>::type> state_buffer{'s'};
-        ZMQUBuffer<RawType<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        Buffer<RawTypeEig<CtrlVector>::type> ilqr_buffer {'i'};
+        Buffer<RawTypeEig<CtrlVector>::type> pi_buffer {'p'};
+        Buffer<RawTypeEig<StateVector>::type> state_buffer{'i'};
+        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_REP, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&pi_buffer);
+        std::vector<double*> buff_begs {d->ctrl, d->qpos};
+        std::vector<unsigned int> buff_size{ctrl_data_bytes, pos_data_bytes};
+        std::vector<char> buff_ids {'c', 'p'};
+        SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buff_begs,buff_size, buff_ids);
 
         StateVector temp_state = StateVector::Zero();
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
@@ -322,7 +326,9 @@ int main(int argc, const char** argv)
                 ilqr.m_u_traj = pi.m_u_traj;
                 ilqr_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
-                zmq_buffer.send_buffers();
+                simp_buff.update_buffer();
+                zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
+                zmq_buffer.buffer_wait_for_res();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
