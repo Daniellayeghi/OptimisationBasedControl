@@ -4,6 +4,8 @@
 #include <vector>
 #include <array>
 #include <zmq.h>
+#include "Eigen/src/Core/IO.h"
+
 
 template<typename T>
 struct Buffer{
@@ -18,19 +20,31 @@ private:
 };
 
 
-template<typename T_Buffer, typename T_Id>
+template<typename T_ptr, typename T_id>
+struct BasicBuffer
+{
+    const T_ptr* m_begin;
+    const T_ptr* m_end;
+    const T_id  m_id;
+    const unsigned int m_data_size = m_end - m_begin;
+    const unsigned int m_id_size = sizeof(m_id);
+    const unsigned int m_byte_size = m_data_size * sizeof(T_ptr) + m_id_size;
+};
+
+
+template<typename T_ptr, typename T_id>
 struct SimpleBuffer
 {
-    using buffer_array = std::vector<char>;
-    using begin_vecs = std::vector<T_Buffer*>;
-    using size_vecs = std::vector<unsigned int>;
-    using id_vecs = std::vector<T_Id>;
+    using buffer_params_t = std::vector<BasicBuffer<T_ptr, T_id>>;
+    using main_buffer_t = std::vector<char>;
 
-    SimpleBuffer(begin_vecs& buff_begins, size_vecs& buff_sizes, id_vecs& buff_ids):
-            m_begins(buff_begins), m_sizes(buff_sizes), m_ids(buff_ids)
+
+    explicit SimpleBuffer(buffer_params_t& buff_params):
+            m_buffer_params(buff_params)
     {
-        auto total_size =
-                std::accumulate(buff_sizes.begin(), buff_sizes.end(), 0) + m_ids.size() * sizeof(T_Id);
+        unsigned int total_size = 0;
+        std::for_each(m_buffer_params.begin(), m_buffer_params.end(), [&](const auto& elem)
+        {total_size += elem.m_byte_size;});
 
         m_buffer.assign(total_size, '\0');
     };
@@ -38,28 +52,23 @@ struct SimpleBuffer
 
     void update_buffer()
     {
-        for(auto idx = 0; idx < m_begins.size(); ++idx)
+        auto ptr_id = m_buffer.data();
+        for(auto idx = 0; idx < m_buffer_params.size(); ++idx)
         {
-            const auto ptr_id = m_buffer.data() + idx * (m_sizes[idx] + sizeof(m_ids[idx]));
-            const auto ptr_data = ptr_id + sizeof(m_ids[idx]);
-            memcpy(ptr_data, m_begins[idx], m_sizes[idx]);
-            memcpy(ptr_id, &m_ids[idx], sizeof(m_ids[idx]));
+            const auto ptr_data = ptr_id + m_buffer_params[idx].m_id_size;
+            memcpy(ptr_data, m_buffer_params[idx].m_begin, m_buffer_params[idx].m_data_size * sizeof(T_ptr));
+            memcpy(ptr_id, &m_buffer_params[idx].m_id, m_buffer_params[idx].m_id_size * sizeof(T_id));
+            ptr_id = ptr_data + m_buffer_params[idx].m_data_size * sizeof(T_ptr);
         }
-        std::for_each(m_buffer.begin(), m_buffer.end(), [](const auto& elem){std::cout << elem;});
-        std::cout << "\n";
     };
 
 
     auto get_buffer() {return m_buffer.data();}
-
-
     auto get_buffer_size(){return m_buffer.size();};
 
 private:
-    buffer_array m_buffer;
-    const begin_vecs& m_begins;
-    const size_vecs& m_sizes;
-    const id_vecs& m_ids;
+    const buffer_params_t m_buffer_params;
+    main_buffer_t  m_buffer;
 };
 
 

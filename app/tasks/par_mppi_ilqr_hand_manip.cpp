@@ -173,8 +173,7 @@ int main(int argc, const char** argv)
     du_gain.setIdentity();
     du_gain *= 0;
 
-    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -229,14 +228,16 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+    const auto running_cost =
+            [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
         return (error(0, 0) + not collision_cost(data, model) * 1e5);
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+    const auto terminal_cost =
+            [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
@@ -295,16 +296,10 @@ int main(int argc, const char** argv)
 
         /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
-        Buffer<RawTypeEig<CtrlVector>::type> ilqr_buffer {'i'};
-        Buffer<RawTypeEig<CtrlVector>::type> pi_buffer {'p'};
-        Buffer<RawTypeEig<StateVector>::type> state_buffer{'i'};
-        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_REP, "tcp://localhost:5555");
-        zmq_buffer.push_buffer(&ilqr_buffer);
-        zmq_buffer.push_buffer(&pi_buffer);
-        std::vector<double*> buff_begs {d->ctrl, d->qpos};
-        std::vector<unsigned int> buff_size{ctrl_data_bytes, pos_data_bytes};
-        std::vector<char> buff_ids {'c', 'p'};
-        SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buff_begs,buff_size, buff_ids);
+        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        std::vector<BasicBuffer<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data()+n_ctrl, 'i'},
+                                                                    {pi.cached_control.data(), pi.cached_control.data()+n_ctrl, 'q'}};
+        SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
 
         StateVector temp_state = StateVector::Zero();
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
@@ -323,12 +318,10 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-                ilqr.m_u_traj = pi.m_u_traj;
-                ilqr_buffer.update(ilqr.cached_control.data(), true);
-                pi_buffer.update(pi.cached_control.data(), false);
+                ilqr.m_u_traj = pi.m_u_traj;;
                 simp_buff.update_buffer();
                 zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                zmq_buffer.buffer_wait_for_res();
+//                zmq_buffer.buffer_wait_for_res();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
