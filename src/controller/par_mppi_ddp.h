@@ -79,12 +79,12 @@ public:
 
 public:
 
-    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state, mjData *d, const mjModel *m) const
+    double compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state, const mjData *d, const mjModel *m) const
     {
         auto total_cost = 0.0;
         for(auto time = 0; time < m_params.m_sim_time-1; ++time)
         {
-            total_cost += m_running_cost(state[time + 1], ctrl[time], d, m);
+            total_cost += m_running_cost(state[time], ctrl[time], d, m);
         }
         total_cost += m_terminal_cost(state.back(), d, m);
         return total_cost;

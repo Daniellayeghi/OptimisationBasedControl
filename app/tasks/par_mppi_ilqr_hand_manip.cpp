@@ -154,7 +154,7 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, .0, -.3,
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, -.1, -.45,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
@@ -167,13 +167,14 @@ int main(int argc, const char** argv)
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
-    CtrlMatrix u_gain = u_gain_vector.asDiagonal();
+    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .05;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
     du_gain *= 0;
 
-    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_initial; x_initial <<  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -185,7 +186,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.005;
+        ctrl_var.diagonal()[elem] = 0.0325;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -233,7 +234,8 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        return (error(0, 0) + not collision_cost(data, model) * 1e5);
+        auto col_cost = not collision_cost(data, model) * 5e6;
+        return (error(0, 0) + col_cost);
     };
 
     const auto terminal_cost =
@@ -258,7 +260,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                200, 75, 0.2, 1, 1, 1, 675,
+                500, 75, 0.5, 1, 1, 1, 675,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
                 1, importance_reg};
 
@@ -296,9 +298,9 @@ int main(int argc, const char** argv)
 
         /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
-        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_REP, "tcp://localhost:5555");
-        std::vector<BasicBuffer<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data()+n_ctrl, 'q'},
-                                                                    {pi.cached_control.data(), pi.cached_control.data()+n_ctrl, 'i'}};
+        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
+        std::vector<BufferParams<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data() + n_ctrl, 'q'},
+                                                                     {pi.cached_control.data(), pi.cached_control.data()+n_ctrl,       'i'}};
         SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
 
         StateVector temp_state = StateVector::Zero();
@@ -321,7 +323,7 @@ int main(int argc, const char** argv)
                 simp_buff.update_buffer();
                 ilqr.m_u_traj = pi.m_u_traj;;
                 zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                zmq_buffer.buffer_wait_for_res();
+//                zmq_buffer.buffer_wait_for_res();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
@@ -349,6 +351,7 @@ int main(int argc, const char** argv)
                 save_data = false;
                 std::cout << "Saved!" << std::endl;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                break;
             }
         }
     }

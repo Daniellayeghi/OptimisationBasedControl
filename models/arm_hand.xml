@@ -109,9 +109,9 @@
 
 		<body name="pointmass" pos=".3 .2 .048">
 			<camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
-			<joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" range="-1 1" damping="3" frictionloss=".01"/>
-			<joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" range="-1 1" damping="3" frictionloss=".01"/>
-			<geom name="pointmass" type="sphere" size=".038" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
+			<joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" range="-1 1" damping="4" frictionloss=".1"/>
+			<joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" range="-1 1" damping="4" frictionloss=".1"/>
+			<geom name="pointmass" type="sphere" size=".038" mass="1.2" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
 		</body>
 
 		<geom name="target" pos="0.2 -0.25 0.048" type="sphere" rgba="0.5 1 0 0.25"  size=".045" contype="0" conaffinity="0"/>
@@ -131,15 +131,15 @@
 
 	<actuator>
 		<!--  ================= Torque actuators ================= /-->
-		<motor joint='s_abduction' 	name='As_abduction' gear="100"/>
-		<motor joint='s_flexion' 	name='As_flexion' 	gear="100"/>
-		<motor joint='s_rotation' 	name='As_rotation' 	gear="100"/>
-		<motor joint='e_flexion' 	name='Ae_flexion' 	gear="70"/>
-		<motor joint='e_pronation' 	name='Ae_pronation' gear="70"/>
-		<motor joint='w_abduction' 	name='Aw_abduction' gear="10"/>
-		<motor joint='w_flexion' 	name='Aw_flexion' 	gear="10"/>
-		<motor joint='fingerFlex' 	name='AfingerFlex' 	gear="10"/>
-		<motor joint='thumbFlex' 	name='AthumbFlex' 	gear="10"/>
+		<motor joint='s_abduction' 	name='As_abduction' gear="50" ctrllimited="true"/>
+		<motor joint='s_flexion' 	name='As_flexion' 	gear="30" ctrllimited="true"/>
+		<motor joint='s_rotation' 	name='As_rotation' 	gear="40" ctrllimited="true"/>
+		<motor joint='e_flexion' 	name='Ae_flexion' 	gear="35" ctrllimited="true"/>
+		<motor joint='e_pronation' 	name='Ae_pronation' gear="35" ctrllimited="true"/>
+		<motor joint='w_abduction' 	name='Aw_abduction' gear="6" ctrllimited="true"/>
+		<motor joint='w_flexion' 	name='Aw_flexion' 	gear="6" ctrllimited="true"/>
+		<motor joint='fingerFlex' 	name='AfingerFlex' 	gear="10" ctrllimited="true"/>
+		<motor joint='thumbFlex' 	name='AthumbFlex' 	gear="10" ctrllimited="true"/>
 		
 		<!--  ================= Position actuators ================= /-->
 		<!--<position joint='s_abduction' 	name='As_abduction' kp="100" ctrlrange='-1.57 .7'/>

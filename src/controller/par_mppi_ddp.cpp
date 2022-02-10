@@ -186,6 +186,8 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
             weight_samples_ctrl_traj();
             perturb_ctrl_traj();
             cached_control = m_u_traj.front();
+            auto total_cost = m_cost_func.compute_trajectory_cost(m_u_traj, m_x_traj, d, m_m);
+            printf("MPPI total cost: %f \n", total_cost);
             m_u_traj_cp = m_u_traj;
         }
     }

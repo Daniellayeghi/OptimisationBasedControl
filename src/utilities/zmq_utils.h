@@ -21,7 +21,7 @@ private:
 
 
 template<typename T_ptr, typename T_id>
-struct BasicBuffer
+struct BufferParams
 {
     const T_ptr* m_begin;
     const T_ptr* m_end;
@@ -35,7 +35,7 @@ struct BasicBuffer
 template<typename T_ptr, typename T_id>
 struct SimpleBuffer
 {
-    using buffer_params_t = std::vector<BasicBuffer<T_ptr, T_id>>;
+    using buffer_params_t = std::vector<BufferParams<T_ptr, T_id>>;
     using main_buffer_t = std::vector<char>;
 
 
