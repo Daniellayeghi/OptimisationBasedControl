@@ -296,9 +296,9 @@ int main(int argc, const char** argv)
 
         /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
-        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-        std::vector<BasicBuffer<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data()+n_ctrl, 'i'},
-                                                                    {pi.cached_control.data(), pi.cached_control.data()+n_ctrl, 'q'}};
+        ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_REP, "tcp://localhost:5555");
+        std::vector<BasicBuffer<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data()+n_ctrl, 'q'},
+                                                                    {pi.cached_control.data(), pi.cached_control.data()+n_ctrl, 'i'}};
         SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
 
         StateVector temp_state = StateVector::Zero();
@@ -318,10 +318,10 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-                ilqr.m_u_traj = pi.m_u_traj;;
                 simp_buff.update_buffer();
+                ilqr.m_u_traj = pi.m_u_traj;;
                 zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-//                zmq_buffer.buffer_wait_for_res();
+                zmq_buffer.buffer_wait_for_res();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
