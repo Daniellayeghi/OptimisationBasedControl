@@ -167,7 +167,7 @@ int main(int argc, const char** argv)
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
-    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .05;
+    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .00005;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
@@ -234,7 +234,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        auto col_cost = not collision_cost(data, model) * 5e6;
+        auto col_cost = not collision_cost(data, model) * error(0, 0) * 100;
         return (error(0, 0) + col_cost);
     };
 
@@ -260,7 +260,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                500, 75, 0.5, 1, 1, 1, 675,
+                200, 75, 0.1, 1, 1, 1, 675,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
                 1, importance_reg};
 
@@ -299,8 +299,8 @@ int main(int argc, const char** argv)
         /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
         ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-        std::vector<BufferParams<SimScalarType, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data() + n_ctrl, 'q'},
-                                                                     {pi.cached_control.data(), pi.cached_control.data()+n_ctrl,       'i'}};
+        std::vector<BufferParams<scalar_type, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data() + n_ctrl, 'q'},
+                                                                   {pi.cached_control.data(), pi.cached_control.data()+n_ctrl,       'i'}};
         SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
 
         StateVector temp_state = StateVector::Zero();

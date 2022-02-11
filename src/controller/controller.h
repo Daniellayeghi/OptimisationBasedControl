@@ -28,6 +28,7 @@ private:
     const mjModel* _m;
     mjData* _d;
     bool m_comp_gravity;
+    Eigen::Map<CtrlVector> m_grav_force;
     Eigen::Map<CtrlVector> m_grav_comp;
 };
 

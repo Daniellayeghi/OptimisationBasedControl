@@ -101,7 +101,6 @@ public:
     void control(const mjData* d, bool skip = false) override;
 private:
 
-    bool accepted_trajectory();
     void prepare_control_mpc(bool skip = false);
     FastPair<CtrlVector, CtrlMatrix> compute_control_trajectory();
     void regularise_ddp_variance(std::vector<CtrlMatrix>& ddp_variance);

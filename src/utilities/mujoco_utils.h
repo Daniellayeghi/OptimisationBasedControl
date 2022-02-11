@@ -7,6 +7,72 @@
 
 namespace MujocoUtils
 {
+
+    struct DummyMjData
+    {
+        explicit DummyMjData(const mjModel* m)
+        {
+            m_qpos.assign(m->nq, 0);
+            m_qvel.assign(m->nv, 0);
+            m_qacc.assign(m->nv, 0);
+            m_ctrl.assign(m->nu, 0);
+            m_qfrc_applied.assign(m->nv, 0);
+            m_xfrc_applied.assign(m->nbody, 0);
+
+            // Set ptrs
+            qpos = m_qpos.data();
+            qvel = m_qvel.data();
+            qacc = m_qacc.data();
+            ctrl = m_ctrl.data();
+            qfrc_applied = m_qfrc_applied.data();
+            xfrc_applied = m_xfrc_applied.data();
+        }
+
+    public:
+        SimulationParameters::scalar_type time = 0;
+        scalar_type* qpos;
+        scalar_type* qvel;
+        scalar_type* qacc;
+        scalar_type* ctrl;
+        scalar_type* qfrc_applied;
+        scalar_type* xfrc_applied;
+
+    private:
+        std::vector<SimulationParameters::scalar_type> m_qpos;
+        std::vector<SimulationParameters::scalar_type> m_qvel;
+        std::vector<SimulationParameters::scalar_type> m_qacc;
+        std::vector<SimulationParameters::scalar_type> m_ctrl;
+        std::vector<SimulationParameters::scalar_type> m_qfrc_applied;
+        std::vector<SimulationParameters::scalar_type> m_xfrc_applied;
+    };
+
+
+    template<typename T_1, typename T_2>
+    void copy_data(const mjModel *model, const T_1 *data_src, T_2 *data_cp)
+    {
+        data_cp->time = data_src->time;
+        mju_copy(data_cp->qpos, data_src->qpos, model->nq);
+        mju_copy(data_cp->qvel, data_src->qvel, model->nv);
+        mju_copy(data_cp->qacc, data_src->qacc, model->nv);
+        mju_copy(data_cp->qfrc_applied, data_src->qfrc_applied, model->nv);
+        mju_copy(data_cp->xfrc_applied, data_src->xfrc_applied, 6 * model->nbody);
+        mju_copy(data_cp->ctrl, data_src->ctrl, model->nu);
+    }
+
+
+    template<typename T_1, typename T_2>
+    void copy_data(const mjModel *model, T_1 *data_src, T_2 *data_cp)
+    {
+        data_cp->time = data_src->time;
+        mju_copy(data_cp->qpos, data_src->qpos, model->nq);
+        mju_copy(data_cp->qvel, data_src->qvel, model->nv);
+        mju_copy(data_cp->qacc, data_src->qacc, model->nv);
+        mju_copy(data_cp->qfrc_applied, data_src->qfrc_applied, model->nv);
+        mju_copy(data_cp->xfrc_applied, data_src->xfrc_applied, 6 * model->nbody);
+        mju_copy(data_cp->ctrl, data_src->ctrl, model->nu);
+    }
+
+
     inline void populate_obstacles(const int start_id,
                                    const int end_id,
                                    const std::array<double, 6> &bounds,
@@ -37,19 +103,6 @@ namespace MujocoUtils
             model->body_pos[start_id + bodies + 1] = random_pos[1];
             model->body_pos[start_id + bodies + 2] = random_pos[2];
         }
-    }
-
-
-    template<typename T>
-    void copy_data(const mjModel *model, const mjData *data, T *data_cp)
-    {
-        data_cp->time = data->time;
-        mju_copy(data_cp->qpos, data->qpos, model->nq);
-        mju_copy(data_cp->qvel, data->qvel, model->nv);
-        mju_copy(data_cp->qacc, data->qacc, model->nv);
-        mju_copy(data_cp->qfrc_applied, data->qfrc_applied, model->nv);
-        mju_copy(data_cp->xfrc_applied, data->xfrc_applied, 6 * model->nbody);
-        mju_copy(data_cp->ctrl, data->ctrl, model->nu);
     }
 
 

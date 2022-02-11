@@ -6,7 +6,7 @@
 namespace SimulationParameters
 {
     /* Environment Dimensions */
-    using SimScalarType = double;
+    using scalar_type = double;
 
     constexpr const int n_ctrl = 9;
     constexpr const int n_jpos = 11;
@@ -14,14 +14,14 @@ namespace SimulationParameters
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
-    using CtrlVector  = Eigen::Matrix<SimScalarType, n_ctrl, 1>;
-    using CtrlMatrix  = Eigen::Matrix<SimScalarType, n_ctrl, n_ctrl>;
-    using PosVector   = Eigen::Matrix<SimScalarType, n_jpos, 1>;
-    using VelVector   = Eigen::Matrix<SimScalarType, n_jvel, 1>;
-    using StateVector = Eigen::Matrix<SimScalarType, state_size, 1>;
-    using StateMatrix = Eigen::Matrix<SimScalarType, state_size, state_size>;
-    using CtrlStateMatrix = Eigen::Matrix<SimScalarType, n_ctrl, state_size>;
-    using StateCtrlMatrix = Eigen::Matrix<SimScalarType, state_size, n_ctrl>;
+    using CtrlVector  = Eigen::Matrix<scalar_type, n_ctrl, 1>;
+    using CtrlMatrix  = Eigen::Matrix<scalar_type, n_ctrl, n_ctrl>;
+    using PosVector   = Eigen::Matrix<scalar_type, n_jpos, 1>;
+    using VelVector   = Eigen::Matrix<scalar_type, n_jvel, 1>;
+    using StateVector = Eigen::Matrix<scalar_type, state_size, 1>;
+    using StateMatrix = Eigen::Matrix<scalar_type, state_size, state_size>;
+    using CtrlStateMatrix = Eigen::Matrix<scalar_type, n_ctrl, state_size>;
+    using StateCtrlMatrix = Eigen::Matrix<scalar_type, state_size, n_ctrl>;
 
     /* Raw Types Used TODO: Inherit traits*/
     template<typename T_Eigen>
@@ -35,9 +35,9 @@ namespace SimulationParameters
     constexpr const unsigned int n_threads = 13;
 
     /* Frequently used scalar size */
-    constexpr const unsigned int ctrl_data_bytes = sizeof(SimScalarType) * n_ctrl;
-    constexpr const unsigned int pos_data_bytes  = sizeof(SimScalarType) * n_jpos;
-    constexpr const unsigned int vel_data_bytes  = sizeof(SimScalarType) * n_jvel;
+    constexpr const unsigned int ctrl_data_bytes = sizeof(scalar_type) * n_ctrl;
+    constexpr const unsigned int pos_data_bytes  = sizeof(scalar_type) * n_jpos;
+    constexpr const unsigned int vel_data_bytes  = sizeof(scalar_type) * n_jvel;
     constexpr const unsigned int state_data_bytes = pos_data_bytes + vel_data_bytes;
 }
 

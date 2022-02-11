@@ -14,14 +14,12 @@
 		Last edits 	: 30Apr16, 30Nov'15, 5Nov'15
 ====================================================== -->
 <mujoco model="arm_hand (v1.31)">
-	<compiler 	inertiafromgeom="true"
-				angle="radian"/>
 
 	<size 	nuser_jnt="1"
 			nuser_geom="1"/>
 
 	<option	timestep="0.01"
-			gravity="0 0 0"
+			gravity="enable"
 			viscosity="0"
 			iterations="20"/>
 	
@@ -102,31 +100,31 @@
 		</body>
 		
 		<!--  ================= OBJECT ================= /-->
-		<!--<body name="object" pos="0.25 0 .1" quat=".866 -.5 0 0">
+		<body name="object" pos="0.25 0 .1" quat=".866 -.5 0 0">
 			<geom type="capsule" name="geom_object" size="0.025" fromto="0 0 .035 0 0 -.035" rgba="0.5 0.6 0.8 1" user="1" contype="1" conaffinity="1"/>
-			<joint name="fr" type="free" limited='false' damping="0" armature="0" user="010"/> /-->
-		<!--</body>/-->
-
-		<body name="pointmass" pos=".3 .2 .048">
-			<camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
-			<joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" range="-1 1" damping="4" frictionloss=".1"/>
-			<joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" range="-1 1" damping="4" frictionloss=".1"/>
-			<geom name="pointmass" type="sphere" size=".038" mass="1.2" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
+			<joint name="fr" type="free" limited='false' damping="0" armature="0" user="010"/>
 		</body>
+
+<!--		<body name="pointmass" pos=".3 .2 .048">-->
+<!--			<camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>-->
+<!--			<joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" range="-1 1" damping="4" frictionloss=".1"/>-->
+<!--			<joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" range="-1 1" damping="4" frictionloss=".1"/>-->
+<!--			<geom name="pointmass" type="sphere" size=".038" mass="1.2" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>-->
+<!--		</body>-->
 
 		<geom name="target" pos="0.2 -0.25 0.048" type="sphere" rgba="0.5 1 0 0.25"  size=".045" contype="0" conaffinity="0"/>
 
 	</worldbody>
-    <tendon>
-        <fixed name="t1">
-            <joint joint="root_x" coef="1"/>
-            <joint joint="root_y" coef="0"/>
-        </fixed>
-        <fixed name="t2">
-            <joint joint="root_x" coef="0"/>
-            <joint joint="root_y" coef="1"/>
-        </fixed>
-    </tendon>
+<!--    <tendon>-->
+<!--        <fixed name="t1">-->
+<!--            <joint joint="root_x" coef="1"/>-->
+<!--            <joint joint="root_y" coef="0"/>-->
+<!--        </fixed>-->
+<!--        <fixed name="t2">-->
+<!--            <joint joint="root_x" coef="0"/>-->
+<!--            <joint joint="root_y" coef="1"/>-->
+<!--        </fixed>-->
+<!--    </tendon>-->
 	
 
 	<actuator>

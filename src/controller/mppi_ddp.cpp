@@ -54,19 +54,6 @@ MPPIDDP::total_entropy(const int time, const double min_cost, const double norma
 }
 
 
-bool MPPIDDP::MPPIDDP::accepted_trajectory()
-{
-    MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m);
-    auto total_cost = compute_trajectory_cost(m_u_traj_new, m_x_traj);
-    if(total_cost < m_prev_cost)
-    {
-        m_prev_cost = total_cost;
-        return true;
-    }
-    return false;
-}
-
-
 double MPPIDDP::MPPIDDP::compute_trajectory_cost(const std::vector<CtrlVector>& ctrl, std::vector<StateVector>& state)
 {
     return m_cost_func.compute_trajectory_cost(ctrl, state, m_d_cp, m_m);
