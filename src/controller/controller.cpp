@@ -22,13 +22,18 @@ template<typename T, int state_size, int ctrl_size>
 MyController<T, state_size, ctrl_size>::MyController(const mjModel *m, mjData *d, const T& controls, const bool comp_gravity) :
 controls(controls), _m(m), _d(d), m_comp_gravity(comp_gravity), m_grav_force(_d->qfrc_bias, _m->nu, 1),
 m_grav_comp(_d->qfrc_applied, _m->nu, 1)
-{}
+{
+    if(m_comp_gravity)
+        m_gravity_setter = [&](){m_grav_comp = m_grav_force;};
+    else
+        m_gravity_setter = [&](){m_grav_comp = CtrlVector::Zero();};
+}
 
 
 template<typename T, int state_size, int ctrl_size>
 void MyController<T, state_size, ctrl_size>::controller()
 {
-    if(m_comp_gravity){m_grav_comp = m_grav_force};
+    m_gravity_setter();
     set_control_data(_d, controls.cached_control, _m);
 }
 

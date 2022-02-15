@@ -143,16 +143,20 @@ namespace MujocoUtils
     }
 
 
-    inline void apply_ctrl_update_state(const CtrlVector& ctrl, StateVector& state, mjData* d, const mjModel* m)
+    inline void apply_ctrl_update_state(const CtrlVector& ctrl, StateVector& state, mjData* d, const mjModel* m, mjfGeneric ctrl_cb = nullptr)
     {
+        if (ctrl_cb)
+            mjcb_control = ctrl_cb;
         set_control_data(d, ctrl, m);
         mj_step(m, d);
         fill_state_vector(d, state, m);
     }
 
 
-    inline void rollout_dynamics(const std::vector<CtrlVector>& ctrls, std::vector<StateVector>& states, mjData *d, const mjModel *m)
+    inline void rollout_dynamics(const std::vector<CtrlVector>& ctrls, std::vector<StateVector>& states, mjData *d, const mjModel *m, mjfGeneric ctrl_cb = nullptr)
     {
+        if (ctrl_cb)
+            mjcb_control = ctrl_cb;
         fill_state_vector(d, states.front(), m);
         for(auto iteration = 0; iteration < ctrls.size(); ++iteration)
         {

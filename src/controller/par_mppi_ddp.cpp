@@ -5,7 +5,18 @@
 using namespace SimulationParameters;
 using namespace MujocoUtils;
 constexpr const int nthreads = n_threads;
-static int iteration = 0;
+
+static int s_iteration = 0;
+static double s_total_cost = 0;
+static double s_sample_ctrl_total = 0;
+static double s_weights_total = 0;
+static double s_norm_const = 0;
+static double s_pert_ctrl = 0;
+static double s_total_ilqr = 0;
+static double s_total_control = 0;
+
+static void (*s_callback_ctrl)(const mjModel *, mjData *);
+static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
 
 MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& params):
         m_padded_cst(params.m_k_samples, std::vector<double>(8)),
@@ -35,6 +46,13 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
 
     auto m_carry_over = m_params.m_k_samples % n_threads;
     m_per_thread_sample = (m_params.m_k_samples - m_carry_over)/ n_threads;
+
+    if (m_params.m_grav_comp)
+        s_callback_ctrl = [](const mjModel* m, mjData *d){
+            //mju_copy(d->qfrc_applied, d->qfrc_bias, n_ctrl);
+        };
+    else
+        s_callback_ctrl = [](const mjModel* m, mjData *d) {};
 }
 
 
@@ -59,6 +77,9 @@ void MPPIDDPPar::fill_ctrl_samples()
             m_dist_gens[id].samples_fill(m_sample_ctrl_traj[sample]);
         }
     }
+//
+//    s_sample_ctrl_total = 0;
+//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [&](const auto& elem){s_sample_ctrl_total += elem.sum();});
 }
 
 
@@ -92,6 +113,9 @@ void MPPIDDPPar::weight_samples_ctrl_traj()
     {
         m_sample_ctrl_traj[sample] =  m_sample_ctrl_traj[sample] * m_padded_cst[sample][0];
     }
+//
+//    s_weights_total = 0;
+//    std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [&](const auto& elem){s_weights_total += elem.sum();});
 }
 
 
@@ -106,6 +130,8 @@ double MPPIDDPPar::compute_normalisation_constant()
     {
         normalise_const += m_padded_cst[sample][0];
     }
+
+    s_norm_const = normalise_const;
     return normalise_const;
 }
 
@@ -115,7 +141,10 @@ void MPPIDDPPar::perturb_ctrl_traj()
 //#pragma omp  declare reduction(+:CtrlVector: omp_out=omp_out+omp_in)\
 //initializer(omp_priv=CtrlVector::Zero(omp_orig.rows(), omp_orig.cols()))
 
-#pragma omp parallel for default(none) collapse(2) shared(m_params, m_u_traj, m_sample_ctrl_traj) num_threads(n_threads)
+//s_pert_ctrl = 0;
+//std::for_each(m_sample_ctrl_traj.begin(), m_sample_ctrl_traj.end(), [&](const auto& elem){s_pert_ctrl += elem.sum();});
+
+#pragma omp parallel for default(none) collapse(2) shared(m_params, m_u_traj, m_sample_ctrl_traj) num_threads(1)
     for (auto time = 0; time < m_params.m_sim_time; ++time) {
         for (auto sample = 0; sample < m_params.m_k_samples; ++sample) {
             Eigen::Ref<const CtrlVector> pert_sample(
@@ -129,7 +158,10 @@ void MPPIDDPPar::perturb_ctrl_traj()
 
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
- #pragma omp  parallel default(none) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample, std::cout) num_threads(nthreads)
+
+//    s_total_ilqr = 0;
+//    std::for_each(m_params.m_ddp_args.first.begin(), m_params.m_ddp_args.first.end(), [&](const auto& elem){s_total_ilqr += elem.sum();});
+ #pragma omp  parallel default(none) shared(s_iteration, m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
         int adjust = 0;
@@ -150,7 +182,10 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
 
                 t_d.instant_ctrl = m_u_traj[time] + pert_sample;
                 // Forward simulate controls and compute running cost
+                if(m_params.m_grav_comp)
+                    mju_copy(mjdata->qfrc_applied, mjdata->qfrc_bias, n_ctrl);
                 MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
+
                 m_padded_cst[sample][0] += m_cost_func(
                         t_d.next, m_u_traj[time], pert_sample,
                         m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m
@@ -163,12 +198,17 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             ).eval().transpose());
             // Apply final sample
             t_d.instant_ctrl = m_u_traj.back() + final_sample;
+
+            if(m_params.m_grav_comp)
+                mju_copy(mjdata->qfrc_applied, mjdata->qfrc_bias, n_ctrl);
             MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
             // Compute terminal cost
             m_padded_cst[sample][0] += m_cost_func.m_terminal_cost(t_d.next, mjdata, m_m);
         }
     }
+//    s_total_cost = 0;
+//    std::for_each(m_padded_cst.begin(), m_padded_cst.end(), [&](const std::vector<double>& elem){s_total_cost += elem.front();});
 }
 
 
@@ -177,6 +217,10 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
     // TODO: compute the previous trajectory cost here with the new state then compare to the new one
     if (not skip)
     {
+        auto total_pos = 0.0;
+        std::for_each(std::next(d->qpos, 0), std::next(d->qpos, n_jpos), [&](const auto& elem){total_pos += elem;});
+        std::for_each(std::next(d->qvel, 0), std::next(d->qvel, n_jvel ), [&](const auto& elem){total_pos += elem;});
+
         compute_cov_from_hess(m_params.m_ddp_args.second);
         for (auto iteration = 0; iteration < m_params.iteration; ++iteration)
         {
@@ -186,10 +230,13 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
             weight_samples_ctrl_traj();
             perturb_ctrl_traj();
             cached_control = m_u_traj.front();
-            rollout_dynamics(m_u_traj, m_x_traj, m_thread_mjdata.front(), m_m);
-            auto total_cost = m_cost_func.compute_trajectory_cost(m_u_traj, m_x_traj, d, m_m);
-            printf("MPPI total cost: %f \n", total_cost);
+//            s_total_control = 0.0;
+//            std::for_each(m_u_traj.begin(), m_u_traj.end(), [&](const auto& elem){s_total_control += elem.sum();});
+//            printf("------------------------------------------------------------------------------------------------MPPI----------------------------------------------------------------------------------------\n");
+//            printf("s_total_iqlr %f s_total_cost %f s_sample_ctr %f s_weights_to %f s_norm_const %f s_pert_ctrl %f s_total_cotrol %f initial_state %f \n", s_total_ilqr, s_total_cost, s_sample_ctrl_total, s_weights_total, s_norm_const, s_pert_ctrl, s_total_control, total_pos);
+            rollout_dynamics(m_u_traj, m_x_traj, m_thread_mjdata.front(), m_m, s_callback_ctrl);
             m_u_traj_cp = m_u_traj;
+//            ++s_iteration;
         }
     }
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());

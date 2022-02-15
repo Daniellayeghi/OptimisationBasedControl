@@ -29,6 +29,7 @@ struct MPPIDDPParams{
     const CtrlMatrix ctrl_variance;
     const FastPair<std::vector<CtrlVector>&, std::vector<CtrlMatrix>&> m_ddp_args;
     const unsigned int m_seed = 1;
+    const bool m_grav_comp = false;
 };
 
 class QRCostDDP

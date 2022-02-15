@@ -256,7 +256,7 @@ int main(int argc, const char** argv)
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
         StateVector temp_state;
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
-        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<VelVector>(d->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
 /* ==================================================IPC=======================================================*/
         printf("Connecting to viewer server…\n");

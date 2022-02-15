@@ -18,6 +18,7 @@ struct ILQRParams
     double min_cost_red = 0;
     int simulation_time = 0;
     int iteration = 0;
+    const bool m_grav_comp = false;
 };
 
 
@@ -44,16 +45,16 @@ private:
     void temporal_average_covariance();
     bool minimal_grad();
 
-    CtrlVector      Q_u(int time, StateVector& _v_x);
-    StateVector     Q_x(int time, StateVector& _v_x);
-    StateMatrix     Q_xx(int time, StateMatrix& _v_xx);
-    CtrlStateMatrix Q_ux(int time, StateMatrix& _v_xx);
-    StateCtrlMatrix Q_xu(int time, StateMatrix& _v_xx);
-    CtrlMatrix      Q_uu(int time, StateMatrix& _v_xx);
-    StateMatrix     Q_xx_reg(int time, StateMatrix& _v_xx);
-    CtrlStateMatrix Q_ux_reg(int time, StateMatrix& _v_xx);
-    StateCtrlMatrix Q_xu_reg(int time, StateMatrix& _v_xx);
-    CtrlMatrix      Q_uu_reg(int time, StateMatrix& _v_xx);
+    CtrlVector      Q_u(int time, const StateVector& _v_x);
+    StateVector     Q_x(int time, const StateVector& _v_x);
+    StateMatrix     Q_xx(int time, const StateMatrix& _v_xx);
+    CtrlStateMatrix Q_ux(int time, const StateMatrix& _v_xx);
+    StateCtrlMatrix Q_xu(int time, const StateMatrix& _v_xx);
+    CtrlMatrix      Q_uu(int time, const StateMatrix& _v_xx);
+    StateMatrix     Q_xx_reg(int time, const StateMatrix& _v_xx);
+    CtrlStateMatrix Q_ux_reg(int time, const StateMatrix& _v_xx);
+    StateCtrlMatrix Q_xu_reg(int time, const StateMatrix& _v_xx);
+    CtrlMatrix      Q_uu_reg(int time, const StateMatrix& _v_xx);
 
     struct Derivatives{
         double l{}; StateVector lx; StateMatrix lxx; CtrlVector lu; CtrlMatrix luu;
@@ -64,6 +65,7 @@ private:
         CtrlVector ff_k; CtrlStateMatrix fb_k;
     };
 
+
     // Control containers
     std::vector<Derivatives> m_d_vector;
     std::vector<BackPassVars> m_bp_vector;
@@ -73,6 +75,12 @@ private:
     std::vector<CtrlMatrix> m_Quu_traj;
     std::vector<double> exp_cost_reduction;
 
+public:
+    std::vector<CtrlMatrix> _covariance;
+    std::vector<CtrlMatrix> _covariance_new;
+    std::vector<double> cost;
+
+private:
     FiniteDifference& _fd;
     CostFunction& _cf;
     const mjModel* _m;
@@ -83,11 +91,6 @@ private:
     bool m_good_backpass = true;
     std::array<double, 11> m_backtrackers{};
     StateMatrix m_regularizer;
-
-public:
-    std::vector<CtrlMatrix> _covariance;
-    std::vector<CtrlMatrix> _covariance_new;
-    std::vector<double> cost;
 };
 
 #endif //OPTCONTROL_MUJOCO_ILQR_H

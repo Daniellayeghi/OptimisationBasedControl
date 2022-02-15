@@ -154,27 +154,28 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, -.1, -.45,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, -.245, 0.03, 0.707, -0.707, 0, 0,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 1000,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
+    StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 1000, 1000, 0, 0, 0, 0,
+                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 0, 0, 0;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10;
+    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 0, 0, 0, 0,
+                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
-    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .00005;
+    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .5;
 
     CtrlMatrix du_gain;
     du_gain.setIdentity();
     du_gain *= 0;
 
-    StateVector x_initial; x_initial <<  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, 0.287, 0.09, 0.707, -0.707, 0, 0,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -234,7 +235,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        auto col_cost = not collision_cost(data, model) * error(0, 0) * 100;
+        auto col_cost = not collision_cost(data, model) * 0.5 * error(0, 0);
         return (error(0, 0) + col_cost);
     };
 
@@ -245,41 +246,42 @@ int main(int argc, const char** argv)
     };
 
     const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-        return 1; //collision_cost(d, m);
+        return collision_cost(d, m);
     };
 
-    std::array<int, 5> seeds {{1, 2, 3, 4, 5}};
+    std::array<int, 1> seeds {{1}};
     for (const auto seed : seeds) {
+        auto iteration = 0;
         std::copy(x_initial.data(), x_initial.data()+n_jpos, d->qpos);
         std::copy(x_initial.data()+n_jpos, x_initial.data()+state_size, d->qvel);
 
         // initial position
         FiniteDifference fd(m);
         CostFunction cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1, true};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                200, 75, 0.1, 1, 1, 1, 675,
+                1000, 75, 0.25, 1, 1, 1, 675,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
-                1, importance_reg};
+                1, importance_reg, true};
 
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);
 
         // install control callback
         using ControlType = MPPIDDPPar;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi, true);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
         mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 /* =============================================CSV Output Files=======================================================*/
         std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-        const std::string mode = "Sparse_Test" + path + name + std::to_string(int(params.importance)) + std::to_string(seed);
-        std::fstream cost_mpc("_cost_mpc_" + mode +  + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream ctrl_data("_ctrl_" + mode + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream pos_data("_pos_" + mode + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream vel_data("_vel_" + mode + ".csv",std::fstream::out | std::fstream::trunc);
+        const std::string mode = path + "Test1" + name + std::to_string(int(params.importance)) + std::to_string(seed);
+        std::fstream cost_mpc(mode + "_cost_mpc_" + ".csv",std::fstream::out | std::fstream::trunc);
+        std::fstream ctrl_data(mode +"_ctrl_" + ".csv",std::fstream::out | std::fstream::trunc);
+        std::fstream pos_data(mode +"_pos_" + ".csv",std::fstream::out | std::fstream::trunc);
+        std::fstream vel_data(mode +"_vel_" + ".csv",std::fstream::out | std::fstream::trunc);
 
         double cost;
         GenericBuffer<PosVector> pos_bt{d->qpos};
@@ -287,7 +289,7 @@ int main(int argc, const char** argv)
         GenericBuffer<VelVector> vel_bt{d->qvel};
         DummyBuffer<GenericBuffer<VelVector>> vel_buff;
         GenericBuffer<CtrlVector> ctrl_bt{d->ctrl};
-        DummyBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+        DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
         GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost};
         DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
 
@@ -318,8 +320,8 @@ int main(int argc, const char** argv)
             mjtNum simstart = d->time;
             while (d->time - simstart < 1.0 / 60.0) {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                ilqr.control(d);
-                pi.control(d);
+                ilqr.control(d, false);
+                pi.control(d, false);
                 simp_buff.update_buffer();
                 ilqr.m_u_traj = pi.m_u_traj;;
                 zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
@@ -327,6 +329,7 @@ int main(int argc, const char** argv)
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
+                ++iteration;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -345,7 +348,7 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (save_data) {
+            if (save_data or iteration  == 75) {
                 pos_buff.save_buffer(); vel_buff.save_buffer();
                 ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 save_data = false;

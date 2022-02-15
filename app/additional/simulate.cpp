@@ -12,6 +12,7 @@
 #include "../../etc/uitools.h"
 #include "stdio.h"
 #include "string.h"
+#include "Eigen/Core"
 
 #include <thread>
 #include <mutex>
@@ -1881,6 +1882,8 @@ void simulate(void)
                         mju_zero(d->xfrc_applied, 6*m->nbody);
                         mjv_applyPerturbPose(m, d, &pert, 0);  // move mocap bodies only
                         mjv_applyPerturbForce(m, d, &pert);
+
+//                        Eigen::Map<Eigen::Matrix<double, 25, 1>> pos_map(d->qpos);
 
                         // run mj_step
                         mjtNum prevtm = d->time;

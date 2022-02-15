@@ -6,6 +6,9 @@
 using namespace SimulationParameters;
 using namespace MujocoUtils;
 
+static void (*s_callback_ctrl)(const mjModel *, mjData *);
+static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
+
 MPPIDDP::MPPIDDP(const mjModel* m, QRCostDDP& cost, MPPIDDPParams& params):
         m_params(params),
         m_cost_func(cost),
@@ -24,6 +27,17 @@ MPPIDDP::MPPIDDP(const mjModel* m, QRCostDDP& cost, MPPIDDPParams& params):
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
     m_delta_cost_to_go.assign(m_params.m_k_samples,0);
     m_ctrl_samples_time.resize(m_params.m_k_samples, m_params.m_sim_time * n_ctrl);
+
+    if (m_params.m_grav_comp)
+        s_callback_ctrl = [](const mjModel* m, mjData *d){
+            mju_copy(d->qfrc_applied, d->qfrc_bias, n_ctrl);
+        };
+    else
+        s_callback_ctrl = [](const mjModel* m, mjData *d) {
+            mju_copy(d->qfrc_applied, d->qfrc_bias, n_ctrl);
+        };
+
+    mjcb_control = s_callback_ctrl;
 }
 
 
@@ -99,7 +113,7 @@ void MPPIDDP::prepare_control_mpc(const bool skip)
 {
     if (not skip)
     {
-        MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m);
+        MujocoUtils::rollout_dynamics(m_u_traj_new, m_x_traj, m_d_cp, m_m, s_callback_ctrl);
         traj_cost = compute_trajectory_cost(m_u_traj_new, m_x_traj);
         cached_control = m_u_traj.front();
         m_u_traj_cp = m_u_traj;
@@ -139,7 +153,7 @@ void MPPIDDP::control(const mjData* d, const bool skip)
                     const CtrlVector& pert_sample = m_ctrl_samples_time.block(sample, time*n_ctrl, 1, n_ctrl).transpose();
                     instant_control = m_u_traj[time] + pert_sample;
                     // Forward simulate controls and compute running costl
-                    MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m);
+                    MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj[time + 1], m_d_cp, m_m, s_callback_ctrl);
                     m_delta_cost_to_go[sample] +=m_cost_func(
                             m_x_traj[time + 1], m_u_traj[time],
                             pert_sample, m_params.m_ddp_args.first[time],
@@ -154,7 +168,7 @@ void MPPIDDP::control(const mjData* d, const bool skip)
 
                 // Apply final sample
                 instant_control = m_u_traj.back() + final_sample;
-                MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj.back(), m_d_cp, m_m);
+                MujocoUtils::apply_ctrl_update_state(instant_control, m_x_traj.back(), m_d_cp, m_m, s_callback_ctrl);
 
                 // Compute terminal cost
                 m_delta_cost_to_go[sample] += m_cost_func.m_terminal_cost(m_x_traj.back(), m_d_cp, m_m);

@@ -34,6 +34,7 @@ struct MPPIDDPParamsPar{
     const int m_seed = 1;
     const std::function<double(const mjData* data, const mjModel *model)>&  m_importance_reg =
             [&](const mjData* data=nullptr, const mjModel *model=nullptr){return 1.0;};
+    const bool m_grav_comp = false;
 };
 
 class QRCostDDPPar
@@ -130,7 +131,6 @@ private:
     const mjModel* m_m;
     MPPIDDPParamsPar& m_params;
     const QRCostDDPPar& m_cost_func;
-
 };
 
 #endif //OPTCONTROL_MUJOCO_PAR_MPPI_DDP_H

@@ -1,5 +1,6 @@
 
 set(SOURCE_FILES
+        hand_manip_cp.cpp
         ilqr_cartpole.cpp
         ilqr_control.cpp
         ilqr_double_integrator.cpp

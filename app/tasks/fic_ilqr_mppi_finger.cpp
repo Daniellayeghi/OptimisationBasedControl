@@ -303,7 +303,7 @@ int main(int argc, const char** argv)
         mj_step(m, d);
 
         Eigen::Map<CtrlVector> mapped_pos = Eigen::Map<CtrlVector>(d->qpos);
-        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d->qvel);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<VelVector>(d->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
 
         auto iteration = 0;

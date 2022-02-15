@@ -1,10 +1,12 @@
 #include <iostream>
 #include "finite_diff.h"
+#include "../utilities/mujoco_utils.h"
 #include "../parameters/simulation_params.h"
 
 static int _mark = 0;
 #define myFREESTACK   _d_cp->pstack = _mark;
 
+using namespace MujocoUtils;
 namespace
 {
     mjtNum* select_original_ptr(typename FiniteDifference::WithRespectTo wrt, const mjData* d)
@@ -32,19 +34,6 @@ namespace
             case FiniteDifference::WithRespectTo::POS:  return mjtStage::mjSTAGE_NONE;
         }
         return mjtStage::mjSTAGE_NONE;
-    }
-
-    template<typename T>
-    inline void copy_state(const mjModel * model, const mjData *d, T* _d_cp)
-    {
-        _d_cp->time = d->time;
-        mju_copy(_d_cp->qpos, d->qpos, model->nq);
-        mju_copy(_d_cp->qvel, d->qvel, model->nv);
-        mju_copy(_d_cp->qacc, d->qacc, model->nv);
-        mju_copy(_d_cp->qacc_warmstart, d->qacc_warmstart, model->nv);
-        mju_copy(_d_cp->qfrc_applied, d->qfrc_applied, model->nv);
-        mju_copy(_d_cp->xfrc_applied, d->xfrc_applied, 6*model->nbody);
-        mju_copy(_d_cp->ctrl, d->ctrl, model->nu);
     }
 }
 
@@ -95,7 +84,7 @@ FiniteDifference::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRe
 {
 
     if (do_copy)
-        copy_state(_m, d, _d_cp);
+        MujocoUtils::copy_data(_m, d, _d_cp);
 
     mj_step(_m, _d_cp);
     auto skip = skip_stage(id);
@@ -108,8 +97,8 @@ FiniteDifference::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRe
     const mjtNum* output_vel = _d_cp->qvel;
 
     _mark = _d_cp->pstack;
-    mjtNum * centre_pos = mj_stackAlloc(_d_cp, _m->nv);
-    mju_copy(centre_pos, output_pos, _m->nv);
+    mjtNum * centre_pos = mj_stackAlloc(_d_cp, _m->nq);
+    mju_copy(centre_pos, output_pos, _m->nq);
 
     mjtNum * centre_vel = mj_stackAlloc(_d_cp, _m->nv);
     mju_copy(centre_vel, output_vel, _m->nv);
@@ -119,7 +108,7 @@ FiniteDifference::set_finite_diff_arguments(const mjData *d, mjtNum *wrt, WithRe
 
     mju_copy(_d_cp->qacc_warmstart, warmstart, _m->nv);
 
-    copy_state(_m, d, _d_cp);
+    copy_data(_m, d, _d_cp);
     return {centre_pos, centre_vel};
 }
 
@@ -204,7 +193,7 @@ FiniteDifference::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *
             result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
         }
         // undo perturbation
-        copy_state(_m, d, _d_cp);
+        copy_data(_m, d, _d_cp);
         mju_copy(fd_args.target, fd_args.original, _m->nq);
     }
 #if NDEBUG
@@ -240,7 +229,7 @@ FiniteDifference::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjD
             result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
         }
         // undo perturbation
-        copy_state(_m, d, _d_cp);
+        copy_data(_m, d, _d_cp);
         mju_copy(fd_args.target, fd_args.original, _m->nq);
     }
 #if NDEBUG
@@ -280,7 +269,7 @@ FiniteDifference::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
             result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
         }
         // undo perturbation
-        copy_state(_m, d, _d_cp);
+        copy_data(_m, d, _d_cp);
         mju_copy(fd_args.target, fd_args.original, _m->nq);
     }
 #if NDEBUG

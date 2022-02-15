@@ -8,6 +8,8 @@
 #include "cost_function.h"
 #include "ilqr.h"
 
+#include <functional>
+
 
 template<typename T, int state_size, int ctrl_size>
 class MyController
@@ -30,6 +32,7 @@ private:
     bool m_comp_gravity;
     Eigen::Map<CtrlVector> m_grav_force;
     Eigen::Map<CtrlVector> m_grav_comp;
+    std::function<void(void)> m_gravity_setter;
 };
 
 #endif //DRAKE_CMAKE_INSTALLED_CONTROLLER_H

@@ -290,7 +290,7 @@ int main(int argc, const char** argv)
         BufferUtilities::read_csv_file("../../../data/fic_planar_sample.csv", temp, ',');
 
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d_h->qpos);
-        Eigen::Map<VelVector> mapped_vel = Eigen::Map<PosVector>(d_h->qvel);
+        Eigen::Map<VelVector> mapped_vel = Eigen::Map<VelVector>(d_h->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d_h->ctrl);
         int iteration = 0;
 /* ==================================================Simulation=======================================================*/

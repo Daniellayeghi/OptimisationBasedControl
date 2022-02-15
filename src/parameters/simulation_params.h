@@ -9,15 +9,18 @@ namespace SimulationParameters
     using scalar_type = double;
 
     constexpr const int n_ctrl = 9;
-    constexpr const int n_jpos = 11;
-    constexpr const int n_jvel = 11;
+    constexpr const int n_jpos = 16;
+    constexpr const int n_jvel = 15;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
     using CtrlVector  = Eigen::Matrix<scalar_type, n_ctrl, 1>;
+    using CtrlVectorT  = Eigen::Matrix<scalar_type, 1, n_ctrl>;
     using CtrlMatrix  = Eigen::Matrix<scalar_type, n_ctrl, n_ctrl>;
     using PosVector   = Eigen::Matrix<scalar_type, n_jpos, 1>;
+    using PosVectorT   = Eigen::Matrix<scalar_type, 1, n_jpos>;
     using VelVector   = Eigen::Matrix<scalar_type, n_jvel, 1>;
+    using VelVectorT   = Eigen::Matrix<scalar_type, 1, n_jvel>;
     using StateVector = Eigen::Matrix<scalar_type, state_size, 1>;
     using StateMatrix = Eigen::Matrix<scalar_type, state_size, state_size>;
     using CtrlStateMatrix = Eigen::Matrix<scalar_type, n_ctrl, state_size>;

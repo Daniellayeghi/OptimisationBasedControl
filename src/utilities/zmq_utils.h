@@ -1,7 +1,6 @@
 #ifndef OPTCONTROL_MUJOCO_ZMQ_UTILS_H
 #define OPTCONTROL_MUJOCO_ZMQ_UTILS_H
 #include <bitset>
-#include <vector>
 #include <array>
 #include <zmq.h>
 #include "Eigen/src/Core/IO.h"
