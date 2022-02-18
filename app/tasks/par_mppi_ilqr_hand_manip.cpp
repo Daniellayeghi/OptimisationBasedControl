@@ -159,12 +159,12 @@ int main(int argc, const char** argv)
 
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 1000, 1000, 0, 0, 0, 0,
-                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 0, 0, 0;
+    StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 10000, 10000, 10, 0, 0, 0, 0,
+                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, .010, 0, 0, 0;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 0, 0, 0, 0,
-                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0;
+    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 0, 0, 0, 0, 0,
+                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, .1, .1, .1, 0, 0, 0;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
@@ -174,8 +174,8 @@ int main(int argc, const char** argv)
     du_gain.setIdentity();
     du_gain *= 0;
 
-    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, 0.287, 0.09, 0.707, -0.707, 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, 0, 0.09, 0.707, -0.707, 0, 0,
+                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
@@ -193,7 +193,7 @@ int main(int argc, const char** argv)
 
     StateMatrix t_state_reg = x_terminal_gain;
     StateMatrix r_state_reg = x_running_gain;
-    CtrlMatrix control_reg = CtrlMatrix::Zero();
+    CtrlMatrix control_reg = u_gain;
 
     const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 4> body_list {{0, 1, 2, 3}};
@@ -213,8 +213,12 @@ int main(int argc, const char** argv)
         return (iteration == 0)?1:1.0/(iteration+1);
     };
 
+
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 2> body_list {{0, 6}};
+        static PosVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, -.245, 0.03, 0.707, -0.707, 0, 0;
+        static const Eigen::Map<Eigen::Vector3d> m_pos(d->qpos+9);
+        if(m_pos.isApprox(x_desired.block(9, 0, 3, 1), 0.1)) {return true;}
 
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
@@ -235,7 +239,7 @@ int main(int argc, const char** argv)
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
         auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        auto col_cost = not collision_cost(data, model) * 0.5 * error(0, 0);
+        auto col_cost = not collision_cost(data, model) * 1e5;
         return (error(0, 0) + col_cost);
     };
 
@@ -246,7 +250,8 @@ int main(int argc, const char** argv)
     };
 
     const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-        return collision_cost(d, m);
+
+        return 1;
     };
 
     std::array<int, 1> seeds {{1}};
@@ -262,7 +267,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                1000, 75, 0.25, 1, 1, 1, 675,
+                800, 75, 0.25, 1, 1, 1, 675,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
                 1, importance_reg, true};
 

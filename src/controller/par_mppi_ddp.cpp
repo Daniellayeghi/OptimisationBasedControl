@@ -235,6 +235,8 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
 //            printf("------------------------------------------------------------------------------------------------MPPI----------------------------------------------------------------------------------------\n");
 //            printf("s_total_iqlr %f s_total_cost %f s_sample_ctr %f s_weights_to %f s_norm_const %f s_pert_ctrl %f s_total_cotrol %f initial_state %f \n", s_total_ilqr, s_total_cost, s_sample_ctrl_total, s_weights_total, s_norm_const, s_pert_ctrl, s_total_control, total_pos);
             rollout_dynamics(m_u_traj, m_x_traj, m_thread_mjdata.front(), m_m, s_callback_ctrl);
+            const auto total_cost = m_cost_func.compute_trajectory_cost(m_u_traj, m_x_traj, d, m_m);
+            printf("MPPI Total Cost: %f", total_cost);
             m_u_traj_cp = m_u_traj;
 //            ++s_iteration;
         }

@@ -103,7 +103,7 @@
 		
 		<!--  ================= OBJECT ================= /-->
 		<body name="object" pos="0.25 0 .1" quat=".866 -.5 0 0">
-			<geom type="capsule" name="geom_object" size="0.025" fromto="0 0 .035 0 0 -.035" rgba="0.5 0.6 0.8 1" user="1" contype="1" conaffinity="1" mass="2"/>
+			<geom type="box" name="geom_object" size="0.03" fromto="0 0 .03 0 0 -.03" rgba="0.5 0.6 0.8 1" user="1" contype="1" conaffinity="1" mass="1"/>
 			<joint name="fr" type="free" limited='false' damping="0" armature="0" user="010"/> /-->
 		</body>
 
@@ -132,14 +132,14 @@
 	<actuator>
 		<!--  ================= Torque actuators ================= /-->
 		<motor joint='s_abduction' 	name='As_abduction' gear="50" ctrllimited="true"/>
-		<motor joint='s_flexion' 	name='As_flexion' 	gear="30" ctrllimited="true"/>
+		<motor joint='s_flexion' 	name='As_flexion' 	gear="40" ctrllimited="true"/>
 		<motor joint='s_rotation' 	name='As_rotation' 	gear="40" ctrllimited="true"/>
-		<motor joint='e_flexion' 	name='Ae_flexion' 	gear="35" ctrllimited="true"/>
-		<motor joint='e_pronation' 	name='Ae_pronation' gear="35" ctrllimited="true"/>
+		<motor joint='e_flexion' 	name='Ae_flexion' 	gear="40" ctrllimited="true"/>
+		<motor joint='e_pronation' 	name='Ae_pronation' gear="40" ctrllimited="true"/>
 		<motor joint='w_abduction' 	name='Aw_abduction' gear="6" ctrllimited="true"/>
 		<motor joint='w_flexion' 	name='Aw_flexion' 	gear="6" ctrllimited="true"/>
-		<motor joint='fingerFlex' 	name='AfingerFlex' 	gear="10" ctrllimited="true"/>
-		<motor joint='thumbFlex' 	name='AthumbFlex' 	gear="10" ctrllimited="true"/>
+		<motor joint='fingerFlex' 	name='AfingerFlex' 	gear="20" ctrllimited="true"/>
+		<motor joint='thumbFlex' 	name='AthumbFlex' 	gear="20" ctrllimited="true"/>
 		
 		<!--  ================= Position actuators ================= /-->
 		<!--<position joint='s_abduction' 	name='As_abduction' kp="100" ctrlrange='-1.57 .7'/>
