@@ -10,11 +10,11 @@ static void (*s_callback_ctrl)(const mjModel *, mjData *);
 static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
 
 ILQR::ILQR(FiniteDifference& fd,
-                                  CostFunction& cf,
-                                  ILQRParams& params,
-                                  const mjModel * m,
-                                  const mjData* d,
-                                  const std::vector<CtrlVector>* init_u) :
+           CostFunction& cf,
+           ILQRParams& params,
+           const mjModel * m,
+           const mjData* d,
+           const std::vector<CtrlVector>* init_u) :
 _fd(fd) ,_cf(cf), _m(m), m_params(params)
 {
     _d_cp = mj_makeData(_m);
