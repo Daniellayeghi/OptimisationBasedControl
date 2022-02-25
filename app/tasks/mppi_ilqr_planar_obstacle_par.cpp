@@ -239,7 +239,13 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 500000;
     };
 
-    std::array<unsigned int, 5> seeds {{2,3,4,5,6}};
+
+    const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
+
+        return 1;
+    };
+
+    std::array<int, 5> seeds {{2,3,4,5,6}};
     for (const auto seed : seeds) {
         // initial position
         d->qpos[0] = 0; d->qpos[1] = 0; d->qpos[2] = 0;
@@ -254,8 +260,8 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // New result version try with higher regularisation but start at 20
         MPPIDDPParamsPar params{
-            500, 75, .3, 1, 1, 1, 20,ctrl_mean,
-            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+            500, 75, .3, 1, 1, 1, 1e3,ctrl_mean,
+            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed, importance_reg, false
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);

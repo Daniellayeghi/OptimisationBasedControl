@@ -8,9 +8,9 @@ namespace SimulationParameters
     /* Environment Dimensions */
     using scalar_type = double;
 
-    constexpr const int n_ctrl = 9;
-    constexpr const int n_jpos = 16;
-    constexpr const int n_jvel = 15;
+    constexpr const int n_ctrl = 3;
+    constexpr const int n_jpos = 3;
+    constexpr const int n_jvel = 3;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
@@ -35,7 +35,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 13;
+    constexpr const unsigned int n_threads = 16;
 
     /* Frequently used scalar size */
     constexpr const unsigned int ctrl_data_bytes = sizeof(scalar_type) * n_ctrl;
