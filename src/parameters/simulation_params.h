@@ -8,19 +8,19 @@ namespace SimulationParameters
     /* Environment Dimensions */
     using scalar_type = double;
 
-    constexpr const int n_ctrl = 3;
-    constexpr const int n_jpos = 3;
-    constexpr const int n_jvel = 3;
+    constexpr const int n_ctrl = 6;
+    constexpr const int n_jpos = 9;
+    constexpr const int n_jvel = 9;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
     using CtrlVector  = Eigen::Matrix<scalar_type, n_ctrl, 1>;
-    using CtrlVectorT  = Eigen::Matrix<scalar_type, 1, n_ctrl>;
+    using CtrlVectorT = Eigen::Matrix<scalar_type, 1, n_ctrl>;
     using CtrlMatrix  = Eigen::Matrix<scalar_type, n_ctrl, n_ctrl>;
     using PosVector   = Eigen::Matrix<scalar_type, n_jpos, 1>;
-    using PosVectorT   = Eigen::Matrix<scalar_type, 1, n_jpos>;
+    using PosVectorT  = Eigen::Matrix<scalar_type, 1, n_jpos>;
     using VelVector   = Eigen::Matrix<scalar_type, n_jvel, 1>;
-    using VelVectorT   = Eigen::Matrix<scalar_type, 1, n_jvel>;
+    using VelVectorT  = Eigen::Matrix<scalar_type, 1, n_jvel>;
     using StateVector = Eigen::Matrix<scalar_type, state_size, 1>;
     using StateMatrix = Eigen::Matrix<scalar_type, state_size, state_size>;
     using CtrlStateMatrix = Eigen::Matrix<scalar_type, n_ctrl, state_size>;
@@ -35,7 +35,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 16;
+    constexpr const unsigned int n_threads = 10;
 
     /* Frequently used scalar size */
     constexpr const unsigned int ctrl_data_bytes = sizeof(scalar_type) * n_ctrl;
