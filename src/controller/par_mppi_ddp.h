@@ -94,8 +94,37 @@ public:
         return total_cost;
     }
 
+    void compute_state_value(const std::vector<CtrlVector>& u_traj, const std::vector<StateVector>& x_traj,
+                             std::vector<FastPair<StateVector, double>>& state_value_vec,
+                             const mjData* d, const mjModel *m) const
+    {
+        for(int t = 0; t < m_params.m_sim_time; ++t)
+        {
+            state_value_vec[t].first = x_traj[t];
+            state_value_vec[t].second = compute_running_cost(x_traj, u_traj, d, m , t);
+        }
+
+        state_value_vec.back().first = x_traj.back();
+        state_value_vec.back().second = m_terminal_cost(x_traj.back(), d, m);
+    }
+
     const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;
     const std::function<double(const StateVector&, const mjData* data, const mjModel *model)> m_terminal_cost;
+
+private:
+
+    double compute_running_cost(const std::vector<StateVector>& x_traj,
+                                const std::vector<CtrlVector>& u_traj,
+                                const mjData* d, const mjModel *m, const int time) const
+    {
+        double run_cost = 0;
+         for (int t = time; t < u_traj.size(); ++t)
+         {
+             run_cost += m_running_cost(x_traj[t], u_traj[t], d, m);
+         }
+
+        return run_cost;
+    }
 };
 
 
@@ -106,6 +135,7 @@ public:
     // Functions
     explicit MPPIDDPPar(const mjModel *m, QRCostDDPPar &cost, MPPIDDPParamsPar &params);
     void control(const mjData *d, bool skip = false) override;
+
     ~MPPIDDPPar() = default;
 
 private:
@@ -117,6 +147,8 @@ private:
     double compute_normalisation_constant();
     void weight_samples_ctrl_traj();
     void perturb_ctrl_traj();
+    void compute_state_value_vec() override;
+
 
     // Data
     std::vector<std::vector<double>> m_padded_cst;

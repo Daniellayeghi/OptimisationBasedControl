@@ -34,6 +34,7 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
     m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
     m_u_traj_new.assign(m_params.m_sim_time+1, CtrlVector ::Zero());
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
+    m_state_value.assign(m_params.m_sim_time+1, {StateVector::Zero(), 0});
 
     auto m_carry_over = m_params.m_k_samples % n_threads;
     m_per_thread_sample = (m_params.m_k_samples - m_carry_over)/ n_threads;
@@ -137,6 +138,12 @@ void MPPIDDPPar::perturb_ctrl_traj()
 }
 
 
+void MPPIDDPPar::compute_state_value_vec()
+{
+    m_cost_func.compute_state_value(m_u_traj, m_x_traj, m_state_value, m_thread_mjdata.front(), m_m);
+}
+
+
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
  #pragma omp  parallel default(none) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
@@ -151,7 +158,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             copy_data(m_m, d, m_thread_mjdata[id]);
             const auto &ctrl_traj = m_sample_ctrl_traj[sample];
             auto &mjdata = m_thread_mjdata[id];
-            for (int time = 0; time < m_params.m_sim_time-1; ++time)
+            for (int time = 0; time < m_params.m_sim_time - 1; ++time)
             {
                 // Set sampled perturbation
                 Eigen::Ref<const CtrlVector> pert_sample(
@@ -162,6 +169,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
                 // Forward simulate controls and compute running cost
                 if(m_params.m_grav_comp)
                     mju_copy(mjdata->qfrc_applied, mjdata->qfrc_bias, n_ctrl);
+
                 MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
                 m_padded_cst[sample][0] += m_cost_func(

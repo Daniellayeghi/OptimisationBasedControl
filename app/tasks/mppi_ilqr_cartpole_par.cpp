@@ -210,6 +210,11 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
+    const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
+
+        return 1;
+    };
+
     std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
         // initial position
@@ -220,12 +225,12 @@ int main(int argc, const char** argv)
 
         FiniteDifference fd(m);
         CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 4, 1};
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                4, 4, 0.01, 1, 1, 1, 1000,ctrl_mean,
+                200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
                 ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);

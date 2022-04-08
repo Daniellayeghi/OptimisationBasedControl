@@ -159,12 +159,12 @@ int main(int argc, const char** argv)
 
     CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_diag; x_terminal_diag << 1e3, 1e5, 1e5, 10, 10, 10, 10, 10, 10,
+    StateVector x_terminal_diag; x_terminal_diag << 5, 50, 50, 10, 10, 10, 10, 10, 10,
                                                     10, 10.0, 10, 10, 10, 10, 10, 10, 10;
     StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
 
-    StateVector x_running_diag; x_running_diag << 10, 10, 10, .1, .1, .1, .1, .1, .1,
-                                                  1, 1, 1, .01, .01, .01, .01, .01, .01;
+    StateVector x_running_diag; x_running_diag << 5, 50, 50, .1, .1, .1, .1, .1, .1,
+                                                  .01, 1, 1, .01, .01, .01, .01, .01, .01;
     StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
 
     CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5;
@@ -191,46 +191,44 @@ int main(int argc, const char** argv)
         ddp_var.diagonal()[elem] = 0.001;
     }
 
-    StateMatrix t_state_reg = x_terminal_gain;
-    StateMatrix r_state_reg = x_running_gain;
-    CtrlMatrix control_reg = u_gain;
+    StateMatrix t_state_reg = StateMatrix::Zero();
+    StateMatrix r_state_reg = StateMatrix::Zero();
+    CtrlMatrix control_reg = CtrlMatrix::Zero();
 
-    const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 4> body_list {{0, 1, 2, 3}};
+    const auto foot_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        const std::array<int, 3> foot_id {{0, 4, 7}};
 
-        auto iteration = 0;
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
             {
                 // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    ++iteration;
+                auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
+                auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
+                if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
+                {
+                    bool world_contact = *elem_1 == 0 or *elem_2 == 0;
+                    if (world_contact)
+                        return true;
+                }
             }
-        return (iteration == 0)?1:1.0/(iteration+1);
+        return false;
     };
 
-
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 2> body_list {{0, 6}};
-        StateVector x_desired; x_desired << 2, 1.1, 0, 0, 0, 0, 0, 0, 0,
-            0, 0.0, 0, 0, 0, 0, 0, 0, 0;
-        static const Eigen::Map<Eigen::Vector3d> m_pos(d->qpos+9);
-        if(m_pos.isApprox(x_desired.block(9, 0, 3, 1), 0.1)) {return true;}
+    const auto body_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+        const std::array<int, 6> foot_id {{0, 1, 2, 3, 5, 6}};
 
         if(data and model)
             for(auto i = 0; i < data->ncon; ++i)
             {
                 // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    return true;
+                auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
+                auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
+                if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
+                {
+                    bool world_contact = *elem_1 == 0 or *elem_2 == 0;
+                    if (world_contact)
+                        return true;
+                }
             }
         return false;
     };
@@ -240,7 +238,8 @@ int main(int argc, const char** argv)
                 StateVector state_error  = x_desired - state_vector;
                 CtrlVector ctrl_error = u_desired - ctrl_vector;
                 auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-                auto col_cost = not collision_cost(data, model) * 1e5 * 0;
+                auto col_cost = not foot_contact(data, model) * 2.5e3 * 1;
+                auto body_cost = body_contact(data, model) * 2.5e3 *1;
                 return (error(0, 0) + col_cost);
             };
 
@@ -267,7 +266,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                700, 75, 0.1, 1, 1, 1, 1e3,
+                700, 75, 0.25, 1, 1, 1, 5e3,
                 ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
                 1, importance_reg, false
         };
