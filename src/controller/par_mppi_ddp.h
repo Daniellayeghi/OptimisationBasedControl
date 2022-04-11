@@ -69,13 +69,13 @@ public:
                               )(0, 0) * (- m_params.importance);
 
         double common_bias = (
-                -control.transpose() * m_ctrl_variance_inv * control +
+                control.transpose() * m_ctrl_variance_inv * control +
                 2 * new_control.transpose() * m_ctrl_variance_inv * control
         )(0, 0);
 
 
         const double cost_power = 1;
-        return -0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
     }
 
     const MPPIDDPParamsPar& m_params;

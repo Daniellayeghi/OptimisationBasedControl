@@ -35,7 +35,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 10;
+    constexpr const unsigned int n_threads = 1;
 
     /* Frequently used scalar size */
     constexpr const unsigned int ctrl_data_bytes = sizeof(scalar_type) * n_ctrl;

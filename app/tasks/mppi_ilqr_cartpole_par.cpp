@@ -210,11 +210,6 @@ int main(int argc, const char** argv)
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-
-        return 1;
-    };
-
     std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
         // initial position
@@ -242,8 +237,8 @@ int main(int argc, const char** argv)
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
 
 /* ============================================CSV Output Files=======================================================*/
-        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data_comp/";
-        const std::string mode = "par" + std::to_string(seed);
+        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+        const std::string mode = "seq" + std::to_string(seed);
         std::fstream cost_mpc(path + name + "_cost_mpc_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream ctrl_data(path + name + "_ctrl_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
         std::fstream pos_data(path + name + "_pos_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
@@ -284,19 +279,12 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d);
                 pi.control(d);
-//                pi_seq.control(d);
-//
-//                if(pi_seq.cached_control(0, 0) != pi.cached_control(0, 0))
-//                {
-//                    std::cout << "Seq: " << pi_seq.cached_control(0, 0) << " Par: " <<pi.cached_control(0, 0);
-//                    auto k = 1; std::cin >> k;
-//                }
                 ilqr.m_u_traj = pi.m_u_traj;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
                 cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
@@ -319,13 +307,13 @@ int main(int argc, const char** argv)
 
             if (save_data)
             {
-                pos_buff.save_buffer(); vel_buff.save_buffer();
-                ctrl_buff.save_buffer(); cost_buff.save_buffer();
+                pos_buff.save_buffer(); vel_buff.save_buffer(); ctrl_buff.save_buffer(); cost_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
                 save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 break;
             }
+
         }
     }
     // free visualization storage
@@ -347,3 +335,4 @@ int main(int argc, const char** argv)
 #endif
     return 1;
 }
+
