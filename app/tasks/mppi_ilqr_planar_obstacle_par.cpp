@@ -200,7 +200,7 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.25;
+        ctrl_var.diagonal()[elem] = 0.015;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
@@ -260,7 +260,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // New result version try with higher regularisation but start at 20
         MPPIDDPParamsPar params{
-            500, 75, .3, 1, 1, 1, 1e3,ctrl_mean,
+            250, 75, .1, 0, 1, 1, 1e4,ctrl_mean,
             ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed, importance_reg, false
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);

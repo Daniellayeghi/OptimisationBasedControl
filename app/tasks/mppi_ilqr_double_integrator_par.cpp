@@ -1,22 +1,22 @@
 
 #include "mujoco.h"
+#include "cstdio"
 #include "cstring"
 #include "glfw3.h"
 #include "../../src/controller/controller.h"
+#include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/par_mppi_ddp.h"
+#include "../../src/controller/mppi_ddp.h"
+#include "../../src/utilities/mujoco_utils.h"
+#include "../../src/utilities/math_utils.h"
 
 // for sleep timers
-#include<chrono>
-#include<thread>
-#include<iostream>
-
-
+#include <chrono>
+#include <thread>
 using namespace std;
 using namespace std::chrono;
-using namespace SimulationParameters;
-constexpr const bool show_gui =  false;
 // local variables include
 
 // MuJoCo data structures
@@ -28,10 +28,10 @@ mjvScene scn;                       // abstract scene
 mjrContext con;                     // custom GPU context
 
 // mouse interaction
-bool button_left   = false;
+bool button_left = false;
 bool button_middle = false;
-bool button_right  = false;
-bool save_data     = false;
+bool button_right =  false;
+bool save_data    = false;
 double lastx = 0;
 double lasty = 0;
 
@@ -40,7 +40,7 @@ double lasty = 0;
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
     // backspace: reset simulation
-    if( act==GLFW_PRESS && key==GLFW_KEY_END)
+    if( act==GLFW_PRESS && key==GLFW_KEY_HOME)
     {
         save_data = true;
     }
@@ -106,16 +106,18 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
 // main function
 int main(int argc, const char** argv)
 {
-    // activate software
+
     mj_activate(MUJ_KEY_PATH);
 
+    // load and compile model
     char error[1000] = "Could not load binary model";
 
+    std::string model_path = "../../../models/", name = "doubleintegrator";
 
-    std::string model_path = "../../../models/", name = "arm_hand";
     // check command-line arguments
     if( argc<2 ) {
         m = mj_loadXML((model_path + name + ".xml").c_str(), 0, error, 1000);
+
     }else {
         if (strlen(argv[1]) > 4 && !strcmp(argv[1] + strlen(argv[1]) - 4, ".mjb")) {
             m = mj_loadModel(argv[1], 0);
@@ -136,6 +138,8 @@ int main(int argc, const char** argv)
         mju_error("Could not initialize GLFW");
 
     // Assert against model params (literals)
+    using namespace SimulationParameters;
+    printf("POS: %i, VEL: %i, CTRL: %i \n", m->nq, m->nv, m->nu);
     assert(m->nv == n_jvel);
     assert(m->nq == n_jpos);
     assert(m->nu == n_ctrl);
@@ -154,153 +158,95 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, -.245, 0.03, 0.707, -0.707, 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_desired; x_desired << 2, 0;
+    Eigen::Ref<PosVector> pos_des = x_desired.block(0,0, n_jpos, 1);
+    Eigen::Ref<VelVector> vel_des = x_desired.block(n_jpos, 0, n_jvel, 1);
+    CtrlVector u_desired; u_desired << 0;
 
-    CtrlVector u_desired; u_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 10, 100;
+    StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_terminal_diag; x_terminal_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 10000, 10000, 10, 0, 0, 0, 0,
-                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, .010, 0, 0, 0;
-    StateMatrix x_terminal_gain; x_terminal_gain = x_terminal_diag.asDiagonal();
+    StateVector x_gain_vec; x_gain_vec << 10, 0;
+    StateMatrix x_gain = x_gain_vec.asDiagonal();
+    CtrlMatrix u_gain; u_gain << 0.1;
+    CtrlMatrix du_gain; du_gain << 0;
 
-    StateVector x_running_diag; x_running_diag << 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 0, 0, 0, 0, 0,
-                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, .1, .1, .1, 0, 0, 0;
-    StateMatrix x_running_gain; x_running_gain = x_running_diag.asDiagonal();
-
-    CtrlVector u_gain_vector; u_gain_vector <<  10, 10, 5, 5, 5, 5, 5, 5, 5;
-    CtrlMatrix u_gain = u_gain_vector.asDiagonal() * .5;
-
-    CtrlMatrix du_gain;
-    du_gain.setIdentity();
-    du_gain *= 0;
-
-    StateVector x_initial; x_initial << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, 0, 0.09, 0.707, -0.707, 0, 0,
-                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
     glfwSetCursorPosCallback(window, mouse_move);
     glfwSetMouseButtonCallback(window, mouse_button);
     glfwSetScrollCallback(window, scroll);
 
-    CtrlVector ctrl_mean; ctrl_mean.setZero();
     CtrlMatrix ddp_var; ddp_var.setIdentity();
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
+    CtrlVector ctrl_mean; ctrl_mean.setZero();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.0325;
+        ctrl_var.diagonal()[elem] = 0.015;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
     StateMatrix t_state_reg = x_terminal_gain;
-    StateMatrix r_state_reg = x_running_gain;
-    CtrlMatrix control_reg = u_gain;
+    StateMatrix r_state_reg = x_gain;
 
-    const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 4> body_list {{0, 1, 2, 3}};
+    CtrlMatrix control_reg;
+    control_reg = u_gain * 0;
 
-        auto iteration = 0;
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    ++iteration;
-            }
-        return (iteration == 0)?1:1.0/(iteration+1);
-    };
-
-
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 2> body_list {{0, 6}};
-        static PosVector x_desired; x_desired << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.207, -.245, 0.03, 0.707, -0.707, 0, 0;
-        static const Eigen::Map<Eigen::Vector3d> m_pos(d->qpos+9);
-        if(m_pos.isApprox(x_desired.block(9, 0, 3, 1), 0.1)) {return true;}
-
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    return true;
-            }
-        return false;
-    };
-
-    const auto running_cost =
-            [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
         StateVector state_error  = x_desired - state_vector;
         CtrlVector ctrl_error = u_desired - ctrl_vector;
-        auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-        auto col_cost = not collision_cost(data, model) * 1e5;
-        return (error(0, 0) + col_cost);
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
+                (0, 0);
     };
 
-    const auto terminal_cost =
-            [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
         return (state_error.transpose() * t_state_reg * state_error)(0, 0);
     };
 
-    const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
+    using namespace MathUtils;
+    const double lim = 10;
+    PosVector init_pos = PosVector::Zero();
+    Eigen::Map<PosVector> pos_map(d->qpos);
+    Eigen::Map<VelVector> vel_map(d->qvel);
 
-        return 1;
-    };
+    const auto seed = 3;
+    for (auto iter = 0; iter < 20; ++iter) {
 
-    std::array<int, 1> seeds {{1}};
-    for (const auto seed : seeds) {
-        std::copy(x_initial.data(), x_initial.data()+n_jpos, d->qpos);
-        std::copy(x_initial.data()+n_jpos, x_initial.data()+state_size, d->qvel);
+        // Init random pos
+        random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
+        std::copy(init_pos.data(), init_pos.data()+n_jpos, d->qpos);
 
-        // initial position
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1, true};
+        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
+        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
+        // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                800, 75, 0.25, 1, 1, 1, 675,
-                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
-                1, importance_reg, true};
-
+                100, 75, 0.1, 1, 1, 1, 1,ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
         MPPIDDPPar pi(m, qrcost, params);
 
         // install control callback
         using ControlType = MPPIDDPPar;
-        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi, true);
+        MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-        mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-/* =============================================CSV Output Files=======================================================*/
-        std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
 
-        const std::string mode = path + "Test1" + name + std::to_string(int(params.importance)) + std::to_string(seed);
-        std::fstream cost_mpc(mode + "_cost_mpc_" + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream ctrl_data(mode +"_ctrl_" + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream pos_data(mode +"_pos_" + ".csv",std::fstream::out | std::fstream::trunc);
-        std::fstream vel_data(mode +"_vel_" + ".csv",std::fstream::out | std::fstream::trunc);
+/* ============================================CSV Output Files=======================================================*/
+        const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
+        const std::string mode = "" + std::to_string(iter);
+        std::fstream state_file(path + name + "_state_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        std::fstream value_file(path + name + "_value_" + mode + ".csv", std::fstream::out | std::fstream::trunc);
+        GenericBuffer<StateVector> state_bt{pi.m_state_value.front().first.data()};
+        DataBuffer<GenericBuffer<StateVector>> state_buff;
+        GenericBuffer<Eigen::Matrix<double, 1, 1>> value_bt{&pi.m_state_value.front().second};
+        DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> value_buff;
 
-        double cost;
-        GenericBuffer<PosVector> pos_bt{d->qpos};
-        DummyBuffer<GenericBuffer<PosVector>> pos_buff;
-        GenericBuffer<VelVector> vel_bt{d->qvel};
-        DummyBuffer<GenericBuffer<VelVector>> vel_buff;
-        GenericBuffer<CtrlVector> ctrl_bt{d->ctrl};
-        DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
-        GenericBuffer<Eigen::Matrix<double, 1, 1>> cost_bt{&cost};
-        DummyBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> cost_buff;
-
-        pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
-        vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
-        ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
-        cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
+        state_buff.add_buffer_and_file({&state_bt, &state_file});
+        value_buff.add_buffer_and_file({&value_bt, &value_file});
 
         /* Use REQ because we want to make sure we recieved all info*/
         printf("Connecting to viewer server…\n");
@@ -308,34 +254,30 @@ int main(int argc, const char** argv)
         std::vector<BufferParams<scalar_type, char>> buffer_params{{ilqr.cached_control.data(), ilqr.cached_control.data() + n_ctrl, 'q'},
                                                                    {pi.cached_control.data(), pi.cached_control.data()+n_ctrl,       'i'}};
         SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
-
-        mj_step(m, d);
 /* ==================================================Simulation=======================================================*/
-
         // use the first while condition if you want to simulate for a period.
-        while (not glfwWindowShouldClose(window)) {
+        while (!glfwWindowShouldClose(window)) {
             //  advance interactive simulation for 1/60 sec
             //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
             //  this loop will finish on time for the next frame to be rendered at 60 fps.
             //  Otherwise add a cpu timer and exit this loop when it is time to render.
-
             mjtNum simstart = d->time;
-            while (d->time - simstart < 1.0 / 60.0) {
+            while (d->time - simstart < 1.0 / 60.0)
+            {
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d, false);
                 pi.control(d, false);
                 simp_buff.update_buffer();
-                ilqr.m_u_traj = pi.m_u_traj;;
+                ilqr.m_u_traj = pi.m_u_traj;
                 zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                zmq_buffer.buffer_wait_for_res();
-                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
+                state_buff.push_buffer();
+                value_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             // get framebuffer viewport
-
             mjrRect viewport = {0, 0, 0, 0};
             glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
 
@@ -349,14 +291,16 @@ int main(int argc, const char** argv)
             // process pending GUI events, call GLFW callbacks
             glfwPollEvents();
 
-            if (save_data) {
-                pos_buff.save_buffer(); vel_buff.save_buffer();
-                ctrl_buff.save_buffer(); cost_buff.save_buffer();
-                save_data = false;
+            if (save_data or ((pos_des - pos_map).norm() < 1e-1 and (vel_des - vel_map).norm() < 1e-1))
+            {
+                state_buff.save_buffer();
+                value_buff.save_buffer();
                 std::cout << "Saved!" << std::endl;
+                save_data = false;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 break;
             }
+
         }
     }
     // free visualization storage
@@ -367,9 +311,15 @@ int main(int argc, const char** argv)
     mj_deleteData(d);
     mj_deleteModel(m);
     mj_deactivate();
+
+//     terminate ipc
+//    zmq_close (requester);
+//    zmq_ctx_destroy (context);
+
     // terminate GLFW (crashes with Linux NVidia drivers)
 #if defined(__APPLE__) || defined(_WIN32)
     glfwTerminate();
 #endif
     return 1;
 }
+

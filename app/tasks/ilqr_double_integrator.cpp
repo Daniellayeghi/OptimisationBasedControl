@@ -156,8 +156,11 @@ int main(int argc, const char** argv)
     StateVector x_desired; x_desired << 2, 0;
     CtrlVector u_desired; u_desired << 0;
 
-    StateMatrix x_terminal_gain; x_terminal_gain << 250, 0, 0, 50;
-    StateMatrix x_gain; x_gain << 250, 0, 0, 0;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 250, 50;
+    StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
+
+    StateVector x_gain_vec; x_gain_vec << 250, 0;
+    StateMatrix x_gain = x_gain_vec.asDiagonal();
     CtrlMatrix u_gain; u_gain << 1;
     CtrlMatrix du_gain; du_gain << 0;
 

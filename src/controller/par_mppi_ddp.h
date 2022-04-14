@@ -147,7 +147,6 @@ private:
     double compute_normalisation_constant();
     void weight_samples_ctrl_traj();
     void perturb_ctrl_traj();
-    void compute_state_value_vec() override;
 
 
     // Data

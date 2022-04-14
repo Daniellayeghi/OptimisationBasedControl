@@ -21,6 +21,7 @@ set(SOURCE_FILES
         mppi_ilqr_planar_obstacle_par.cpp
         mppi_ilqr_planar_push_2d_par.cpp#
         mppi_ilqr_walker_par.cpp
+        mppi_ilqr_double_integrator_par.cpp
 #        fic_ilqr_mppi_finger.cpp
 #        fic_ilqr_extended_cartpole.cpp
 #        fic_ilqr_planar_3_link.cpp

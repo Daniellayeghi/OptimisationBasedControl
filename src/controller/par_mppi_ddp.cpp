@@ -138,11 +138,6 @@ void MPPIDDPPar::perturb_ctrl_traj()
 }
 
 
-void MPPIDDPPar::compute_state_value_vec()
-{
-    m_cost_func.compute_state_value(m_u_traj, m_x_traj, m_state_value, m_thread_mjdata.front(), m_m);
-}
-
 
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
@@ -209,13 +204,14 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
             rollout_trajectories(d);
             weight_samples_ctrl_traj();
             perturb_ctrl_traj();
-            const auto total_cost = m_cost_func.compute_trajectory_cost(m_u_traj, m_x_traj, d, m_m);
-            printf("MPPI Total Cost: %f\n", total_cost);
+            copy_data(m_m, d, m_thread_mjdata.front());
+            rollout_dynamics(m_u_traj, m_x_traj, m_thread_mjdata.front(), m_m);
             m_u_traj_cp = m_u_traj;
         }
     }
 
     cached_control = m_u_traj.front();
+    m_cost_func.compute_state_value(m_u_traj, m_x_traj, m_state_value, m_thread_mjdata.front(), m_m);
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();
 }

@@ -19,13 +19,6 @@ public:
         T& underlying = static_cast<T&>(*this); underlying.control(data, skip);
     }
 
-
-    virtual void compute_state_value_vec()
-    {
-        T& underlying = static_cast<T&>(*this); underlying.compute_state_value_vec();
-    }
-
-
 public:
     std::vector<CtrlVector> m_u_traj_new;
     std::vector<CtrlVector> m_u_traj_cp;
