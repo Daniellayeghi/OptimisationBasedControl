@@ -51,7 +51,7 @@ link_directories(${MUJOCO_PY_MJPRO_PATH}/libraries)
 
 #Finding main mujoco library
 if(${USE_GL})
-    file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco[0-9][0-9][0-9].so)
+    file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco.so.[0-9].[0-9].[0-9])
 else()
     file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco[0-9][0-9][0-9]nogl.so)
 endif()
@@ -62,7 +62,6 @@ add_subdirectory(app)
 add_subdirectory(test)
 add_subdirectory(third_party)
 add_subdirectory(etc)
-
 
 if(${BUILD_BINDINGS})
     add_subdirectory(bindings)
