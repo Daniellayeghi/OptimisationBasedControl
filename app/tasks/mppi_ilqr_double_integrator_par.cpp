@@ -212,11 +212,11 @@ int main(int argc, const char** argv)
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     const auto seed = 3;
-    for(auto goal = 1; goal < 10; ++goal)
+    for(auto goal = 1; goal < 50; ++goal)
     {
         random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
         x_desired.block(0, 0, n_jpos, 1) = goal_pos;
-        for (auto init = 1; init < 10; ++init)
+        for (auto init = 1; init < 50; ++init)
         {
             // Init random pos
             random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
