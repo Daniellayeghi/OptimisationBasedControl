@@ -15,7 +15,7 @@ ILQR::ILQR(FiniteDifference& fd,
            const mjModel * m,
            const mjData* d,
            const std::vector<CtrlVector>* init_u) :
-_fd(fd) ,_cf(cf), _m(m), m_params(params)
+        _fd(fd) , m_cf(cf), _m(m), m_params(params)
 {
     _d_cp = mj_makeData(_m);
     m_regularizer.setIdentity();
@@ -33,6 +33,8 @@ _fd(fd) ,_cf(cf), _m(m), m_params(params)
     _covariance_new.assign(m_params.simulation_time, CtrlMatrix::Identity());
     m_Qu_traj.assign(m_params.simulation_time, CtrlVector::Zero());
     m_Quu_traj.assign(m_params.simulation_time, CtrlMatrix::Zero());
+    m_state_value.first.assign(m_params.simulation_time+1, StateVector::Zero());
+    m_state_value.second.assign(m_params.simulation_time+1, 0);
 
     if (m_params.m_grav_comp)
         s_callback_ctrl = [](const mjModel* m, mjData *d){
@@ -142,21 +144,21 @@ void ILQR::forward_simulate(const mjData* d)
     {
         set_control_data(_d_cp, m_u_traj[time], _m);
         _fd.f_x_f_u(_d_cp);
-        m_d_vector[time].l = _cf.running_cost(_d_cp);
-        m_d_vector[time].lx = _cf.L_x(_d_cp);
-        m_d_vector[time].lxx = _cf.L_xx(_d_cp);
-        m_d_vector[time].lu = _cf.L_u(_d_cp);
-        m_d_vector[time].luu = _cf.L_uu(_d_cp);
-        m_d_vector[time].lux = _cf.L_ux(_d_cp);
+        m_d_vector[time].l = m_cf.running_cost(_d_cp);
+        m_d_vector[time].lx = m_cf.L_x(_d_cp);
+        m_d_vector[time].lxx = m_cf.L_xx(_d_cp);
+        m_d_vector[time].lu = m_cf.L_u(_d_cp);
+        m_d_vector[time].luu = m_cf.L_uu(_d_cp);
+        m_d_vector[time].lux = m_cf.L_ux(_d_cp);
         m_d_vector[time].fx = _fd.f_x();
         m_d_vector[time].fu = _fd.f_u();
         _prev_total_cost += m_d_vector[time].l;
         step(_m, _d_cp, s_callback_ctrl);
     }
-    _prev_total_cost += _cf.terminal_cost(_d_cp);
-    m_d_vector.back().l = _cf.terminal_cost(_d_cp);
-    m_d_vector.back().lx = _cf.Lf_x(_d_cp);
-    m_d_vector.back().lxx = _cf.Lf_xx();
+    _prev_total_cost += m_cf.terminal_cost(_d_cp);
+    m_d_vector.back().l = m_cf.terminal_cost(_d_cp);
+    m_d_vector.back().lx = m_cf.Lf_x(_d_cp);
+    m_d_vector.back().lxx = m_cf.Lf_xx();
 }
 
 
@@ -322,7 +324,7 @@ void ILQR::forward_pass(const mjData* d)
 
         // Check if backtracking needs to continue
         expected_cost_red = compute_expected_cost(backtracker);
-        new_total_cost = _cf.trajectory_running_cost(m_x_traj_new, m_u_traj_new);
+        new_total_cost = m_cf.trajectory_running_cost(m_x_traj_new, m_u_traj_new);
         cost_red_ratio = (_prev_total_cost - new_total_cost)/expected_cost_red;
 
         // NOTE: Not doing this and updating regardless of the cost can lead to better performance!
@@ -362,7 +364,7 @@ void ILQR::control(const mjData* d, const bool skip)
             backward_pass();
             if (minimal_grad()) break;
             if (m_good_backpass) forward_pass(d);
-            _cf.m_u_prev = m_u_traj.front();
+            m_cf.m_u_prev = m_u_traj.front();
             cost.emplace_back(_prev_total_cost);
         }
     }
@@ -372,6 +374,8 @@ void ILQR::control(const mjData* d, const bool skip)
     }
 
     cached_control = m_u_traj.front();
+    m_cf.compute_value(m_u_traj, m_x_traj, m_state_value.second);
+    m_state_value.first = m_x_traj;
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();
 }

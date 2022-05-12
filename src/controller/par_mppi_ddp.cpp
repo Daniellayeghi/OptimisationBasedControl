@@ -34,7 +34,8 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& p
     m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
     m_u_traj_new.assign(m_params.m_sim_time+1, CtrlVector ::Zero());
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
-    m_state_value.assign(m_params.m_sim_time+1, {StateVector::Zero(), 0});
+    m_state_value.first.assign(m_params.m_sim_time+1, StateVector::Zero());
+    m_state_value.second.assign(m_params.m_sim_time+1, 0);
 
     auto m_carry_over = m_params.m_k_samples % n_threads;
     m_per_thread_sample = (m_params.m_k_samples - m_carry_over)/ n_threads;

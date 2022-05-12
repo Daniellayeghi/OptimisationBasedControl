@@ -158,17 +158,17 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << -1, 0;
+    StateVector x_desired; x_desired << 0, 0;
     Eigen::Ref<PosVector> pos_des = x_desired.block(0,0, n_jpos, 1);
     Eigen::Ref<VelVector> vel_des = x_desired.block(n_jpos, 0, n_jvel, 1);
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 10, 100;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1, 1;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_gain_vec; x_gain_vec << 10, 0;
+    StateVector x_gain_vec; x_gain_vec << 1, 1;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
-    CtrlMatrix u_gain; u_gain << 0.1;
+    CtrlMatrix u_gain; u_gain << 1;
     CtrlMatrix du_gain; du_gain << 0;
 
     // install GLFW mouse and keyboard callbacks
@@ -212,11 +212,11 @@ int main(int argc, const char** argv)
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     const auto seed = 3;
-    for(auto goal = 1; goal < 50; ++goal)
+    for(auto goal = 1; goal < 2; ++goal)
     {
-        random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
-        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
-        for (auto init = 1; init < 50; ++init)
+//        random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
+//        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
+        for (auto init = 1; init < 10; ++init)
         {
             // Init random pos
             random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
@@ -246,11 +246,11 @@ int main(int argc, const char** argv)
             const auto start_state = std::to_string(int(init_pos(0))) + std::to_string(0);
 
             const std::string mode = std::to_string(goal) + std::to_string(init) + "_start_" + start_state + "_" + goal_state + "_goal_";
-            std::fstream state_file(path + mode + name + "_state_"  ".csv", std::fstream::out | std::fstream::trunc);
-            std::fstream value_file(path + mode + name + "_value_"  ".csv", std::fstream::out | std::fstream::trunc);
-            GenericBuffer<StateVector> state_bt{pi.m_state_value.front().first.data()};
+            std::fstream state_file(path + mode + name + "_state_00"  ".csv", std::fstream::out | std::fstream::trunc);
+            std::fstream value_file(path + mode + name + "_value_00"  ".csv", std::fstream::out | std::fstream::trunc);
+            GenericBuffer<StateVector> state_bt{pi.m_state_value.first.front().data()};
             DataBuffer<GenericBuffer<StateVector>> state_buff;
-            GenericBuffer<Eigen::Matrix<double, 1, 1>> value_bt{&pi.m_state_value.front().second};
+            GenericBuffer<Eigen::Matrix<double, 1, 1>> value_bt{&pi.m_state_value.second.front()};
             DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> value_buff;
 
             state_buff.add_buffer_and_file({&state_bt, &state_file});
@@ -259,11 +259,12 @@ int main(int argc, const char** argv)
             /* Use REQ because we want to make sure we recieved all info*/
             printf("Connecting to viewer server…\n");
             ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
-            std::vector<BufferParams<scalar_type, char>> buffer_params{{ilqr.cached_control.data(),
-                                                                                                  ilqr.cached_control.data() +
-                                                                                                  n_ctrl, 'q'},
-                                                                       {pi.cached_control.data(), pi.cached_control.data() +
-                                                                                                  n_ctrl, 'i'}};
+
+            std::vector<BufferParams<scalar_type, char>> buffer_params{
+                {ilqr.cached_control.data(),ilqr.cached_control.data() + n_ctrl, 'q'},
+                {pi.cached_control.data(), pi.cached_control.data() + n_ctrl, 'i'}
+            };
+
             SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
 /* ==================================================Simulation=======================================================*/
             // use the first while condition if you want to simulate for a period.
@@ -279,7 +280,7 @@ int main(int argc, const char** argv)
                     pi.control(d, false);
                     simp_buff.update_buffer();
                     ilqr.m_u_traj = pi.m_u_traj;
-//                zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
+                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
                     state_buff.push_buffer();
                     value_buff.push_buffer();
                     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;

@@ -82,7 +82,7 @@ public:
 
 private:
     FiniteDifference& _fd;
-    CostFunction& _cf;
+    CostFunction& m_cf;
     const mjModel* _m;
     ILQRParams& m_params;
 

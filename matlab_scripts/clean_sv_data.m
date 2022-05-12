@@ -1,5 +1,6 @@
 %% Read all value functions
 clear all;
+close all;
 path = "~/Repos/OptimisationBasedControl/data/";
 %% Clean up
 % This script assumes file numbering is in order with goal and start 
@@ -21,6 +22,7 @@ id_value = n_states + 1;
 
 for goal = 1:n_goal
     temp_sv = [];
+    sv_cols = [];
     i = n_init * (goal-1) + 1;
     j = n_init * (goal-1) + n_init;
     idx = i:j;
@@ -31,9 +33,16 @@ for goal = 1:n_goal
         states = [states; {s}]; 
         values = [values; {v}];
         temp_sv = [temp_sv; sv];
+        sv = sortrows(sv, id_value);
+        [sv, sv_cols] = cp_to_match(sv, sv_cols);
+        sv_cols = [sv_cols, sv];
     end
     [r, c] = size(temp_sv);
     temp_sv = sortrows(temp_sv, c);
+    
+    % CSV per goal
+    fname = sprintf("di_%d_data_size_%d_data_num_%d.csv", goal, length(sv_cols), goal);
+    dlmwrite(path + fname, sv_cols, 'delimiter', ',', 'precision', 10);
     
     % Match dimensions
     [temp_sv, st_val] = cp_to_match(temp_sv, st_val);
@@ -42,9 +51,9 @@ for goal = 1:n_goal
     st_val = [st_val, temp_sv];
 end 
 
-st_val = remove_mid_elems(st_val, 5);
+st_val = remove_mid_elems(st_val, 3);
 
-% Normalise values 
+% Normalise values per goal 
 st_val(:, id_value:id_value:end) = st_val(:, id_value:id_value:end) ./ ...
                                    max(st_val(:, id_value:id_value:end));
 
@@ -52,7 +61,7 @@ st_val(:, id_value:id_value:end) = st_val(:, id_value:id_value:end) ./ ...
 %% Reconstruct Data for GANs
 data_segments = length(states) / length(st_files);
 fname = sprintf("di_data_size_%d_data_num_%d.csv", length(st_val), n_goal);
-csvwrite(path + fname, st_val);
+dlmwrite(path + fname, st_val, 'delimiter', ',', 'precision', 10);
 
 
 function s = sort_by_date(s)
@@ -78,7 +87,6 @@ end
 
 
 function arr = remove_mid_elems(arr, times)
-
     for sparse = 1:times
         arr(1:2:end-1, :) = []; 
     end

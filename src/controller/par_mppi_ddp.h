@@ -95,17 +95,17 @@ public:
     }
 
     void compute_state_value(const std::vector<CtrlVector>& u_traj, const std::vector<StateVector>& x_traj,
-                             std::vector<FastPair<StateVector, double>>& state_value_vec,
+                             FastPair<std::vector<StateVector>, std::vector<double>>& state_value_vec,
                              const mjData* d, const mjModel *m) const
     {
         for(int t = 0; t < m_params.m_sim_time; ++t)
         {
-            state_value_vec[t].first = x_traj[t];
-            state_value_vec[t].second = compute_running_cost(x_traj, u_traj, d, m , t);
+            state_value_vec.first[t] = x_traj[t];
+            state_value_vec.second[t] = compute_running_cost(x_traj, u_traj, d, m , t);
         }
 
-        state_value_vec.back().first = x_traj.back();
-        state_value_vec.back().second = m_terminal_cost(x_traj.back(), d, m);
+        state_value_vec.first.back() = x_traj.back();
+        state_value_vec.second.back() = m_terminal_cost(x_traj.back(), d, m);
     }
 
     const std::function<double(const StateVector&, const CtrlVector&, const mjData* data, const mjModel *model)> m_running_cost;

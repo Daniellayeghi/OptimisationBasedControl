@@ -26,7 +26,7 @@ public:
     std::vector<StateVector> m_x_traj_new;
     std::vector<StateVector> m_x_traj;
     CtrlVector cached_control;
-    std::vector<GenericUtils::FastPair<StateVector, double>> m_state_value;
+    GenericUtils::FastPair<std::vector<StateVector>, std::vector<double>> m_state_value;
 };
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_CONTROL_H

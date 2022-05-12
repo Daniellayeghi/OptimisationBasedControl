@@ -1,7 +1,9 @@
 #include <iostream>
 #include "cost_function.h"
 #include "../utilities/mujoco_utils.h"
+#include "../utilities/generic_algs.h"
 
+using namespace GenericUtils;
 
 CostFunction::CostFunction(const StateVector& x_desired,
                                                   const CtrlVector& u_desired,
@@ -32,12 +34,9 @@ void CostFunction::update_errors(const mjData *d)
 }
 
 
-inline void CostFunction::update_errors(const StateVector& state, const CtrlVector& ctrl)
+inline void CostFunction::update_errors(const StateVector& state,
+                                        const CtrlVector& ctrl)
 {
-//    for(unsigned int row = 0; row < state_size/2; ++row)
-//    {
-//        state(row, 0) = state(row, 0);
-//    }
     m_x_error = state - m_x_desired;
     m_u_error = ctrl;
 }
@@ -49,6 +48,20 @@ mjtNum CostFunction::running_cost(const mjData *d)
     return (m_x_error.transpose() * m_x_gain * m_x_error)(0, 0) +
            (m_u_error.transpose() * m_u_gain * m_u_error)(0, 0) +
            (m_du_error.transpose() * m_u_diff_gain * m_du_error)(0, 0);
+}
+
+
+void CostFunction::compute_traj_inst_cost(std::vector<double> &inst_cost,
+                                          const std::vector<StateVector>& x_traj,
+                                          const std::vector<CtrlVector>& u_traj) const
+{
+    for(ulong idx = 0; idx < x_traj.size(); ++idx)
+    {
+        StateVector x_error = x_traj[idx] - m_x_desired;
+        CtrlVector u_error  = u_traj[idx] - m_u_desired;
+        inst_cost[idx] = (x_error.transpose() * m_x_gain * x_error)(0, 0) +
+                         (u_error.transpose() * m_u_gain * u_error)(0, 0);
+    }
 }
 
 
@@ -65,17 +78,21 @@ mjtNum CostFunction::trajectory_running_cost(const std::vector<StateVector>& x_t
                 (m_u_error.transpose() * m_u_gain * m_u_error)(0, 0) +
                 (m_du_error.transpose() * m_u_diff_gain * m_du_error)(0, 0);
     }
-
-    //Compute terminal cost
-//    for(unsigned int row = 0; row < state_size/2; ++row)
-//    {
-//        int jid = m_m->dof_jntid[row];
-//        if(m_m->jnt_type[jid] == mjJNT_HINGE)
-//            x_trajectory.back()(row, 0) = x_trajectory.back()(row, 0);
-//    }
     m_x_error = m_x_desired - x_trajectory.back();
     //Running cost + terminal cost
     return cost + (m_x_error.transpose() * m_x_terminal_gain * m_x_error)(0, 0);
+}
+
+
+void CostFunction::compute_value(const std::vector<CtrlVector>& u_traj,
+                                       const std::vector<StateVector>& x_traj,
+                                       std::vector<double>& value_vec) const
+{
+    using namespace GenericAlgs;
+    using T_op = double;
+    compute_traj_inst_cost(value_vec, x_traj, u_traj);
+    auto add = [](double in1, double in2){return in1 + in2;};
+    consecutive_op<T_op, T_op>(value_vec.data(), value_vec.size(), add);
 }
 
 
