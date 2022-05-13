@@ -167,9 +167,9 @@ int main(int argc, const char** argv)
     StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1, 1;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_gain_vec; x_gain_vec << 1, 1;
+    StateVector x_gain_vec; x_gain_vec << 1, .5;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
-    CtrlMatrix u_gain; u_gain << 1;
+    CtrlMatrix u_gain; u_gain << 10;
     CtrlMatrix du_gain; du_gain << 0;
 
     // install GLFW mouse and keyboard callbacks
@@ -186,13 +186,13 @@ int main(int argc, const char** argv)
     for(auto goal = 1; goal < 2; ++goal) {
 //        random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
 //        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
-        for (auto init = 1; init < 10; ++init) {
-            random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 10);
+        for (auto init = 1; init < 50; ++init) {
+            random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 1);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
 
             FiniteDifference fd(m);
             CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-            ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
+            ILQRParams params {1e-6, 1.6, 1.6, 0, 1, 1};
             ILQR ilqr(fd, cost_func, params, m, d, nullptr);
 
             // install control callback

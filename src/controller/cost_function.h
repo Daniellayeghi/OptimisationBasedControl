@@ -10,6 +10,13 @@
 
 using namespace GenericUtils;
 
+struct ValueFunction{
+    std::function<double(StateVector)> value_func;
+    std::function<StateVector(StateVector)> value_func_d;
+    std::function<StateMatrix(StateVector)> value_func_dd;
+};
+
+
 using namespace SimulationParameters;
 class CostFunction
 {
@@ -21,7 +28,8 @@ public:
                  const CtrlMatrix& u_gain,
                  const CtrlMatrix& u_diff_gain,
                  const StateMatrix& x_terminal_gain,
-                 const mjModel* model);
+                 const mjModel* model,
+                 const ValueFunction* vf = nullptr);
 
     StateVector L_x(const mjData *d);
     CtrlVector L_u(const mjData *d);
@@ -67,6 +75,7 @@ private:
     const CtrlVector& m_u_desired;
     const StateVector& m_x_desired;
     const mjModel* m_m;
+    const ValueFunction* m_vf;
 };
 
 #endif //OPTCONTROL_MUJOCO_COST_FUNCTION_H

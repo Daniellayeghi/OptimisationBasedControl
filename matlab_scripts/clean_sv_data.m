@@ -15,7 +15,7 @@ vi_files = sort_by_date(vi_files);
 states = [];
 values = [];
 st_val = [];
-n_goal = 19;
+n_goal = 1;
 n_init = length(st_files)/n_goal;
 n_states = 2;
 id_value = n_states + 1;
@@ -37,12 +37,15 @@ for goal = 1:n_goal
         [sv, sv_cols] = cp_to_match(sv, sv_cols);
         sv_cols = [sv_cols, sv];
     end
+    
+    temp_sv(:, id_value:id_value:end) = temp_sv(:, id_value:id_value:end) ./ ...
+                                        max(temp_sv(:, id_value:id_value:end));    
     [r, c] = size(temp_sv);
     temp_sv = sortrows(temp_sv, c);
     
     % CSV per goal
-    fname = sprintf("di_%d_data_size_%d_data_num_%d.csv", goal, length(sv_cols), goal);
-    dlmwrite(path + fname, sv_cols, 'delimiter', ',', 'precision', 10);
+    fname = sprintf("di_%d_data_size_%d_data_num_%d.csv", goal, length(temp_sv), goal);
+    dlmwrite(path + fname, temp_sv, 'delimiter', ',', 'precision', 10);
     
     % Match dimensions
     [temp_sv, st_val] = cp_to_match(temp_sv, st_val);
@@ -56,7 +59,8 @@ st_val = remove_mid_elems(st_val, 3);
 % Normalise values per goal 
 st_val(:, id_value:id_value:end) = st_val(:, id_value:id_value:end) ./ ...
                                    max(st_val(:, id_value:id_value:end));
-
+figure(4);                               
+plot3(sv_cols(:,1:3:end), sv_cols(:,2:3:end), sv_cols(:,3:3:end)); 
 
 %% Reconstruct Data for GANs
 data_segments = length(states) / length(st_files);
