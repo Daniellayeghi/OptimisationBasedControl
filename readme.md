@@ -12,9 +12,10 @@ This repo is the not very clean implementation of our ICRA 2022 paper:
 To build the following dependencies are required:
 - Eigen3
 - Gtest (Cloned and built by FetchContent)
-- MuJoCo 2.0
+- MuJoCo > 2.0 
+- GCC compiler for both Mujoco and OpenMP
 
-## Instruction
+## Instruction [WIP]
 - Clone the repo.
 - Use the ```find_mjkey``` script to set MuJoCo key to variable ```MUJ_KEY_PATH```. Otherwise set it yourself.
 - Copy MuJoCo binaries to directory ``libraries``.
