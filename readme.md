@@ -25,25 +25,13 @@ make -j nThreads
 ~~~
 ## Tasks
 
-The gifs below show iLQR and MPPI working on different environments
-- iLQR (Finger Spinner)
+This repo is the not very clean implementation of our ICRA 2022 paper:
 
-![Alt Text](gifs/finger_ilqr.gif) 
+[Optimal Control via Inference and Numerical Optimization](https://arxiv.org/pdf/2109.11361.pdf)
 
-- MPPI (Finger Spinner)
 
-![Alt Text](gifs/mppi_finger.gif)
-
-- iLQR (Acrobot)
-
-![Alt Text](gifs/acrobot_ilqr.gif)
-
-- iLQR (Cartpole)
-
-![Alt Text](gifs/cp_ilqr.gif)
-
-- MPPI (Cartpole)
-
-![Alt Text](gifs/cp_mppi.gif)
+<p align="center">
+  <img src="./gifs/Optimal%20Control%20via%20Combined%20Inference%20and%20Numerical%20Optimization(1).gif" alt="animated" />
+</p>
 
 
