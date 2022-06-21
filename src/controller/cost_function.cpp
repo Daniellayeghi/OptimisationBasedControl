@@ -11,16 +11,14 @@ CostFunction::CostFunction(const StateVector& x_desired,
                            const CtrlMatrix& u_gain,
                            const CtrlMatrix& u_diff_gain,
                            const StateMatrix& x_terminal_gain,
-                           const mjModel* m,
-                           const ValueFunction* vf):
+                           const mjModel* m):
                            m_u_gain(u_gain),
                            m_u_diff_gain(u_diff_gain),
                            m_x_gain(x_gain),
                            m_x_terminal_gain(x_terminal_gain),
                            m_u_desired(u_desired),
                            m_x_desired(x_desired),
-                           m_m(m),
-                           m_vf(vf)
+                           m_m(m)
 {
 }
 

@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
         for (auto init = 1; init < 10; ++init)
         {
             // Init random pos
-            random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
+            MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
 
             FiniteDifference fd(m);

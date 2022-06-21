@@ -140,10 +140,22 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-//    std::array<double, 6> pos {{0.61, -0.61, 0.61, -0.61, 0.04, 0.04}};
-//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+    std::cout << 12 - m->nbody*3-1 <<std::endl;
+    const std::array<double, 2> bl{{0, 0.29}}, bh{{2 * M_PI, 0.5}};
+    std::array<std::array<double, 3>, 4> angs {};
+    std::vector<CartVector> carts;
+    for (auto ang : angs)
+    {
+        MathUtils::Rand::random_iid_data<double, 2>(ang.data(), bl.data(), bh.data());
+        MathUtils::Coord::Spherical<double> sph{M_PI_2, ang[0], ang[1]};
+        auto cart = sph.to_cart();
+        cart.z = 0.04;
+        carts.emplace_back(cart.as_vec());
+    }
+
+    MujocoUtils::populate_obstacles(12, m->nbody*3-1, carts, m);
+    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
 
     d = mj_makeData(m);
 
@@ -173,13 +185,13 @@ int main(int argc, const char** argv)
 
     StateVector initial_state; initial_state << 0, 0, 0, 0, 0, 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<5000, 500, 50, 50, 50, 50;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec <<5000, 500, 50, 500, 50, 50;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_running_gain_vec; x_running_gain_vec << 100, 1, 1, 0, 0, 0;
+    StateVector x_running_gain_vec; x_running_gain_vec << 100, 1, 1, 1, 1, 1;
     StateMatrix x_gain = x_running_gain_vec.asDiagonal();
 
-    CtrlVector u_gain_vec; u_gain_vec << 0.0001, 0.0001, 0.0001;
+    CtrlVector u_gain_vec; u_gain_vec << 2, 2, 2;
     CtrlMatrix u_gain = u_gain_vec.asDiagonal();
 
     CtrlMatrix du_gain;
@@ -200,14 +212,14 @@ int main(int argc, const char** argv)
     CtrlMatrix ctrl_var; ctrl_var.setIdentity();
     for(auto elem = 0; elem < n_ctrl; ++elem)
     {
-        ctrl_var.diagonal()[elem] = 0.015;
+        ctrl_var.diagonal()[elem] = 0.063;
         ddp_var.diagonal()[elem] = 0.001;
     }
 
     StateMatrix t_state_reg; t_state_reg = x_terminal_gain;
     StateMatrix r_state_reg; r_state_reg = x_gain;
 
-    CtrlMatrix control_reg = u_gain;
+    CtrlMatrix control_reg = CtrlMatrix::Zero();
 
     const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
         std::array<int, 4> body_list {{0, 1, 2, 3}};
@@ -230,13 +242,13 @@ int main(int argc, const char** argv)
         CtrlVector ctrl_error = u_desired - ctrl_vector;
 
         return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 500000;
+                       (0, 0) + collision_cost(data, model) * 5000000;
     };
 
     const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
         StateVector state_error = x_desired - state_vector;
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 500000;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0) + collision_cost(data, model) * 5000000;
     };
 
 
@@ -260,7 +272,7 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
         // New result version try with higher regularisation but start at 20
         MPPIDDPParamsPar params{
-            250, 75, .1, 0, 1, 1, 1e4,ctrl_mean,
+            250, 75, .1, 1, 1, 1, 1e4,ctrl_mean,
             ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed, importance_reg, false
         };
         QRCostDDPPar qrcost(params, running_cost, terminal_cost);
@@ -304,7 +316,6 @@ int main(int argc, const char** argv)
         zmq_buffer.push_buffer(&pi_buffer);
         StateVector temp_state;
         CtrlVector temp_ctrl;
-
         /* ==================================================Simulation=======================================================*/
         // use the first while condition if you want to simulate for a period.
         while (!glfwWindowShouldClose(window)) {
@@ -324,7 +335,7 @@ int main(int argc, const char** argv)
                 cost = running_cost(temp_state, temp_ctrl, d , m);
                 ilqr_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffers();
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);

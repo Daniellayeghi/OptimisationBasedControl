@@ -18,7 +18,8 @@ To build the following dependencies are required:
 ## Instruction [WIP]
 - Clone the repo.
 - Use the ```find_mjkey``` script to set MuJoCo key to variable ```MUJ_KEY_PATH```. Otherwise set it yourself.
-- Copy MuJoCo binaries to directory ``libraries``.
+  - Cmake setup requirement. It does not need to be a valid key.
+- Copy MuJoCo binaries to directory ``libraries``. 
 - Make sure glfw is installed so cmake can link to it.
 - Build
 ~~~

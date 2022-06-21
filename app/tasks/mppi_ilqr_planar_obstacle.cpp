@@ -140,10 +140,22 @@ int main(int argc, const char** argv)
     if( !glfwInit() )
         mju_error("Could not initialize GLFW");
 
-//    std::array<double, 6> pos {{0.61, -0.61, 0.61, -0.61, 0.04, 0.04}};
-//    MujocoUtils::populate_obstacles(12, m->nbody*3-1, pos, m);
-//    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
-//    m = mj_loadXML("../../../models/rand_point_mass_planar_3.xml", 0, error, 1000);
+    std::cout << 12 - m->nbody*3-1 <<std::endl;
+    const std::array<double, 2> bl{{0, 0.3}}, bh{{2 * M_PI, 0.6}};
+    std::array<std::array<double, 3>, 4> angs {};
+    std::vector<CartVector> carts;
+    for (auto ang : angs)
+    {
+        MathUtils::Rand::random_iid_data<double, 2>(ang.data(), bl.data(), bh.data());
+        MathUtils::Coord::Spherical<double> sph{M_PI_2, ang[0], ang[1]};
+        auto cart = sph.to_cart();
+        cart.z = 0.04;
+        carts.emplace_back(cart.as_vec());
+    }
+
+    MujocoUtils::populate_obstacles(12, m->nbody*3-1, carts, m);
+    int i = mj_saveLastXML("../../../models/rand_point_mass_planar_3.xml", m, error, 1000);
+    m = mj_loadXML("../../../models/rand_point_mass_planar_3_example.xml", 0, error, 1000);
 
     d = mj_makeData(m);
 

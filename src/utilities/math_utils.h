@@ -2,11 +2,12 @@
 #define OPTCONTROL_MUJOCO_MATH_UTILS_H
 
 #include <random>
+#include "Eigen/Core"
 
-namespace MathUtils
+namespace MathUtils::Rand
 {
     template<typename T, size_t S>
-    void random_iid_data (T* result, const T* bound_l, const T* bound_h) {
+    void random_iid_data(T *result, const T *bound_l, const T *bound_h) {
         using namespace std;
         random_device r;
         default_random_engine generator(r());
@@ -18,7 +19,7 @@ namespace MathUtils
 
 
     template<typename T, size_t S>
-    void random_iid_data_sym_bound (T* result, const T* positive_bound) {
+    void random_iid_data_sym_bound(T *result, const T *positive_bound) {
         using namespace std;
         random_device r;
         default_random_engine generator(r());
@@ -30,7 +31,7 @@ namespace MathUtils
 
 
     template<typename T, size_t S>
-    void random_iid_data_const_bound (T* result, const T positive_bound) {
+    void random_iid_data_const_bound(T *result, const T positive_bound) {
         using namespace std;
         random_device r;
         default_random_engine generator(r());
@@ -39,6 +40,26 @@ namespace MathUtils
             result[dim] = distribution(generator);
         }
     }
+}
+
+
+namespace MathUtils::Coord
+{
+    template<typename T>
+    struct Cart
+    {
+        T x, y, z;
+        CartVector as_vec() {CartVector res; res << x, y, z; return res;}
+    };
+
+
+    template<typename T>
+    struct Spherical
+    {
+        T theta, phi, r;
+        Cart<T> to_cart(){ return {r * sin(theta) * cos(phi), r * sin(phi) * sin(theta), r*cos(theta)};}
+        SphVector as_vec(){SphVector res; res << theta, phi, r; return res;}
+    };
 }
 
 #endif //OPTCONTROL_MUJOCO_MATH_UTILS_H

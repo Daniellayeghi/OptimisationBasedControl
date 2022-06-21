@@ -3,50 +3,11 @@
 
 #include "Eigen/Core"
 #include "../parameters/simulation_params.h"
+#include "./math_utils.h"
 #include <random>
 
 namespace MujocoUtils
 {
-
-    struct DummyMjData
-    {
-        explicit DummyMjData(const mjModel* m)
-        {
-            m_qpos.assign(m->nq, 0);
-            m_qvel.assign(m->nv, 0);
-            m_qacc.assign(m->nv, 0);
-            m_ctrl.assign(m->nu, 0);
-            m_qfrc_applied.assign(m->nv, 0);
-            m_xfrc_applied.assign(m->nbody, 0);
-
-            // Set ptrs
-            qpos = m_qpos.data();
-            qvel = m_qvel.data();
-            qacc = m_qacc.data();
-            ctrl = m_ctrl.data();
-            qfrc_applied = m_qfrc_applied.data();
-            xfrc_applied = m_xfrc_applied.data();
-        }
-
-    public:
-        SimulationParameters::scalar_type time = 0;
-        scalar_type* qpos;
-        scalar_type* qvel;
-        scalar_type* qacc;
-        scalar_type* ctrl;
-        scalar_type* qfrc_applied;
-        scalar_type* xfrc_applied;
-
-    private:
-        std::vector<SimulationParameters::scalar_type> m_qpos;
-        std::vector<SimulationParameters::scalar_type> m_qvel;
-        std::vector<SimulationParameters::scalar_type> m_qacc;
-        std::vector<SimulationParameters::scalar_type> m_ctrl;
-        std::vector<SimulationParameters::scalar_type> m_qfrc_applied;
-        std::vector<SimulationParameters::scalar_type> m_xfrc_applied;
-    };
-
-
     template<typename T_1, typename T_2>
     void copy_data(const mjModel *model, const T_1 *data_src, T_2 *data_cp)
     {
@@ -73,23 +34,14 @@ namespace MujocoUtils
     }
 
 
+    template<typename T>
     inline void populate_obstacles(const int start_id,
                                    const int end_id,
-                                   const std::array<double, 6> &bounds,
+                                   const std::vector<T>& poses,
                                    const mjModel *model)
                                    {
-        const constexpr int geo_dims = 3;
         using namespace std;
-
-        array<double, geo_dims> random_pos{};
-        auto random_iid_array = [](array<double, geo_dims> &result, const array<double, geo_dims * 2> &bounds) {
-            random_device r;
-            default_random_engine generator(r());
-            for (auto dim = 0; dim < geo_dims; ++dim) {
-                uniform_real_distribution<double> distribution(bounds[dim * 2], bounds[dim * 2 + 1]);
-                result[dim] = distribution(generator);
-            }
-        };
+        constexpr const int geo_dims = 3;
 
         // Assumes that all obstacles are contiguous
         auto total_obs = end_id - start_id + 1;
@@ -97,11 +49,11 @@ namespace MujocoUtils
         auto bodies = 0;
         for (auto id = 0; id < num_geoms + 1; id++)
         {
-            bodies = id * geo_dims;
-            random_iid_array(random_pos, bounds);
-            model->body_pos[start_id + bodies] = random_pos[0];
-            model->body_pos[start_id + bodies + 1] = random_pos[1];
-            model->body_pos[start_id + bodies + 2] = random_pos[2];
+            bodies = id * 3;
+            const auto &pos = poses[id];
+            model->body_pos[start_id + bodies]     = pos(0, 0);
+            model->body_pos[start_id + bodies + 1] = pos(1, 0);
+            model->body_pos[start_id + bodies + 2] = pos(2, 0);
         }
     }
 

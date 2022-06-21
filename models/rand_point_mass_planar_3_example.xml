@@ -45,7 +45,7 @@
                 <inertial pos="0 0 -0.08" mass="0.463046" diaginertia="0.00145458 0.00145458 0.000181514"/>
                 <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-50 50" damping="0.05"/>
                 <geom name="distal" size="0.028 0.08" pos="0 0 -0.08" type="capsule" material="self"/>
-                <body name="distal2" childclass="finger" pos="0 0 -0.18">
+                <body name="distal2" childclass="finger" pos="0 0 0">
                     <inertial pos="0 0 -0.097776" mass="0.635519" diaginertia="0.00208601 0.00208601 0.000259127"/>
                     <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-50 50" damping="0.05"/>
                     <geom name="distal2" size="0.028 0.08" pos="0 0 -0.08" type="capsule" material="self"/>
@@ -55,19 +55,19 @@
                 </body>
             </body>
         </body>
-        <body name="k" pos="0.0568105 -0.337761 0.04">
+        <body name="k" pos="0.181823 0.04 0">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06"/>
             <geom size="0.04" rgba="1 0 0 1"/>
         </body>
-        <body name="a" pos="0.223745 -0.278828 0.04">
+        <body name="a" pos="0.181823 0.04 0">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06"/>
             <geom size="0.04" rgba="1 0 0 1"/>
         </body>
-        <body name="b" pos="-0.469781 -0.00956799 0.04">
+        <body name="b" pos="0.181823 0.04 0">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06"/>
             <geom size="0.04" rgba="1 0 0 1"/>
         </body>
-        <body name="c" pos="0.218615 -0.292773 0.04">
+        <body name="c" pos="0.181823 0.04 0">
             <inertial pos="0 0 0" mass="0.0335103" diaginertia="5.36165e-06 5.36165e-06 5.36165e-06"/>
             <geom size="0.04" rgba="1 0 0 1"/>
         </body>

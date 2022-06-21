@@ -8,9 +8,9 @@ namespace SimulationParameters
     /* Environment Dimensions */
     using scalar_type = double;
 
-    constexpr const int n_ctrl = 1;
-    constexpr const int n_jpos = 1;
-    constexpr const int n_jvel = 1;
+    constexpr const int n_ctrl = 3;
+    constexpr const int n_jpos = 3;
+    constexpr const int n_jvel = 3;
     constexpr const int state_size = n_jpos + n_jvel;
 
     /* Matrices Used */
@@ -25,6 +25,9 @@ namespace SimulationParameters
     using StateMatrix = Eigen::Matrix<scalar_type, state_size, state_size>;
     using CtrlStateMatrix = Eigen::Matrix<scalar_type, n_ctrl, state_size>;
     using StateCtrlMatrix = Eigen::Matrix<scalar_type, state_size, n_ctrl>;
+    using CartVector = Eigen::Matrix<scalar_type, 3, 1>;
+    using SphVector = Eigen::Matrix<scalar_type, 3, 1>;
+
 
     /* Raw Types Used TODO: Inherit traits*/
     template<typename T_Eigen>
@@ -35,7 +38,7 @@ namespace SimulationParameters
     };
 
     /* Threading */
-    constexpr const unsigned int n_threads = 10;
+    constexpr const unsigned int n_threads = 8;
 
     /* Frequently used scalar size */
     constexpr const unsigned int ctrl_data_bytes = sizeof(scalar_type) * n_ctrl;

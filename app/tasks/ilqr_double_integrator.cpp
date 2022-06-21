@@ -187,7 +187,7 @@ int main(int argc, const char** argv)
 //        random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
 //        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
         for (auto init = 1; init < 50; ++init) {
-            random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 1);
+            MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 1);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
 
             FiniteDifference fd(m);
