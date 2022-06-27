@@ -15,7 +15,7 @@ To build the following dependencies are required:
 - MuJoCo >= 2.2 
 - GCC >= 8 compiler for both Mujoco and OpenMP
 
-## Instruction [WIP]
+## Instruction
 - Clone the repo.
 - Make sure glfw and Mujoco are installed so cmake can link to it.
 - Build
