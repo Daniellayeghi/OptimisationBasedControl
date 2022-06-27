@@ -1,7 +1,8 @@
-#include "mujoco.h"
+
+#include <mujoco/mujoco.h>
+#include <GLFW/glfw3.h>
 #include "cstdio"
 #include "cstring"
-#include "glfw3.h"
 #include "../third_party/FIC/fic.h"
 #include "../../src/controller/controller.h"
 #include "../../src/utilities/buffer_utils.h"

@@ -2,7 +2,7 @@
 #ifndef OPTCONTROL_MUJOCO_BUFFER_H
 #define OPTCONTROL_MUJOCO_BUFFER_H
 
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "eigen3/Eigen/Dense"
 #include "../parameters/simulation_params.h"
 #include "generic_utils.h"

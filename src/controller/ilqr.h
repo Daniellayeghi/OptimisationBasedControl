@@ -2,7 +2,7 @@
 #define OPTCONTROL_MUJOCO_ILQR_H
 
 #include <vector>
-#include "mjdata.h"
+#include <mujoco/mujoco.h>
 #include "Eigen/Core"
 #include "../parameters/simulation_params.h"
 #include "../utilities/finite_diff.h"

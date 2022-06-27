@@ -2,9 +2,9 @@
 #ifndef OPTCONTROL_MUJOCO_GENERIC_CONTROL_H
 #define OPTCONTROL_MUJOCO_GENERIC_CONTROL_H
 
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "../parameters/simulation_params.h"
-#include "../src/utilities/generic_utils.h"
+#include "../utilities/generic_utils.h"
 
 using namespace SimulationParameters;
 

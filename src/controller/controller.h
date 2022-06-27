@@ -1,8 +1,7 @@
 
 #ifndef DRAKE_CMAKE_INSTALLED_CONTROLLER_H
 #define DRAKE_CMAKE_INSTALLED_CONTROLLER_H
-
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "../parameters/simulation_params.h"
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"

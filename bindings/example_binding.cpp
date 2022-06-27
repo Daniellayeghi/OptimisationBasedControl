@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <mujoco.h>
+#include <mujoco/mujoco.h>
 #include <iostream>
 
 mjModel *model = nullptr;

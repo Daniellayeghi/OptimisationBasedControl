@@ -28,17 +28,14 @@ set(SOURCE_FILES
 #        fic_ilqr_cartpole.cpp
         )
 
-include_directories(${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${ZeroMQ_INCLUDE_DIR})
+include_directories(${ZeroMQ_INCLUDE_DIR})
 
 foreach(source ${SOURCE_FILES})
     string(REPLACE ".cpp" "" BIN_NAME ${source})
     add_executable(${BIN_NAME} ${source})
     target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
-    #Standard libraries for GL
-    target_link_libraries(${BIN_NAME} glut)
-    target_link_libraries(${BIN_NAME} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
-    # Additional libraries from mujoco package
-    target_link_libraries(${BIN_NAME} libglew.so libglfw.so libglewegl.so libglewosmesa.so)
+    target_link_libraries(${BIN_NAME} mujoco::mujoco)
+    target_link_libraries(${BIN_NAME} glfw)
     # Additional libraries imgui package
     target_link_libraries(${BIN_NAME} imgui)
     # link fic
@@ -50,7 +47,5 @@ foreach(source ${SOURCE_FILES})
     #target_link_libraries(${BIN_NAME} "${TORCH_LIBRARIES}")
     target_link_libraries(${BIN_NAME} /usr/local/lib/libzmq.so.5)
     target_link_libraries(${BIN_NAME} OpenMP::OpenMP_CXX)
-
     #    target_link_libraries(${BIN_NAME} ${ZMQPP})
-    ## add the include directory to our compile directives
 endforeach(source ${SOURCE_FILES})

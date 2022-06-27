@@ -1,9 +1,10 @@
 
-#include "mujoco.h"
+
+#include <mujoco/mujoco.h>
+#include <GLFW/glfw3.h>
 #include "cstdio"
 #include "cstdlib"
 #include "cstring"
-#include "glfw3.h"
 #include <random>
 #include "../third_party/FIC/fic.h"
 #include "../../src/controller/controller.h"

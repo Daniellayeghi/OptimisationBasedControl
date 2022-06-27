@@ -11,10 +11,10 @@ add_compile_options(-Wall -Wextra)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(mujoco REQUIRED)
 #find_package(Torch REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(ZeroMQ REQUIRED)
-#find_path(ZMQPP_INCLUDES NAMES zmqpp/zmqpp.hpp)
 
 # N.B. This is a temporary flag. It only really applies to Linux, as Mac
 # does not need X11.
@@ -28,8 +28,6 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wattributes -mavx -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-#Mujoco paths
-set(MUJOCO_PY_MJPRO_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(DEFINED MUJ_KEY_PATH)
     message(STATUS "Addingg definition Mujoco key path defined as:" ${MUJ_KEY_PATH})
@@ -46,22 +44,11 @@ IF(DEFINE_DEBUG)
     MESSAGE("Build type is " ${CMAKE_BUILD_TYPE})
 ENDIF(DEFINE_DEBUG)
 
-include_directories(${MUJOCO_PY_MJPRO_PATH}/include)
-link_directories(${MUJOCO_PY_MJPRO_PATH}/libraries)
-
-#Finding main mujoco library
-if(${USE_GL})
-    file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco.so.[0-9].[0-9].[0-9])
-else()
-    file(GLOB LIB_MUJOCO ${MUJOCO_PY_MJPRO_PATH}/libraries/libmujoco[0-9][0-9][0-9]nogl.so)
-endif()
-
 #Showing mujoco library found
 add_subdirectory(src)
 add_subdirectory(app)
 add_subdirectory(test)
 add_subdirectory(third_party)
-add_subdirectory(etc)
 
 if(${BUILD_BINDINGS})
     add_subdirectory(bindings)

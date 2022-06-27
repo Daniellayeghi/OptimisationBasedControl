@@ -1,7 +1,6 @@
-
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
+#include <GLFW/glfw3.h>
 #include "cstring"
-#include "glfw3.h"
 #include "../../src/controller/controller.h"
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"

@@ -19,8 +19,8 @@
 #include <string>
 #include <thread>
 
-#include <mjxmacro.h>
-#include "../../etc/uitools.h"
+#include <mujoco/mjxmacro.h>
+#include "uitools.h"
 
 #include "array_safety.h"
 namespace mju = ::mujoco::sample_util;

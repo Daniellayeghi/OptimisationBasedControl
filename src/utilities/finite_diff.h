@@ -5,7 +5,7 @@
 
 #include <map>
 #include <vector>
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "string"
 #include "eigen3/Eigen/Dense"
 #include "../parameters/simulation_params.h"

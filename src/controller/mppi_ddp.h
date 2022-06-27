@@ -2,7 +2,7 @@
 #ifndef OPTCONTROL_MUJOCO_MPPI_DDP_H
 #define OPTCONTROL_MUJOCO_MPPI_DDP_H
 
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "generic_control.h"
 #include "../parameters/simulation_params.h"
 #include "../utilities/eigen_norm_dist.h"

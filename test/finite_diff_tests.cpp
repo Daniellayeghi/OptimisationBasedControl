@@ -2,7 +2,7 @@
 #include "gtest/gtest.h"
 #include "../src/utilities/finite_diff.h"
 #include "Eigen/Core"
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 
 namespace
 {

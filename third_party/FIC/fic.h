@@ -4,7 +4,7 @@
 #define OPTCONTROL_MUJOCO_FIC_H
 
 #include "Eigen/Core"
-#include "../src/parameters/simulation_params.h"
+#include "../../src/parameters/simulation_params.h"
 #include <cmath>
 #include <iostream>
 

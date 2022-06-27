@@ -2,7 +2,7 @@
 #ifndef OPTCONTROL_MUJOCO_COST_FUNCTION_H
 #define OPTCONTROL_MUJOCO_COST_FUNCTION_H
 
-#include "mujoco.h"
+#include <mujoco/mujoco.h>
 #include "Eigen/Core"
 #include "../parameters/simulation_params.h"
 #include "../utilities/generic_utils.h"

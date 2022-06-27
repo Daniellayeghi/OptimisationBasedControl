@@ -1,5 +1,4 @@
 #include<iostream>
-#include "mujoco.h"
 #include "ilqr.h"
 #include "../../src/utilities/mujoco_utils.h"
 

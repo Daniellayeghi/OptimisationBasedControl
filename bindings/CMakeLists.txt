@@ -16,7 +16,7 @@ if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
     )
 
     pybind11_add_module(example MODULE example_binding.cpp)
-    target_link_libraries(example PRIVATE ${LIB_MUJOCO})
+    target_link_libraries(example PRIVATE mujoco::mujoco)
     SET_TARGET_PROPERTIES( example
             PROPERTIES
             PREFIX ""

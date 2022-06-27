@@ -3,10 +3,10 @@
 #include "controller.h"
 #include "cost_function.h"
 #include "ilqr.h"
-#include "../third_party/FIC/fic.h"
 #include "../utilities/mujoco_utils.h"
 #include "mppi_ddp.h"
 #include "par_mppi_ddp.h"
+#include "../../third_party/FIC/fic.h"
 
 using namespace MujocoUtils;
 using namespace SimulationParameters;
