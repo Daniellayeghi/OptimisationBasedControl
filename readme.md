@@ -12,21 +12,16 @@ This repo is the not very clean implementation of our ICRA 2022 paper:
 To build the following dependencies are required:
 - Eigen3
 - Gtest (Cloned and built by FetchContent)
-- MuJoCo > 2.0 
-- GCC compiler for both Mujoco and OpenMP
+- MuJoCo >= 2.2 
+- GCC >= 8 compiler for both Mujoco and OpenMP
 
 ## Instruction [WIP]
 - Clone the repo.
-- Use the ```find_mjkey``` script to set MuJoCo key to variable ```MUJ_KEY_PATH```. Otherwise set it yourself.
-  - Cmake setup requirement. It does not need to be a valid key.
-- Copy MuJoCo binaries to directory ``libraries``. 
-- Make sure glfw is installed so cmake can link to it.
+- Make sure glfw and Mujoco are installed so cmake can link to it.
 - Build
 ~~~
 cd OptimisationBasedControl
-source find_mjkey
-mkdir libraries && cp /path/to/mujoco/bin/*.so* libraries/
 mkdir build-release && cd build-release
-cmake -DMUJ_KEY_PATH=$MUJ_KEY_PATH -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j nThreads
 ~~~
