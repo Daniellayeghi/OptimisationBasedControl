@@ -1,7 +1,7 @@
 ## Overview
 This repo is the not very clean implementation of our ICRA 2022 paper:
 
-[Optimal Control via Inference and Numerical Optimization](https://arxiv.org/pdf/2109.11361.pdf)
+[Optimal Control via Combined Inference and Numerical Optimization](https://arxiv.org/pdf/2109.11361.pdf)
 
 
 <p align="center">
