@@ -27,14 +27,8 @@ endif()
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wattributes -mavx -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+add_definitions(-DMUJ_KEY_PATH="")
 
-
-if(DEFINED MUJ_KEY_PATH)
-    message(STATUS "Addingg definition Mujoco key path defined as:" ${MUJ_KEY_PATH})
-    add_definitions(-DMUJ_KEY_PATH="${MUJ_KEY_PATH}")
-else()
-    message(FATAL_ERROR "Mujoco key path NOT defined")
-endif()
 
 OPTION(DEFINE_DEBUG "Build the project using debugging code" OFF)
 IF(DEFINE_DEBUG)
