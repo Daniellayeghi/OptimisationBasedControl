@@ -88,11 +88,11 @@ void CostFunction::compute_value(const std::vector<CtrlVector>& u_traj,
                                        const std::vector<StateVector>& x_traj,
                                        std::vector<double>& value_vec) const
 {
-    using namespace GenericAlgs;
+    using namespace GenericMap;
     using T_op = double;
     compute_traj_inst_cost(value_vec, x_traj, u_traj);
     auto add = [](double in1, double in2){return in1 + in2;};
-    consecutive_op<T_op, T_op>(value_vec.data(), value_vec.size(), add);
+    consecutive_map<T_op, T_op>(value_vec.data(), value_vec.size(), add);
 }
 
 
