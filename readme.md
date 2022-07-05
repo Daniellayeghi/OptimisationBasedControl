@@ -25,3 +25,12 @@ mkdir build-release && cd build-release
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j nThreads
 ~~~
+## Cite
+```
+@article{layeghi2021optimal,
+  title={Optimal Control via Combined Inference and Numerical Optimization},
+  author={Layeghi, Daniel and Tonneau, Steve and Mistry, Michael},
+  journal={arXiv preprint arXiv:2109.11361},
+  year={2021}
+}
+```
