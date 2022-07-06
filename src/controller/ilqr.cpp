@@ -9,7 +9,7 @@ static void (*s_callback_ctrl)(const mjModel *, mjData *);
 static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
 
 ILQR::ILQR(FiniteDifference& fd,
-           CostFunction& cf,
+           QRCst& cf,
            ILQRParams& params,
            const mjModel * m,
            const mjData* d,
@@ -143,7 +143,7 @@ void ILQR::forward_simulate(const mjData* d)
     {
         set_control_data(_d_cp, m_u_traj[time], _m);
         _fd.f_x_f_u(_d_cp);
-        m_d_vector[time].l = m_cf.running_cost(_d_cp);
+        m_d_vector[time].l = m_cf.L(_d_cp);
         m_d_vector[time].lx = m_cf.L_x(_d_cp);
         m_d_vector[time].lxx = m_cf.L_xx(_d_cp);
         m_d_vector[time].lu = m_cf.L_u(_d_cp);
@@ -154,8 +154,8 @@ void ILQR::forward_simulate(const mjData* d)
         _prev_total_cost += m_d_vector[time].l;
         step(_m, _d_cp, s_callback_ctrl);
     }
-    _prev_total_cost += m_cf.terminal_cost(_d_cp);
-    m_d_vector.back().l = m_cf.terminal_cost(_d_cp);
+    _prev_total_cost += m_cf.Lf(_d_cp);
+    m_d_vector.back().l = m_cf.Lf(_d_cp);
     m_d_vector.back().lx = m_cf.Lf_x(_d_cp);
     m_d_vector.back().lxx = m_cf.Lf_xx();
 }
@@ -323,7 +323,7 @@ void ILQR::forward_pass(const mjData* d)
 
         // Check if backtracking needs to continue
         expected_cost_red = compute_expected_cost(backtracker);
-        new_total_cost = m_cf.trajectory_running_cost(m_x_traj_new, m_u_traj_new);
+        new_total_cost = m_cf.traj_running_cost(m_x_traj_new, m_u_traj_new, nullptr);
         cost_red_ratio = (_prev_total_cost - new_total_cost)/expected_cost_red;
 
         // NOTE: Not doing this and updating regardless of the cost can lead to better performance!
@@ -363,7 +363,7 @@ void ILQR::control(const mjData* d, const bool skip)
             backward_pass();
             if (minimal_grad()) break;
             if (m_good_backpass) forward_pass(d);
-            m_cf.m_u_prev = m_u_traj.front();
+//            m_cf.m_u_prev = m_u_traj.front();
             cost.emplace_back(_prev_total_cost);
         }
     }
@@ -373,7 +373,7 @@ void ILQR::control(const mjData* d, const bool skip)
     }
 
     cached_control = m_u_traj.front();
-    m_cf.compute_value(m_u_traj, m_x_traj, m_state_value.second);
+    m_cf.compute_value(m_x_traj, m_u_traj, m_state_value.second);
     m_state_value.first = m_x_traj;
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();

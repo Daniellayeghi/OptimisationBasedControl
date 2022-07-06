@@ -98,13 +98,6 @@ void CostFunction::compute_value(const std::vector<CtrlVector>& u_traj,
 
 mjtNum CostFunction::terminal_cost(const mjData *d)
 {
-//    static StateMatrix gain; gain << 1.087, 0, 0, 0.436;
-//    static const double constexpr gain_2 = 0.554;
-//
-//    update_errors(d);
-//    const double term_1 = (m_x_error.transpose() * gain * m_x_error)(0, 0);
-//    const double term_2 = d->qpos[0] * d->qvel[0] * 0.55;
-//    return term_1 + term_2;
     update_errors(d);
     return (m_x_error.transpose() * m_x_terminal_gain * m_x_error)(0, 0);
 }
@@ -112,11 +105,6 @@ mjtNum CostFunction::terminal_cost(const mjData *d)
 
 StateVector CostFunction::Lf_x(const mjData *d)
 {
-//    StateVector res = StateVector::Zero();
-//    res(0, 0) = d->qpos[0] * 2 * 1.087 + d->qvel[0] * 0.55;
-//    res(1, 0) = d->qvel[0] * 2 * 0.436 + d->qpos[0] * 0.55;
-//    return res;
-
     update_errors(d);
     return m_x_error.transpose() * (2 * m_x_terminal_gain);
 }
@@ -124,8 +112,6 @@ StateVector CostFunction::Lf_x(const mjData *d)
 
 StateMatrix CostFunction::Lf_xx()
 {
-//    StateMatrix res; res << 2*1.087 + 0.55, 0.55, 0.55, 2*0.436+0.55;
-//    return res;
     return 2 * m_x_terminal_gain;
 }
 

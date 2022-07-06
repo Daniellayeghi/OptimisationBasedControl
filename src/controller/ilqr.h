@@ -8,6 +8,7 @@
 #include "../utilities/finite_diff.h"
 #include "cost_function.h"
 #include"generic_control.h"
+#include"generic_cost.h"
 
 
 struct ILQRParams
@@ -27,7 +28,7 @@ class ILQR : public BaseController<ILQR>
     friend class BaseController<ILQR>;
 public:
     ILQR(FiniteDifference& fd,
-         CostFunction& cf,
+         QRCst& cf,
          ILQRParams& params,
          const mjModel * m,
          const mjData* d,
@@ -82,7 +83,7 @@ public:
 
 private:
     FiniteDifference& _fd;
-    CostFunction& m_cf;
+    QRCst& m_cf;
     const mjModel* _m;
     ILQRParams& m_params;
 
