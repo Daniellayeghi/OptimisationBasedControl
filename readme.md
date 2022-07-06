@@ -8,7 +8,7 @@ This repo is the not very clean implementation of our ICRA 2022 paper:
   <img src="./gifs/Optimal%20Control%20via%20Combined%20Inference%20and%20Numerical%20Optimization(1).gif" alt="animated" />
 </p>
 
-Note: I use this repo as a sandbox for ideas. To use ICRA22 paper implementation and results clone the [ICRA22 branch](https://github.com/Daniellayeghi/OptimisationBasedControl/tree/ICRA22).
+**Note**: I use this repo as a sandbox for ideas. **To use ICRA22 paper implementation and results clone the [ICRA22 branch](https://github.com/Daniellayeghi/OptimisationBasedControl/tree/ICRA22)**.
 
 ## Dependencies
 To build the following dependencies are required:
