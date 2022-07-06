@@ -66,7 +66,7 @@ namespace BufferUtilities
 
 
     template<int rows>
-    inline void read_csv_file(const std::string& file_name, std::vector<Eigen::Matrix<double, rows, 1>>& buffer, char delm)
+    inline void read_csv_file(const std::string& file_name, std::vector<Eigen::Matrix<double, rows, 1>>& buffer)
     {
         using vector = Eigen::Matrix<double, rows, 1>;
         vector temp_cont = vector::Zero();

@@ -33,7 +33,6 @@ include_directories(${ZeroMQ_INCLUDE_DIR})
 foreach(source ${SOURCE_FILES})
     string(REPLACE ".cpp" "" BIN_NAME ${source})
     add_executable(${BIN_NAME} ${source})
-    target_link_libraries(${BIN_NAME} ${LIB_MUJOCO})
     target_link_libraries(${BIN_NAME} mujoco::mujoco)
     target_link_libraries(${BIN_NAME} glfw)
     # Additional libraries imgui package
