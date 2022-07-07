@@ -246,6 +246,7 @@ public:
                        const CtrlVector& delta_control,
                        const CtrlVector& ddp_mean_control,
                        const CtrlMatrix& ddp_covariance_inv,
+                       const CtrlMatrix& ctrl_variance_inv,
                        const mjData* data, const mjModel *model)
     {
         const auto importance = m_cst_params.m_importance * m_cst_params.m_importance_reg(data, model);
@@ -253,11 +254,11 @@ public:
         double ddp_bias = ((new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
                           )(0, 0) * m_cst_params.m_importance;
 
-        double passive_bias = (new_control.transpose() * m_cst_params.m_ctrl_variance_inv * new_control
+        double passive_bias = (new_control.transpose() * ctrl_variance_inv * new_control
                 )(0, 0) * (- m_cst_params.m_importance);
 
-        double common_bias = (control.transpose() * m_cst_params.m_ctrl_variance_inv * control +
-                2 * new_control.transpose() * m_cst_params.m_ctrl_variance_inv * control
+        double common_bias = (control.transpose() * ctrl_variance_inv * control +
+                2 * new_control.transpose() * ctrl_variance_inv * control
         )(0, 0);
 
         const auto arunning_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
@@ -285,10 +286,17 @@ public:
     }
 
 
-    double terminal_cost(const mjData* d, const mjModel* m)
+    double terminal_cost(const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr)
     {
-        update_errors(d, m);
-        return m_terminal_cost(m_x_error, m_u_error, m_x_tgain, m_u_gain, d, m);
+        const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+            StateVector state_error = m_x_goal - state_vector;
+            return (state_error.transpose() * m_x_tgain * state_error)(0, 0);
+        };
+
+        return terminal_cost(state_vector, data, model);
+
+//        update_errors(d, m);
+//        return m_terminal_cost(m_x_error, m_u_error, m_x_tgain, m_u_gain, d, m);
     }
 
     RunningCostPtr* m_terminal_cost = nullptr;

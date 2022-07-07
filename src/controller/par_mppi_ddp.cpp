@@ -170,7 +170,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
 
                 m_padded_cst[sample][0] += m_cost_func.pi_ddp_cost(
                         t_d.next, m_u_traj[time], pert_sample,
-                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m);
+                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], m_params.ctrl_variance.inverse(),mjdata, m_m);
 
             }
 
@@ -186,7 +186,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
             // Compute terminal cost
-            m_padded_cst[sample][0] += m_cost_func.terminal_cost(mjdata, m_m);
+            m_padded_cst[sample][0] += m_cost_func.terminal_cost(t_d.next, mjdata, m_m);
         }
     }
 }
