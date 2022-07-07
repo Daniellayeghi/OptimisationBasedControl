@@ -180,7 +180,7 @@ int main(int argc, const char** argv)
     StateMatrix Q;
 
     FiniteDifference fd(m);
-    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, m);
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, params, m, d, nullptr);
 

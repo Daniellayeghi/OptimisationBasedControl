@@ -143,20 +143,20 @@ void ILQR::forward_simulate(const mjData* d)
     {
         set_control_data(_d_cp, m_u_traj[time], _m);
         _fd.f_x_f_u(_d_cp);
-        m_d_vector[time].l = m_cf.L(_d_cp);
-        m_d_vector[time].lx = m_cf.L_x(_d_cp);
-        m_d_vector[time].lxx = m_cf.L_xx(_d_cp);
-        m_d_vector[time].lu = m_cf.L_u(_d_cp);
-        m_d_vector[time].luu = m_cf.L_uu(_d_cp);
-        m_d_vector[time].lux = m_cf.L_ux(_d_cp);
+        m_d_vector[time].l = m_cf.running_cost(_d_cp, _m);
+        m_d_vector[time].lx = m_cf.L_x(_d_cp, _m);
+        m_d_vector[time].lxx = m_cf.L_xx(_d_cp, _m);
+        m_d_vector[time].lu = m_cf.L_u(_d_cp, _m);
+        m_d_vector[time].luu = m_cf.L_uu(_d_cp, _m);
+        m_d_vector[time].lux = m_cf.L_ux(_d_cp, _m);
         m_d_vector[time].fx = _fd.f_x();
         m_d_vector[time].fu = _fd.f_u();
         _prev_total_cost += m_d_vector[time].l;
         step(_m, _d_cp, s_callback_ctrl);
     }
-    _prev_total_cost += m_cf.Lf(_d_cp);
-    m_d_vector.back().l = m_cf.Lf(_d_cp);
-    m_d_vector.back().lx = m_cf.Lf_x(_d_cp);
+    _prev_total_cost += m_cf.Lf(_d_cp, _m);
+    m_d_vector.back().l = m_cf.Lf(_d_cp, _m);
+    m_d_vector.back().lx = m_cf.Lf_x(_d_cp, _m);
     m_d_vector.back().lxx = m_cf.Lf_xx();
 }
 
@@ -323,7 +323,7 @@ void ILQR::forward_pass(const mjData* d)
 
         // Check if backtracking needs to continue
         expected_cost_red = compute_expected_cost(backtracker);
-        new_total_cost = m_cf.traj_running_cost(m_x_traj_new, m_u_traj_new, nullptr);
+        new_total_cost = m_cf.traj_running_cost(m_x_traj_new, m_u_traj_new, nullptr, nullptr);
         cost_red_ratio = (_prev_total_cost - new_total_cost)/expected_cost_red;
 
         // NOTE: Not doing this and updating regardless of the cost can lead to better performance!
@@ -373,7 +373,7 @@ void ILQR::control(const mjData* d, const bool skip)
     }
 
     cached_control = m_u_traj.front();
-    m_cf.compute_value(m_x_traj, m_u_traj, m_state_value.second);
+    m_cf.compute_value(m_x_traj, m_u_traj, m_state_value.second, _d_cp, _m);
     m_state_value.first = m_x_traj;
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();

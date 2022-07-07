@@ -94,7 +94,7 @@ TEST_F(SolverTests, ILQR_solve_test)
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
 
     FiniteDifference fd(m);
-    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, m);
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
     ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, params, m, d, nullptr);
 
@@ -193,7 +193,7 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test)
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
 
     FiniteDifference fd(m);
-    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, m);
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 

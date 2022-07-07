@@ -74,8 +74,7 @@ public:
         )(0, 0);
 
 
-        const double cost_power = 1;
-        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, delta_control, data, model) * cost_power;
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_params.m_lambda + m_running_cost(state, new_control, data, model);
     }
 
     const MPPIDDPParamsPar& m_params;
