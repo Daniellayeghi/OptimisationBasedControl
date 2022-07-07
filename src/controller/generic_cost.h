@@ -8,6 +8,8 @@
 #include "../parameters/simulation_params.h"
 #include "../utilities/generic_algs.h"
 #include "../utilities/mujoco_utils.h"
+#include "../utilities/generic_utils.h"
+
 
 using namespace SimulationParameters;
 
@@ -101,7 +103,7 @@ public:
 
         std::for_each(value_vec.begin(), value_vec.end(),
                       [&, idx = 0](double& value)mutable {
-                          value += m_r_cost(x_vec[idx], u_vec[idx], m_x_gain, m_u_gain, nullptr, nullptr); ++idx;
+                          value = m_r_cost(x_vec[idx], u_vec[idx], m_x_gain, m_u_gain, nullptr, nullptr); ++idx;
                       });
 
         auto add = [](double in1, double in2){return in1 + in2;};
@@ -178,6 +180,7 @@ public:
 };
 
 
+// Parameters for the PIDDP cost
 struct MPPIDDPCstParams {
     const int m_importance = 0;
     const double m_lambda  = 0;
@@ -185,6 +188,7 @@ struct MPPIDDPCstParams {
     const std::function<double(const mjData* data, const mjModel *model)>&  m_importance_reg =
             [](const mjData* data=nullptr, const mjModel *model=nullptr){return 1.0;};
 };
+
 
 class PICost : public BaseCost<PICost>
 {
@@ -220,42 +224,62 @@ public:
     }
 
 
-    void compute_value(const std::vector<StateVector>& x_vec, const std::vector<CtrlVector>& u_vec, std::vector<double>& value_vec, const mjData* d, const mjModel* m) const override
+    void compute_state_value(const std::vector<StateVector>& x_vec, const std::vector<CtrlVector>& u_vec,
+                             GenericUtils::FastPair<std::vector<StateVector>, std::vector<double>>& state_value_vec, const mjData* d, const mjModel* m) const
     {
         using namespace GenericMap;
         using T_op = double;
 
-        std::for_each(value_vec.begin(), value_vec.end(),
+        std::for_each(state_value_vec.second.begin(), state_value_vec.second.end(),
                       [&, idx = 0](double& value)mutable {
-                          value += m_r_cost(x_vec[idx], u_vec[idx], m_x_gain, m_u_gain, nullptr, nullptr); ++idx;
+                          value = m_r_cost(x_vec[idx], u_vec[idx], m_x_gain, m_u_gain, d, m); ++idx;
                       });
 
         auto add = [](double in1, double in2){return in1 + in2;};
-        consecutive_map<T_op, T_op>(value_vec.data(), value_vec.size(), add);
+        consecutive_map<T_op, T_op>(state_value_vec.second.data(), state_value_vec.second.size(), add);
+        state_value_vec.first = x_vec;
     }
 
 
-    double pi_ddp_cost(const CtrlVector& old_u, const CtrlVector& ddp_mean_u, const CtrlMatrix& ddp_covariance_inv, const mjData* d, const mjModel* m)
+    double pi_ddp_cost(const StateVector& state,
+                       const CtrlVector& control,
+                       const CtrlVector& delta_control,
+                       const CtrlVector& ddp_mean_control,
+                       const CtrlMatrix& ddp_covariance_inv,
+                       const mjData* data, const mjModel *model)
     {
-        update_errors(d, m);
-        const auto importance = m_cst_params.m_importance * m_cst_params.m_importance_reg(d, m);
-        double ddp_bias = ((m_u_error - ddp_mean_u).transpose() * ddp_covariance_inv * (m_u_error - ddp_mean_u)
-                )(0, 0) * m_cst_params.m_importance;
+        const auto importance = m_cst_params.m_importance * m_cst_params.m_importance_reg(data, model);
+        CtrlVector new_control = control + delta_control;
+        double ddp_bias = ((new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
+                          )(0, 0) * m_cst_params.m_importance;
 
-        double passive_bias = (m_u_error.transpose() * m_cst_params.m_ctrl_variance_inv * m_u_error
+        double passive_bias = (new_control.transpose() * m_cst_params.m_ctrl_variance_inv * new_control
                 )(0, 0) * (- m_cst_params.m_importance);
 
-        double common_bias = (
-                old_u.transpose() * m_cst_params.m_ctrl_variance_inv * old_u +
-                2 * m_u_error.transpose() * m_cst_params.m_ctrl_variance_inv * old_u)(0, 0);
+        double common_bias = (control.transpose() * m_cst_params.m_ctrl_variance_inv * control +
+                2 * new_control.transpose() * m_cst_params.m_ctrl_variance_inv * control
+        )(0, 0);
 
-        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda + running_cost(d, m);
+        const auto arunning_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+            StateVector state_error = m_x_goal - state_vector;
+            CtrlVector ctrl_error = ctrl_vector;
+            return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
+                    (0, 0);
+        };
 
-    };
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda + arunning_cost(state, new_control, data, model);
+    }
 
 
     double running_cost(const mjData* d, const mjModel* m) override
     {
+        const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+            StateVector state_error  = m_x_goal - state_vector;
+            CtrlVector ctrl_error = ctrl_vector;
+            return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
+                    (0, 0);
+        };
+
         update_errors(d, m);
         return m_r_cost(m_x_error, m_u_error, m_x_gain, m_u_gain, d, m);
     }
@@ -264,15 +288,12 @@ public:
     double terminal_cost(const mjData* d, const mjModel* m)
     {
         update_errors(d, m);
-        return m_terminal_cost(m_x_error, m_u_error, m_x_gain, m_u_gain, d, m);
+        return m_terminal_cost(m_x_error, m_u_error, m_x_tgain, m_u_gain, d, m);
     }
 
     RunningCostPtr* m_terminal_cost = nullptr;
     const MPPIDDPCstParams& m_cst_params;
 
 };
-
-
-
 
 #endif //OPTCONTROL_MUJOCO_GENERIC_COST_H

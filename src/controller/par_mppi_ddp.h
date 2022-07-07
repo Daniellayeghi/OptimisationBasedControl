@@ -10,6 +10,8 @@
 #include "../parameters/simulation_params.h"
 #include "../utilities/eigen_norm_dist.h"
 #include "../utilities/generic_utils.h"
+#include "generic_cost.h"
+
 #include "Eigen/Core"
 
 
@@ -132,7 +134,7 @@ class MPPIDDPPar : public BaseController<MPPIDDPPar> {
 
 public:
     // Functions
-    explicit MPPIDDPPar(const mjModel *m, QRCostDDPPar &cost, MPPIDDPParamsPar &params);
+    explicit MPPIDDPPar(const mjModel *m, PICost &cost, MPPIDDPParamsPar &params);
     void control(const mjData *d, bool skip = false) override;
 
     ~MPPIDDPPar() = default;
@@ -162,7 +164,7 @@ private:
     unsigned int m_per_thread_sample;
     const mjModel* m_m;
     MPPIDDPParamsPar& m_params;
-    const QRCostDDPPar& m_cost_func;
+    PICost& m_cost_func;
 };
 
 #endif //OPTCONTROL_MUJOCO_PAR_MPPI_DDP_H

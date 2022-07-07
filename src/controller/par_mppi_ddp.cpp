@@ -9,7 +9,7 @@ constexpr const int nthreads = n_threads;
 static void (*s_callback_ctrl)(const mjModel *, mjData *);
 static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
 
-MPPIDDPPar::MPPIDDPPar(const mjModel* m, QRCostDDPPar& cost, MPPIDDPParamsPar& params):
+MPPIDDPPar::MPPIDDPPar(const mjModel* m, PICost& cost, MPPIDDPParamsPar& params):
         m_padded_cst(params.m_k_samples, std::vector<double>(8)),
         m_sample_ctrl_traj(params.m_k_samples),
         m_dist_gens(nthreads,{params.pi_ctrl_mean, params.ctrl_variance,
@@ -168,10 +168,10 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
 
                 MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
-                m_padded_cst[sample][0] += m_cost_func(
+                m_padded_cst[sample][0] += m_cost_func.pi_ddp_cost(
                         t_d.next, m_u_traj[time], pert_sample,
-                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m
-                        );
+                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m);
+
             }
 
             // Set final pert sample
@@ -186,7 +186,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
             // Compute terminal cost
-            m_padded_cst[sample][0] += m_cost_func.m_terminal_cost(t_d.next, mjdata, m_m);
+            m_padded_cst[sample][0] += m_cost_func.terminal_cost(mjdata, m_m);
         }
     }
 }
@@ -212,7 +212,7 @@ void MPPIDDPPar::control(const mjData* d, const bool skip)
     }
 
     cached_control = m_u_traj.front();
-    m_cost_func.compute_state_value(m_u_traj, m_x_traj, m_state_value, m_thread_mjdata.front(), m_m);
+    m_cost_func.compute_state_value(m_x_traj, m_u_traj, m_state_value, m_thread_mjdata.front(), m_m);
     std::rotate(m_u_traj.begin(), m_u_traj.begin() + 1, m_u_traj.end());
     m_u_traj.back() = CtrlVector::Zero();
 }

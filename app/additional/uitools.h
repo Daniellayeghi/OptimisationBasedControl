@@ -11,8 +11,8 @@
 #pragma once
 
 
-#include "mujoco.h"
-#include "glfw3.h"
+#include <GLFW/glfw3.h>
+#include <mujoco/mujoco.h>
 
 
 // this is a C-API

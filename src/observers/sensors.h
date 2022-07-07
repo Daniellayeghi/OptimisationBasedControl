@@ -1,7 +1,7 @@
 
 #ifndef OPTCONTROL_MUJOCO_SENSORS_H
 #define OPTCONTROL_MUJOCO_SENSORS_H
-#include "mujoco.h"
+#include "mujoco/mujoco.h"
 
 class Sensors
 {
