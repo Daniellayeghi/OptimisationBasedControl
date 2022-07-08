@@ -292,16 +292,29 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test_1_Thread)
     CtrlMatrix control_reg;
     control_reg = u_gain * 0;
 
-    const auto running_cost =
-            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
-                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)
-                        (0, 0);
-            };
+    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
+        StateVector state_error  = x_desired - state_vector;
+        CtrlVector ctrl_error = u_desired - ctrl_vector;
+        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
+                (0, 0);
+    };
 
-    const auto terminal_cost =
-            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
-                return (x_err.transpose() * x_gain * x_err)(0, 0);
-            };
+    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+        StateVector state_error = x_desired - state_vector;
+        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+    };
+
+//    const auto running_cost =
+//            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+//                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)
+//                        (0, 0);
+//            };
+//
+//    const auto terminal_cost =
+//            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+//                return (x_err.transpose() * x_gain * x_err)(0, 0);
+//            };
+//
 
     // initial position
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
@@ -311,15 +324,23 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test_1_Thread)
     ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
-    // To show difference in sampling try 3 samples
+////    // To show difference in sampling try 3 samples
+//    MPPIDDPParamsPar params{
+//            200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
+//            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
+//    };
+//
+//    MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
+//    PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+//    MPPIDDPPar pi(m, cst, params);
+
+//     To show difference in sampling try 3 samples
     MPPIDDPParamsPar params{
             200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
             ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
     };
-
-    MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
-    PICost cst(x_desired, x_gain, x_terminal_gain, u_gain, running_cost, terminal_cost, p);
-    MPPIDDPPar pi(m, cst, params);
+    QRCostDDPPar qrcost(params, running_cost, terminal_cost);
+    MPPIDDPPar pi(m, qrcost, params);
 
     // install control callback
     using ControlType = MPPIDDPPar;
@@ -365,6 +386,7 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test_1_Thread)
 
     for (int i = 0; i < u_des_vec.size(); ++i)
     {
+        ASSERT_TRUE((u_des_vec[i] - u_vec[i]).norm() < 1e-8);
         if((u_des_vec[i] - u_vec[i]).norm() >= 1e-8)
         {
             std::cout << "ERROR: " << (u_des_vec[i] - u_vec[i]).norm() << std::endl;
