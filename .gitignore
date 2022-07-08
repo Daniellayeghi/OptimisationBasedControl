@@ -16,5 +16,5 @@ cmake-build-debug
 data/
 figures/
 venv/
-
+!test/data
 /positions.txt
