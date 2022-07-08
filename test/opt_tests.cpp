@@ -213,6 +213,7 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test)
     Eigen::Map<PosVector> pos_map(d->qpos);
     Eigen::Map<CtrlVector> ctrl_map(d->ctrl);
     std::vector<CtrlVector> u_vec;
+    std::fstream cost_mpc(save_dir + "datacartpole_ctrl_vec_mppi_ilqr.csv", std::fstream::out | std::fstream::trunc);
 
     {
         TimeBench timer("ILQR_solve_test");
@@ -244,6 +245,7 @@ TEST_F(SolverTests, MPPI_ILQR_solve_test)
         } while ((pos_map - x_desired.block<2, 1>(0, 0)).norm() > 1e-2);
     }
 
+    BufferUtilities::save_to_file(&cost_mpc, u_vec);
     std::vector<CtrlVector> u_des_vec;
     BufferUtilities::read_csv_file(save_dir + "datacartpole_ctrl_vec_mppi_ilqr.csv", u_des_vec);
 
