@@ -1,3 +1,0 @@
-Mon Feb 24 11:38:30 2020
-ERROR: Could not open activation key file ${MUJ_KEY_PATH}
-
