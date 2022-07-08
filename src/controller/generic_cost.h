@@ -12,7 +12,10 @@
 
 
 using namespace SimulationParameters;
+using namespace GenericUtils;
 
+
+// No Mutable state in this class (Threading)
 template <typename T>
 class BaseCost
 {
@@ -52,10 +55,6 @@ protected:
     const StateMatrix m_x_gain;
     const StateMatrix m_x_tgain;
     const CtrlMatrix m_u_gain;
-    StateVector m_x_error;
-    CtrlVector m_u_error;
-    StateVector m_x;
-    CtrlVector m_u;
 };
 
 
@@ -72,12 +71,12 @@ public:
     };
 
 
-    void update_errors(const mjData *d, const mjModel* m)
+    FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
     {
-        MujocoUtils::fill_state_vector(d, m_x, m);
-        MujocoUtils::fill_ctrl_vector(d, m_u, m);
-        m_x_error = m_x - m_x_goal;
-        m_u_error = m_u;
+        StateVector x_err; CtrlVector u_err;
+        MujocoUtils::fill_state_vector(d, x_err, m);
+        MujocoUtils::fill_ctrl_vector(d, u_err, m);
+        return {x_err, u_err};
     }
 
 
@@ -90,9 +89,9 @@ public:
             cst += m_r_cost(x_err, u_vec[row], m_x_gain, m_u_gain, nullptr, nullptr);
         }
 
-        m_x_error = m_x_goal - x_vec.back();
+        const StateVector x_err = m_x_goal - x_vec.back();
         //Running cost + terminal cost
-        return cst + (m_x_error.transpose() * m_x_tgain * m_x_error)(0, 0);
+        return cst + (x_err.transpose() * m_x_tgain * x_err)(0, 0);
     }
 
 
@@ -119,57 +118,57 @@ public:
 
     double L(const mjData* d, const mjModel* m)
     {
-        update_errors(d, m);
-        return m_r_cost(m_x_error, m_u, m_x_gain, m_u_gain, nullptr, nullptr);
+        const auto err = compute_errors(d, m);
+        return m_r_cost(err.first, err.second, m_x_gain, m_u_gain, nullptr, nullptr);
     }
 
 
     StateVector L_x(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
-        return m_x_error.transpose() * (2 * m_x_gain);
+        const auto err = compute_errors(d, m);
+        return err.first.transpose() * (2 * m_x_gain);
     }
 
 
     StateMatrix L_xx(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
+        const auto err = compute_errors(d, m);
         return 2 * m_x_gain;
     }
 
 
     CtrlVector L_u(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
-        return (m_u_error.transpose() * (2 * m_u_gain)) * 2;
+        const auto err = compute_errors(d, m);
+        return (err.second.transpose() * (2 * m_u_gain)) * 2;
     }
 
 
     CtrlMatrix L_uu(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
+        compute_errors(d, m);
         return 2 * m_u_gain * 2;
     }
 
 
     CtrlStateMatrix L_ux(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
+        compute_errors(d, m);
         return CtrlStateMatrix::Zero();
     }
 
 
     mjtNum Lf(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
-        return (m_x_error.transpose() * m_x_tgain * m_x_error)(0, 0);
+        const auto err = compute_errors(d, m);
+        return (err.first.transpose() * m_x_tgain * err.first)(0, 0);
     }
 
 
     StateVector Lf_x(const mjData *d, const mjModel* m)
     {
-        update_errors(d, m);
-        return m_x_error.transpose() * (2 * m_x_tgain);
+        const auto err = compute_errors(d, m);
+        return err.first.transpose() * (2 * m_x_tgain);
     }
 
 
@@ -200,14 +199,13 @@ public:
     };
 
 
-    void update_errors(const mjData *d, const mjModel* m)
+    FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
     {
-        MujocoUtils::fill_state_vector(d, m_x, m);
-        MujocoUtils::fill_ctrl_vector(d, m_u, m);
-        m_x_error = m_x - m_x_goal;
-        m_u_error = m_u;
+        StateVector x_err; CtrlVector u_err;
+        MujocoUtils::fill_state_vector(d, x_err, m);
+        MujocoUtils::fill_ctrl_vector(d, u_err, m);
+        return {x_err, u_err};
     }
-
 
     double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec, const mjData* d, const mjModel *m) override
     {
@@ -218,9 +216,9 @@ public:
             cst += m_r_cost(x_err, u_vec[row], m_x_gain, m_u_gain, d, m);
         }
 
-        m_x_error = m_x_goal - x_vec.back();
+        const StateVector x_error = m_x_goal - x_vec.back();
         //Running cost + terminal cost
-        return cst + (m_x_error.transpose() * m_x_tgain * m_x_error)(0, 0);
+        return cst + (x_error.transpose() * m_x_tgain * x_error)(0, 0);
     }
 
 
@@ -275,27 +273,27 @@ public:
     double running_cost(const mjData* d, const mjModel* m) override
     {
         const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-            StateVector state_error  = m_x_goal - state_vector;
-            CtrlVector ctrl_error = ctrl_vector;
+            const StateVector state_error  = m_x_goal - state_vector;
+            const CtrlVector& ctrl_error = ctrl_vector;
             return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
                     (0, 0);
         };
 
-        update_errors(d, m);
-        return m_r_cost(m_x_error, m_u_error, m_x_gain, m_u_gain, d, m);
+        const auto err = compute_errors(d, m);
+        return m_r_cost(err.first, err.second, m_x_gain, m_u_gain, d, m);
     }
 
 
     double terminal_cost(const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr)
     {
         const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-            StateVector state_error = m_x_goal - state_vector;
+            const StateVector state_error = m_x_goal - state_vector;
             return (state_error.transpose() * m_x_tgain * state_error)(0, 0);
         };
 
         return terminal_cost(state_vector, data, model);
 
-//        update_errors(d, m);
+//        compute_errors(d, m);
 //        return m_terminal_cost(m_x_error, m_u_error, m_x_tgain, m_u_gain, d, m);
     }
 
