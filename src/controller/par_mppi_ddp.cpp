@@ -185,7 +185,7 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
             MujocoUtils::apply_ctrl_update_state(t_d.instant_ctrl, t_d.next, mjdata, m_m);
 
             // Compute terminal cost
-            m_padded_cst[sample][0] += m_cost_func.terminal_cost(t_d.next, mjdata, m_m);
+            m_padded_cst[sample][0] += m_cost_func.terminal_cost(mjdata, m_m);
         }
     }
 }

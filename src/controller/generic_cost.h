@@ -14,7 +14,7 @@
 using namespace SimulationParameters;
 using namespace GenericUtils;
 
-
+//TODO: Add value function separately
 // No Mutable state in this class (Threading)
 template <typename T>
 class BaseCost
@@ -271,29 +271,15 @@ public:
 
     double running_cost(const mjData* d, const mjModel* m) override
     {
-        const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-            const StateVector state_error  = m_x_goal - state_vector;
-            const CtrlVector& ctrl_error = ctrl_vector;
-            return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
-                    (0, 0);
-        };
-
         const auto err = compute_errors(d, m);
         return m_r_cost(err.first, err.second, m_x_gain, m_u_gain, d, m);
     }
 
 
-    double terminal_cost(const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr)
+    double terminal_cost(const mjData* d=nullptr, const mjModel* m =nullptr)
     {
-        const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-            const StateVector state_error = m_x_goal - state_vector;
-            return (state_error.transpose() * m_x_tgain * state_error)(0, 0);
-        };
-
-        return terminal_cost(state_vector, data, model);
-
-//        compute_errors(d, m);
-//        return m_terminal_cost(m_x_error, m_u_error, m_x_tgain, m_u_gain, d, m);
+        const auto err = compute_errors(d, m);
+        return m_terminal_cost(err.first, err.second, m_x_tgain, m_u_gain, d, m);
     }
 
     RunningCostPtr* m_terminal_cost;
