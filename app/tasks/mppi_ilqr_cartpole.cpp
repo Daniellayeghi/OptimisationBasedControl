@@ -199,17 +199,16 @@ int main(int argc, const char** argv)
     CtrlMatrix control_reg;
     control_reg = u_gain * 0;
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0);
-    };
+    const auto running_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)
+                        (0, 0);
+            };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
-    };
+    const auto terminal_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
+            };
 
     std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
@@ -284,7 +283,6 @@ int main(int argc, const char** argv)
                 pi.control(d);
                 ilqr.m_u_traj = pi.m_u_traj;
                 MujocoUtils::fill_state_vector(d, temp_state, m);
-                cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
 //                zmq_buffer.send_buffers();
