@@ -269,9 +269,9 @@ int main(int argc, const char** argv)
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 10, 1};
-    ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 10, 1,  false};
+    ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
     MPPIDDPParams params {
         200, 10, 0.1, 1, 1, 1, 1e3,
@@ -279,6 +279,7 @@ int main(int argc, const char** argv)
     };
     QRCostDDP qrcost(params, running_cost, terminal_cost);
     MPPIDDP pi(m_ng, qrcost, params);
+
 
     // install control callback
     using ControlType = MPPIDDP;

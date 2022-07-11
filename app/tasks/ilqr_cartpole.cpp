@@ -219,10 +219,7 @@ int main(int argc, const char** argv)
         while( d->time - simstart < 1.0/60.0 )
         {
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-            {
-                TimeBench timer("NEW CST");
-                ilqr.control(d);
-            }
+            ilqr.control(d);
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
             mj_step(m, d);

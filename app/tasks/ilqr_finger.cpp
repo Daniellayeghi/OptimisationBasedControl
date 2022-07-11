@@ -193,8 +193,8 @@ int main(int argc, const char** argv)
     d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
 
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1};
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, params, m, d, nullptr);
 
     // install control callback

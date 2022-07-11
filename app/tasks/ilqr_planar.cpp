@@ -5,6 +5,7 @@
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/buffer_utils.h"
 #include "../../src/utilities/buffer.h"
+#include "../../src/controller/par_mppi_ddp.h"
 
 // for sleep timers
 #include <chrono>
@@ -248,37 +249,51 @@ int main(int argc, const char** argv)
         return false;
     };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
+    const auto running_cost = [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+        static const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+            std::array<int, 3> joint_list {{0, 1, 2}};
+                if(data and model)
+                    for(auto i = 0; i < data->ncon; ++i)
+                    {
+                        bool check_1 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom1]) != joint_list.end());
+                        bool check_2 = (std::find(joint_list.begin(), joint_list.end(), model->geom_bodyid[data->contact[i].geom2]) != joint_list.end());
 
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0) + collision_cost(data, model) * 5000;
+                        if (check_1 != check_2)
+                            return true;
+                    }
+                return false;
+        };
+                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0) +
+                        collision_cost(d, m) * 5000;
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
+    const auto terminal_cost = [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
+            };
 
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
-    };
 
 
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
-    MPPIDDPParams params {
-        10, 75, 0.001, 0, 1, 1, 1,
-        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+
+    MPPIDDPParamsPar params{
+            10, 75, 0.001, 0, 1, 1, 1,
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
-    QRCostDDP qrcost(params, running_cost, terminal_cost);
-    MPPIDDP pi(m, qrcost, params);
+
+    MPPIDDPCstParams cst_params{1, 0.001, ctrl_var.inverse()};
+    PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, cst_params);
+    MPPIDDPPar pi(m, cst, params);
+
 
     // install control callback
-    MyController<MPPIDDP, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
-    MyController<MPPIDDP, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
-    mjcb_control = MyController<MPPIDDP, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+    using ControlType = MPPIDDPPar;
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
+    MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
+    mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 
     /* =============================================CSV Output Files=======================================================*/
     std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";

@@ -250,6 +250,7 @@ int main(int argc, const char** argv)
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);
+
         uoe::FICController fic_ctrl;
 
         // install control callback

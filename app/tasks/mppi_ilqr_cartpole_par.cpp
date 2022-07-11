@@ -199,17 +199,16 @@ int main(int argc, const char** argv)
     CtrlMatrix control_reg;
     control_reg = u_gain * 0;
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                (0, 0);
-    };
+    const auto running_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)
+                        (0, 0);
+            };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
-    };
+    const auto terminal_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
+            };
 
     std::array<unsigned int, 1> seeds {{3}};
     for (const auto seed : seeds) {
@@ -220,17 +219,19 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+        ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
                 200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
-                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
         };
-        QRCostDDPPar qrcost(params, running_cost, terminal_cost);
-        MPPIDDPPar pi(m, qrcost, params);
+
+        MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
+        PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+        MPPIDDPPar pi(m, cst, params);
 
         // install control callback
         using ControlType = MPPIDDPPar;
@@ -256,7 +257,6 @@ int main(int argc, const char** argv)
         pos_buff.add_buffer_and_file({&pos_bt, &pos_data});
         vel_buff.add_buffer_and_file({&vel_bt, &vel_data});
         ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_data});
-        StateVector temp_state;
         Eigen::Map<PosVector> mapped_pos = Eigen::Map<PosVector>(d->qpos);
         Eigen::Map<VelVector> mapped_vel = Eigen::Map<VelVector>(d->qvel);
         Eigen::Map<CtrlVector> mapped_ctrl = Eigen::Map<CtrlVector>(d->ctrl);
@@ -281,8 +281,6 @@ int main(int argc, const char** argv)
                 ilqr.control(d);
                 pi.control(d);
                 ilqr.m_u_traj = pi.m_u_traj;
-                MujocoUtils::fill_state_vector(d, temp_state, m);
-                cost = running_cost(temp_state, mapped_ctrl, d , m);
                 ctrl_buffer.update(ilqr.cached_control.data(), true);
                 pi_buffer.update(pi.cached_control.data(), false);
 //                zmq_buffer.send_buffers();

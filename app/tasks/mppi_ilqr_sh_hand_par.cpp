@@ -212,71 +212,70 @@ int main(int argc, const char** argv)
     StateMatrix r_state_reg = x_gain;
     CtrlMatrix control_reg = u_gain;
 
+    const auto running_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                static const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+                    constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
+                                                                    9, 10, 11, 12,13,14, 15, 16,
+                                                                    17,18,19,20, 21, 22, 23, 24, 25,26, 27}};
+                    auto iteration = 0;
+                    if(data and model)
+                        for(auto i = 0; i < data->ncon; ++i)
+                        {
+                            // Contact with world body (0) is always there so ignore that.
+                            auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                            auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                            bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                            bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                            if (check_1 != check_2 and not world_contact)
+                                ++iteration;
+                        }
+                    return (iteration == 0)?1:1.0/(iteration+1);
+                };
 
-    const auto max_ctrl_auth = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
-                                                        9, 10, 11, 12,13,14, 15, 16,
-                                                        17,18,19,20, 21, 22, 23, 24, 25,26, 27}};
-        auto iteration = 0;
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    ++iteration;
-            }
-        return (iteration == 0)?1:1.0/(iteration+1);
-    };
 
+                static const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+                    constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
+                                                                    9, 10, 11, 12,13,14, 15, 1,
+                                                                    17,18, 19,20, 21, 22, 23, 24, 25,26, 27}};
+                    if(data and model)
+                        for(auto i = 0; i < data->ncon; ++i)
+                        {
+                            // Contact with world body (0) is always there so ignore that.
+                            auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                            auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                            bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                            bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                            if (check_1 != check_2 and not world_contact)
+                                return true;
+                        }
+                    return false;
+                };
 
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        constexpr const std::array<int, 28> body_list {{0, 1, 2, 3, 4,5, 6,7, 8,
-                                                        9, 10, 11, 12,13,14, 15, 1,
-                                                        17,18, 19,20, 21, 22, 23, 24, 25,26, 27}};
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    return true;
-            }
-        return false;
-    };
+                const auto cost = (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0);
+                return cost + not collision_cost(d, m) * cost;
+            };
 
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-        const double cost = ((state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error) (0, 0));
-        return cost + not collision_cost(data, model) * cost;
-    };
-
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
-
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
-    };
+    const auto terminal_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
+            };
 
     //10 samples work original params 1 with importance 1/0 damping at 3 without mean update and 0.005 timestep
     // 40 and 10 and 100 samples with 10 lmbda and 1 importance with mean/2 update timestep 0.005 and damping 3
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1};
-    ILQR ilqr(fd, cost_func, ilqr_params, m_ng, d, nullptr);
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
+    ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
     MPPIDDPParamsPar params {
-        250, 75, 0.05, 0, 1, 1, 1e2,
-        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+            250, 75, 0.05, 0, 1, 1, 1e2,
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
-    QRCostDDPPar qrcost(params, running_cost, terminal_cost);
-    MPPIDDPPar pi(m_ng, qrcost, params);
+
+    MPPIDDPCstParams p{1, 0.05, ctrl_var.inverse()};
+    PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+    MPPIDDPPar pi(m, cst, params);
 
     // install control callback
     using ControlType = MPPIDDPPar;
@@ -333,7 +332,6 @@ int main(int argc, const char** argv)
             pi_buffer.update(pi.cached_control.data(), false);
             zmq_buffer.send_buffers();
             MujocoUtils::fill_state_vector(d, temp_state, m);
-            cost = running_cost(temp_state, ctrl_map, d , m);
             pos_buff.push_buffer(); vel_buff.push_buffer();
             ctrl_buff.push_buffer(); cost_buff.push_buffer();
             zmq_buffer.send_buffers();

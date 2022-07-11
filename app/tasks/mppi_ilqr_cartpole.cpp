@@ -10,6 +10,7 @@
 #include "../../src/utilities/zmq_utils.h"
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/mujoco_utils.h"
+#include "../../src/controller/par_mppi_ddp.h"
 
 // for sleep timers
 #include <chrono>
@@ -219,20 +220,22 @@ int main(int argc, const char** argv)
         d->qvel[1] = 0;
 
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+        ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{
+        MPPIDDPParamsPar params{
                 200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
-                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
         };
-        QRCostDDP qrcost(params, running_cost, terminal_cost);
-        MPPIDDP pi(m, qrcost, params);
+
+        MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
+        PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+        MPPIDDPPar pi(m, cst, params);
 
         // install control callback
-        using ControlType = MPPIDDP;
+        using ControlType = MPPIDDPPar;
         MyController<ControlType, n_jpos + n_jvel, n_ctrl> control(m, d, pi);
         MyController<ControlType, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
 

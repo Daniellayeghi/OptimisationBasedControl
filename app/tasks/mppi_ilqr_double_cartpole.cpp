@@ -9,6 +9,7 @@
 #include "../../src/utilities/buffer.h"
 #include "../../src/controller/mppi_ddp.h"
 #include "../../src/utilities/zmq_utils.h"
+#include "../../src/controller/par_mppi_ddp.h"
 
 // for sleep timers
 #include <chrono>
@@ -212,38 +213,33 @@ int main(int argc, const char** argv)
         control_reg.diagonal()[elem] = 0;
     }
 
-
-    const auto running_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)
-                       (0, 0);
+    const auto running_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+        return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0);
     };
 
-    const auto terminal_cost = [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
-
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+    const auto terminal_cost =
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+        return (x_err.transpose() * x_gain * x_err)(0, 0);
     };
 
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 180, 1};
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 100, 1,  false};
     ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
-    MPPIDDPParams params {
-        100, 100,0.0001, 0, 1, 1, 25,
-        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+    // To show difference in sampling try 3 samples
+    MPPIDDPParamsPar params {
+            100, 100,0.0001, 0, 1, 1, 25,
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
     };
-    QRCostDDP qrcost(params, running_cost, terminal_cost);
-    MPPIDDP pi(m, qrcost, params);
+
+    MPPIDDPCstParams p{1, 0.0001, ctrl_var.inverse()};
+    PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+    MPPIDDPPar pi(m, cst, params);
 
     // initial position
     d->qpos[0] = 0; d->qpos[1] = M_PI; d->qpos[2] = 0; d->qvel[0] = 0; d->qvel[1] = 0; d->qvel[2] = 0;
-
-    CtrlMatrix R;
-    StateMatrix Q;
 
     // install control callback
     using ControlType = ILQR;

@@ -242,8 +242,8 @@ int main(int argc, const char** argv)
     };
 
     FiniteDifference fd(m);
-    CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 25, 1};
+    QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+    ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
     ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
     MPPIDDPParams params {
@@ -252,6 +252,8 @@ int main(int argc, const char** argv)
     };
     QRCostDDP qrcost(params, running_cost, terminal_cost);
     MPPIDDP pi(m, qrcost, params);
+
+
 
     // install control callback
     using ControlType = MPPIDDP;

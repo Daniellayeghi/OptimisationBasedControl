@@ -204,7 +204,7 @@ public:
         StateVector x_err; CtrlVector u_err;
         MujocoUtils::fill_state_vector(d, x_err, m);
         MujocoUtils::fill_ctrl_vector(d, u_err, m);
-        return {x_err, u_err};
+        return {x_err, - u_err};
     }
 
     double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec, const mjData* d, const mjModel *m) override
@@ -264,12 +264,6 @@ public:
             return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
                     (0, 0);
         };
-
-        auto r  =  arunning_cost(state, new_control, data, model);
-//        printf("d = %f, p = %f, c = %f, i = %i, n = %f, ctrl = %f, d_ctrl = %f, c_var = %f, ddp_var = %f, r_cost = %f, lam = %f\n",
-//               ddp_bias, passive_bias, common_bias, m_cst_params.m_importance, new_control(0, 0),
-//               control(0, 0), ddp_mean_control(0, 0), m_cst_params.m_ctrl_variance_inv(0, 0),
-//               ddp_covariance_inv(0, 0), r, m_cst_params.m_lambda);
 
         return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda + arunning_cost(state, new_control, data, model);
     }

@@ -225,13 +225,15 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         // To show difference in sampling try 3 samples
-        MPPIDDPParams params{
-            10, 75, 0.1, 1, 1, 1,
-            0.00001, ctrl_mean, ddp_var, ctrl_var,
-            {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+        MPPIDDPParamsPar params{
+                200, 75, 0.1, 1, 1, 1, 1000,ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
         };
-        QRCostDDP qrcost(params, running_cost, terminal_cost);
-        MPPIDDP pi(m, qrcost, params);
+
+        MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
+        PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+        MPPIDDPPar pi(m, cst, params);
+
         uoe::FICController fic_ctrl;
         // install control callback
         using ControlType = uoe::FICController;

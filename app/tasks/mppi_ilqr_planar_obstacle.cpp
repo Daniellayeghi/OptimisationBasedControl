@@ -262,9 +262,10 @@ int main(int argc, const char** argv)
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
 
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain,m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+        ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
+
         // New result version try with higher regularisation but start at 20
         MPPIDDPParams params{
             50, 75, .3, 1, 1, 1, 20,ctrl_mean,

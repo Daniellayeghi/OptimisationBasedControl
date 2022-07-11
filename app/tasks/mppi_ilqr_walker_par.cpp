@@ -196,62 +196,58 @@ int main(int argc, const char** argv)
     StateMatrix r_state_reg = StateMatrix::Zero();
     CtrlMatrix control_reg = CtrlMatrix::Zero();
 
-    const auto foot_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        const std::array<int, 3> foot_id {{0, 4, 7}};
-
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
-                if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
-                {
-                    bool world_contact = *elem_1 == 0 or *elem_2 == 0;
-                    if (world_contact)
-                        return true;
-                }
-            }
-        return false;
-    };
-
-    const auto body_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        const std::array<int, 6> foot_id {{0, 1, 2, 3, 5, 6}};
-
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
-                if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
-                {
-                    bool world_contact = *elem_1 == 0 or *elem_2 == 0;
-                    if (world_contact)
-                        return true;
-                }
-            }
-        return false;
-    };
-
     const auto running_cost =
-            [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-                StateVector state_error  = x_desired - state_vector;
-                CtrlVector ctrl_error = u_desired - ctrl_vector;
-                auto error = (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error).eval();
-                auto col_cost = not foot_contact(data, model) * 2.5e3 * 1;
-                auto body_cost = body_contact(data, model) * 2.5e3 *1;
-                return (error(0, 0) + col_cost);
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                static const auto foot_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+                    const std::array<int, 3> foot_id {{0, 4, 7}};
+
+                    if(data and model)
+                        for(auto i = 0; i < data->ncon; ++i)
+                        {
+                            // Contact with world body (0) is always there so ignore that.
+                            auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
+                            auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
+                            if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
+                            {
+                                bool world_contact = *elem_1 == 0 or *elem_2 == 0;
+                                if (world_contact)
+                                    return true;
+                            }
+                        }
+                    return false;
+                };
+
+                static const auto body_contact = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+                    const std::array<int, 6> foot_id {{0, 1, 2, 3, 5, 6}};
+
+                    if(data and model)
+                        for(auto i = 0; i < data->ncon; ++i)
+                        {
+                            // Contact with world body (0) is always there so ignore that.
+                            auto elem_1 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom1]);
+                            auto elem_2 = std::find(foot_id.begin(), foot_id.end(), model->geom_bodyid[data->contact[i].geom2]);
+                            if(elem_1 != foot_id.end() and elem_2 != foot_id.end())
+                            {
+                                bool world_contact = *elem_1 == 0 or *elem_2 == 0;
+                                if (world_contact)
+                                    return true;
+                            }
+                        }
+                    return false;
+                };
+
+                const auto err = (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0);
+                const auto col_cost = not foot_contact(d, m) * 2.5e3 * 1;
+                const auto body_cost = body_contact(d, m) * 2.5e3 *1;
+                return (err + col_cost);
             };
 
     const auto terminal_cost =
-            [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-                StateVector state_error = x_desired - state_vector;
-                return (state_error.transpose() * t_state_reg * state_error)(0, 0);
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
             };
 
     const auto importance_reg =[&](const mjData* data=nullptr, const mjModel *model=nullptr){
-
         return 1;
     };
 
@@ -260,10 +256,9 @@ int main(int argc, const char** argv)
         std::copy(x_initial.data(), x_initial.data()+n_jpos, d->qpos);
         std::copy(x_initial.data()+n_jpos, x_initial.data()+state_size, d->qvel);
 
-        // initial position
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_running_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1, false};
+        QRCst cost_func(x_desired, x_running_gain, x_terminal_gain, u_gain, nullptr);
+        ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
@@ -272,8 +267,9 @@ int main(int argc, const char** argv)
                 1, importance_reg, false
         };
 
-        QRCostDDPPar qrcost(params, running_cost, terminal_cost);
-        MPPIDDPPar pi(m, qrcost, params);
+        MPPIDDPCstParams p{1, 0.25, ctrl_var.inverse()};
+        PICost cst(x_desired, x_running_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+        MPPIDDPPar pi(m, cst, params);
 
         // install control callback
         using ControlType = MPPIDDPPar;

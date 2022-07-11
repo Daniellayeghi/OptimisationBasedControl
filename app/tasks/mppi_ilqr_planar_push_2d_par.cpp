@@ -217,40 +217,51 @@ int main(int argc, const char** argv)
         return (iteration == 0)?1:1.0/(iteration+1);
     };
 
-
-    const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
-        std::array<int, 4> body_list {{0, 1, 2, 3}};
-
-        if(data and model)
-            for(auto i = 0; i < data->ncon; ++i)
-            {
-                // Contact with world body (0) is always there so ignore that.
-                auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
-                auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
-                bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
-                bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
-                if (check_1 != check_2 and not world_contact)
-                    return true;
-            }
-        return false;
-    };
-
     const auto running_cost =
-            [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr){
-        StateVector state_error  = x_desired - state_vector;
-        CtrlVector ctrl_error = u_desired - ctrl_vector;
-        return (state_error.transpose() * r_state_reg * state_error + ctrl_error.transpose() * control_reg * ctrl_error)(0, 0) +
-        (not collision_cost(data, model) * 10000) * (state_error.transpose() * r_state_reg * state_error)(0, 0);
-    };
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                static const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+                    std::array<int, 4> body_list {{0, 1, 2, 3}};
+
+                    if(data and model)
+                        for(auto i = 0; i < data->ncon; ++i)
+                        {
+                            // Contact with world body (0) is always there so ignore that.
+                            auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                            auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                            bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                            bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                            if (check_1 != check_2 and not world_contact)
+                                return true;
+                        }
+                    return false;
+                };
+                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0) + not collision_cost(d, m) * 10000;
+            };
 
     const auto terminal_cost =
-            [&](const StateVector &state_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
-        StateVector state_error = x_desired - state_vector;
-        return (state_error.transpose() * t_state_reg * state_error)(0, 0);
-    };
+            [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
+                return (x_err.transpose() * x_gain * x_err)(0, 0);
+            };
 
-    const auto importance_reg =
-            [&](const mjData* data=nullptr, const mjModel *model=nullptr){
+
+    const auto importance_reg = [&](const mjData* data=nullptr, const mjModel *model=nullptr){
+        static const auto collision_cost = [](const mjData* data=nullptr, const mjModel *model=nullptr){
+            std::array<int, 4> body_list {{0, 1, 2, 3}};
+
+            if(data and model)
+                for(auto i = 0; i < data->ncon; ++i)
+                {
+                    // Contact with world body (0) is always there so ignore that.
+                    auto elem_1 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom1]);
+                    auto elem_2 = std::find(body_list.begin(), body_list.end(), model->geom_bodyid[data->contact[i].geom2]);
+                    bool world_contact = elem_1 == body_list.begin() or elem_2 == body_list.begin();
+                    bool check_1 = elem_1 != body_list.end(), check_2 = elem_2 != body_list.end();
+                    if (check_1 != check_2 and not world_contact)
+                        return true;
+                }
+            return false;
+        };
+
         return collision_cost(data, model);
     };
 
@@ -260,19 +271,21 @@ int main(int argc, const char** argv)
         std::copy(initial_state.data(), initial_state.data()+n_jpos, d->qpos);
         std::copy(initial_state.data()+n_jpos, initial_state.data()+state_size, d->qvel);
 
+
         FiniteDifference fd(m);
-        CostFunction cost_func(x_desired, u_desired, x_gain, u_gain, du_gain, x_terminal_gain, m);
-        ILQRParams ilqr_params{1e-6, 1.6, 1.6, 0, 75, 1};
+        QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
+        ILQRParams ilqr_params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-            400, 75, 0.25, 0, 1, 1,675,
-            ctrl_mean, ddp_var, ctrl_var,{ilqr.m_u_traj_cp, ilqr._covariance},
-            seed, importance_reg
+                400, 75, 0.25, 0, 1, 1,675,
+                ctrl_mean, ddp_var, ctrl_var,{ilqr.m_u_traj_cp, ilqr._covariance},
+                seed, importance_reg
         };
 
-        QRCostDDPPar qrcost(params, running_cost, terminal_cost);
-        MPPIDDPPar pi(m, qrcost, params);
+        MPPIDDPCstParams p{1, 0.25, ctrl_var.inverse()};
+        PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
+        MPPIDDPPar pi(m, cst, params);
 
         // install control callback
         using ControlType = MPPIDDPPar;
@@ -332,7 +345,6 @@ int main(int argc, const char** argv)
                 pi_buffer.update(pi.cached_control.data(), false);
                 zmq_buffer.send_buffers();
                 MujocoUtils::fill_state_vector(d, temp_state, m);
-                cost = running_cost(temp_state, mapped_ctrl, d , m);
                 pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
