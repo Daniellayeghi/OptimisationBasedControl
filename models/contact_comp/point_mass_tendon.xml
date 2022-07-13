@@ -88,4 +88,8 @@
         <general name="distal" joint="distal" gear="1.25 0 0 0 0 0" />
         <general name="distal2" joint="distal2" gear="1.5 0 0 0 0 0" />
     </actuator>
+
+    <sensor>
+        <framepos name="proximal_frame" objtype="body" objname="pointmass"/>
+    </sensor>
 </mujoco>

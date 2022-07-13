@@ -109,7 +109,6 @@ int main(int argc, const char** argv)
 {
     // activate software
     mj_activate(MUJ_KEY_PATH);
-    d->efc_margin
     char error[1000] = "Could not load binary model";
 
 

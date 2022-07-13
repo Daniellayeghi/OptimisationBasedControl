@@ -68,6 +68,11 @@ fname = sprintf("di_data_size_%d_data_num_%d.csv", length(st_val), n_goal);
 dlmwrite(path + fname, st_val, 'delimiter', ',', 'precision', 10);
 
 
+%% New clean
+
+
+
+%% Helper functions
 function s = sort_by_date(s)
     s(~[s.isdir]);
     [~,idx] = sort([s.datenum]);
@@ -94,4 +99,11 @@ function arr = remove_mid_elems(arr, times)
     for sparse = 1:times
         arr(1:2:end-1, :) = []; 
     end
+end
+
+
+function files = match_file_to_name(name, dir)
+    f_name = sprintf('*%f*', name);
+    f = dir(fullfile(dir, f_name));
+    files = imreads(fullfile(dir, f,name));
 end

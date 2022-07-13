@@ -179,13 +179,14 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     PosVector init_pos = PosVector::Zero();
+    PosVector goal_pos = PosVector::Zero();
     Eigen::Map<PosVector> pos_map(d->qpos);
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     // initial position
-    for(auto goal = 1; goal < 2; ++goal) {
-//        random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), lim);
-//        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
+    for(auto goal = 1; goal < 25; ++goal) {
+        MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), 2);
+        x_desired.block(0, 0, n_jpos, 1) = PosVector::Random();
         for (auto init = 1; init < 50; ++init) {
             MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 1);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
@@ -201,20 +202,15 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             /* ============================================CSV Output Files=======================================================*/
             const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-            const auto goal_state = std::to_string(int(x_desired(0))) + std::to_string(int(x_desired(1)));
-            const auto start_state = std::to_string(int(init_pos(0))) + std::to_string(0);
+            const auto goal_state = std::to_string((x_desired(0))) + std::to_string((x_desired(1)));
+            const auto start_state = std::to_string((init_pos(0))) + std::to_string(0);
 
             const std::string mode = std::to_string(goal) + std::to_string(init) + "_start_" + start_state + "_" + goal_state + "_goal_";
-            std::fstream state_file(path + mode + name + "_state_00"  ".csv", std::fstream::out | std::fstream::trunc);
-            std::fstream value_file(path + mode + name + "_value_00"  ".csv", std::fstream::out | std::fstream::trunc);
+            std::fstream ctrl_file(path + mode + name + "_ctrl_00"  ".csv", std::fstream::out | std::fstream::trunc);
 
-            GenericBuffer<StateVector> state_bt{ilqr.m_state_value.first.front().data()};
-            GenericBuffer<Eigen::Matrix<double, 1, 1>> value_bt{&ilqr.m_state_value.second.front()};
-
-            DataBuffer<GenericBuffer<StateVector>> state_buff;
-            DataBuffer<GenericBuffer<Eigen::Matrix<double, 1, 1>>> value_buff;
-            state_buff.add_buffer_and_file({&state_bt, &state_file});
-            value_buff.add_buffer_and_file({&value_bt, &value_file});
+            GenericBuffer<CtrlVector> ctrl_bt{ilqr.cached_control.data()};
+            DataBuffer<GenericBuffer<CtrlVector>> ctrl_buff;
+            ctrl_buff.add_buffer_and_file({&ctrl_bt, &ctrl_file});
 
             /* Use REQ because we want to make sure we recieved all info*/
             printf("Connecting to viewer server…\n");
@@ -239,9 +235,10 @@ int main(int argc, const char** argv)
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                     ilqr.control(d, false);
                     simp_buff.update_buffer();
-                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                    state_buff.push_buffer();
-                    value_buff.push_buffer();
+//                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
+                    ctrl_buff.push_buffer();
+//                    state_buff.push_buffer();
+//                    value_buff.push_buffer();
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                     mj_step(m, d);
                 }
@@ -262,8 +259,9 @@ int main(int argc, const char** argv)
                 glfwPollEvents();
 
                 if (save_data or ((pos_des - pos_map).norm() < 1e-1 and (vel_des - vel_map).norm() < 1e-1)) {
-                    state_buff.save_buffer();
-                    value_buff.save_buffer();
+                    ctrl_buff.save_buffer();
+//                    state_buff.save_buffer();
+//                    value_buff.save_buffer();
                     std::cout << "Saved!" << std::endl;
                     save_data = false;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));

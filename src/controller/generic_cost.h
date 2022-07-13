@@ -73,10 +73,10 @@ public:
 
     FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
     {
-        StateVector x_err; CtrlVector u_err;
-        MujocoUtils::fill_state_vector(d, x_err, m);
-        MujocoUtils::fill_ctrl_vector(d, u_err, m);
-        return {x_err, u_err};
+        StateVector x; CtrlVector u;
+        MujocoUtils::fill_state_vector(d, x, m);
+        MujocoUtils::fill_ctrl_vector(d, u, m);
+        return {x - m_x_goal, u};
     }
 
 
@@ -86,7 +86,8 @@ public:
 
         for(unsigned int row = 0; row < u_vec.size(); ++row){
             const StateVector x_err = x_vec[row] - m_x_goal;
-            cst += m_r_cost(x_err, u_vec[row], m_x_gain, m_u_gain, nullptr, nullptr);
+            const CtrlVector& u_err = -u_vec[row];
+            cst += m_r_cost(x_err, u_err, m_x_gain, m_u_gain, nullptr, nullptr);
         }
 
         const StateVector x_err = m_x_goal - x_vec.back();
