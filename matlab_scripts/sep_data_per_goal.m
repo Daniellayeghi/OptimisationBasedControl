@@ -9,7 +9,7 @@ start_pfix = "start_";
 sep = "_";
 
 path = "~/Repos/OptimisationBasedControl/data/";
-all_files = dir(path + "*doubleintegrator_ctrl*.csv");
+all_files = dir(path + "*doubleintegrator*.csv");
 [~, idx] = find([all_files.bytes] > 0);
 all_files = all_files(idx);
 
@@ -33,13 +33,19 @@ for i  = 1:length(all_files)
 end
 
 ctrl_data = [];
-for i = 1:length(start_goal_s)
+[r, ~] = size(start_goal_s);
+for i = 1:r
     key = start_goal_s(i, 1) + "_" + start_goal_s(i, 2);
     fname = match_file_to_name(key, path);
     new_ctrl = csvread(path + fname);
     [ctrl_data, new_ctrl] = cp_to_match(ctrl_data, new_ctrl);
     ctrl_data = [ctrl_data, new_ctrl];
 end
+
+f_u_name = "ctrl_files_di.csv";
+f_x_name = "state_files_di.csv";
+dlmwrite(path + f_u_name, ctrl_data, 'delimiter', ',', 'precision', 10);
+dlmwrite(path + f_x_name, start_goal, 'delimiter', ',', 'precision', 10);
 
 %% Utility functions
 function name = match_file_to_name(key, path)

@@ -141,7 +141,7 @@ void MPPIDDPPar::perturb_ctrl_traj()
 
 void MPPIDDPPar::rollout_trajectories(const mjData* d)
 {
-#pragma omp  parallel default(none) shared(std::cin, m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
+#pragma omp  parallel default(none) shared(m_thread_mjdata, d, m_cost_func, m_sample_ctrl_traj, m_params, m_u_traj, m_m, m_per_thread_sample) num_threads(nthreads)
     {
         int id = omp_get_thread_num();
         int adjust = 0;

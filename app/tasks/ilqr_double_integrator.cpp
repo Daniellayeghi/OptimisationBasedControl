@@ -42,8 +42,8 @@ void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
     // backspace: reset simulation
     if( act==GLFW_PRESS && key==GLFW_KEY_BACKSPACE )
     {
-//        mj_resetData(m, d);
-//        mj_forward(m, d);
+        mj_resetData(m, d);
+        mj_forward(m, d);
     }
 }
 
@@ -184,7 +184,7 @@ int main(int argc, const char** argv)
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     // initial position
-    for(auto goal = 1; goal < 25; ++goal) {
+    for(auto goal = 1; goal < 50; ++goal) {
         MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), 2);
         x_desired.block(0, 0, n_jpos, 1) = PosVector::Random();
         for (auto init = 1; init < 50; ++init) {
@@ -200,7 +200,7 @@ int main(int argc, const char** argv)
             MyController<ILQR, n_jpos + n_jvel, n_ctrl> control(m, d, ilqr);
             MyController<ILQR, n_jpos + n_jvel, n_ctrl>::set_instance(&control);
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-            /* ============================================CSV Output Files=======================================================*/
+/* ============================================CSV Output Files=======================================================*/
             const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
             const auto goal_state = std::to_string((x_desired(0))) + std::to_string((x_desired(1)));
             const auto start_state = std::to_string((init_pos(0))) + std::to_string(0);
@@ -237,8 +237,6 @@ int main(int argc, const char** argv)
                     simp_buff.update_buffer();
 //                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
                     ctrl_buff.push_buffer();
-//                    state_buff.push_buffer();
-//                    value_buff.push_buffer();
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                     mj_step(m, d);
                 }
@@ -258,10 +256,8 @@ int main(int argc, const char** argv)
                 // process pending GUI events, call GLFW callbacks
                 glfwPollEvents();
 
-                if (save_data or ((pos_des - pos_map).norm() < 1e-1 and (vel_des - vel_map).norm() < 1e-1)) {
+                if (save_data or ((pos_des - pos_map).norm() < 1e-3 and (vel_des - vel_map).norm() < 1e-3)) {
                     ctrl_buff.save_buffer();
-//                    state_buff.save_buffer();
-//                    value_buff.save_buffer();
                     std::cout << "Saved!" << std::endl;
                     save_data = false;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));

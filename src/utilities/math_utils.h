@@ -33,8 +33,7 @@ namespace MathUtils::Rand
     template<typename T, size_t S>
     void random_iid_data_const_bound(T *result, const T positive_bound) {
         using namespace std;
-        random_device r;
-        default_random_engine generator(r());
+        default_random_engine generator{static_cast<long unsigned int>(time(0))};
         for (auto dim = 0; dim < S; ++dim) {
             uniform_real_distribution<T> distribution(-positive_bound, positive_bound);
             result[dim] = distribution(generator);
