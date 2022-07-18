@@ -14,3 +14,8 @@ target_link_libraries(solver_tests gtest_main gtest util_lib control_lib Eigen3:
 add_executable(open_mp_tests open_mp_tests.cpp)
 target_link_libraries(open_mp_tests PUBLIC gtest_main gtest util_lib Eigen3::Eigen mujoco::mujoco)
 target_link_libraries(open_mp_tests PUBLIC OpenMP::OpenMP_CXX)
+
+add_executable(derivative_tests derivative_tests.cpp)
+# Additional libraries from mujoco package
+target_link_libraries(derivative_tests mujoco::mujoco glfw)
+target_link_libraries(derivative_tests gtest_main gtest util_lib control_lib Eigen3::Eigen)

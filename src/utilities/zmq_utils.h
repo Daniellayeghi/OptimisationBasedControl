@@ -7,8 +7,8 @@
 
 
 template<typename T>
-struct Buffer{
-    explicit Buffer(const char buffer_id ='\0'): m_buffer_id(buffer_id){m_buffer.assign(m_size, '\0');};
+struct BufferWithID{
+    explicit BufferWithID(const char buffer_id ='\0'): m_buffer_id(buffer_id){m_buffer.assign(m_size, '\0');};
     const char m_buffer_id = '\0';
     const int m_size = sizeof(T) + sizeof(m_buffer_id);
     using buffer_array = std::vector<char>;
@@ -76,7 +76,7 @@ class ZMQUBuffer
 {
 public:
     // https://stackoverflow.com/questions/34439284/c-function-returning-reference-to-array
-    // Buffer type returns by reference and buffers takes in a copy which is emplace back;
+    // BufferWithID type returns by reference and buffers takes in a copy which is emplace back;
 
     ZMQUBuffer(int socket_type, std::string addr) : m_requester(zmq_socket(m_context, socket_type))
     {
@@ -84,7 +84,7 @@ public:
     }
 
 
-    void push_buffer(Buffer<T>* buffer_type)
+    void push_buffer(BufferWithID<T>* buffer_type)
     {
         buffers.template emplace_back(buffer_type);
     }
@@ -92,7 +92,7 @@ public:
 
     void send_buffers()
     {
-        for(const Buffer<T>* buffer : buffers)
+        for(const BufferWithID<T>* buffer : buffers)
             zmq_send(m_requester, buffer->get().data(), buffer->m_size, 0);
     }
 
@@ -124,7 +124,7 @@ public:
     }
 
 private:
-    std::vector<Buffer<T>*> buffers;
+    std::vector<BufferWithID<T>*> buffers;
     void* m_context = zmq_ctx_new();
     void* m_requester;
 };

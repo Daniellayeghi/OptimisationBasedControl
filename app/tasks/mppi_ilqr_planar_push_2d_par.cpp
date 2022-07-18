@@ -317,8 +317,8 @@ int main(int argc, const char** argv)
         cost_buff.add_buffer_and_file({&cost_bt, &ctrl_data});
 
         printf("Connecting to viewer server…\n");
-        Buffer<RawTypeEig<CtrlVector>::type> ilqr_buffer{};
-        Buffer<RawTypeEig<CtrlVector>::type> pi_buffer{};
+        BufferWithID<RawTypeEig<CtrlVector>::type> ilqr_buffer{};
+        BufferWithID<RawTypeEig<CtrlVector>::type> pi_buffer{};
         ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
         zmq_buffer.push_buffer(&ilqr_buffer);
         zmq_buffer.push_buffer(&pi_buffer);

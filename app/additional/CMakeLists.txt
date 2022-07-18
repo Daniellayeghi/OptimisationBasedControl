@@ -12,7 +12,7 @@ set(BINARIES simulate.cc)
 add_library(uitools STATIC)
 target_sources(uitools PRIVATE uitools.h uitools.c)
 target_include_directories(uitools PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(uitools PUBLIC glfw mujoco::mujoco)
+target_link_libraries(uitools PUBLIC glfw mujoco::mujoco Eigen3::Eigen)
 
 foreach(bin_file ${BINARIES})
     string(REPLACE ".cpp" "" BIN_NAME ${bin_file})

@@ -25,6 +25,7 @@
 #include "array_safety.h"
 namespace mju = ::mujoco::sample_util;
 
+
 //-------------------------------- global -----------------------------------------------
 
 static constexpr int kBufSize = 1000;
@@ -1910,7 +1911,7 @@ void render(GLFWwindow* window) {
 
 // simulate in background thread (while rendering in main thread)
 void simulate(void) {
-  // cpu-sim syncronization point
+    // cpu-sim syncronization point
   double cpusync = 0;
   mjtNum simsync = 0;
 
@@ -1929,6 +1930,7 @@ void simulate(void) {
 
     // run only if model is present
     if (m) {
+        m->opt.enableflags = 5;
       // running
       if (settings.run) {
         // record cpu time at start of iteration
@@ -1963,6 +1965,7 @@ void simulate(void) {
           mjv_applyPerturbForce(m, d, &pert);
 
           // run single step, let next iteration deal with timing
+
           mj_step(m, d);
         }
 

@@ -189,7 +189,6 @@ void ILQR::backward_pass()
     Eigen::Matrix<double, state_size, 1> V_x = m_d_vector.back().lx;
     Eigen::Matrix<double, state_size, state_size> V_xx = m_d_vector.back().lxx;
     hessian_matrix_t hessian;
-//    printf("----------------------------------ILQR INFO-----------------------------------\n");
     do{
         for (auto time = m_params.simulation_time - 1; time >= 0; --time){
             ++iter;
@@ -213,7 +212,7 @@ void ILQR::backward_pass()
             }
 
 
-            //Compute the covariance from hessian
+            //TODO this can be done just with Quu_reg no need for hessian computation.
             hessian << Qxx_reg, Qxu_reg, Qux_reg, Quu_reg;
             const hessian_matrix_t hessian_inverse = hessian.llt().solve(
                     hessian_matrix_t::Identity()
@@ -229,7 +228,6 @@ void ILQR::backward_pass()
             } else {
                 _covariance_new[time] = CtrlMatrix::Identity();
             }
-//            printf("time %d Vx %f Vxx %f COV %f sum %f\n", time, V_x.sum(), V_xx.sum(), _covariance[time].trace(), m_u_traj[time].sum());
 
             // Compute the feedback and the feedforward gain
             m_bp_vector[time].fb_k = -1 * Quu_reg.colPivHouseholderQr().solve(Qux_reg);
