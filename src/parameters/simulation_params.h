@@ -28,6 +28,34 @@ namespace SimulationParameters
     using CartVector = Eigen::Matrix<scalar_type, 3, 1>;
     using SphVector = Eigen::Matrix<scalar_type, 3, 1>;
 
+    /* Sensor types */
+    template<int type>
+    struct Sensor{};
+
+    template<>
+    struct Sensor<mjtSensor::mjSENS_JOINTPOS>{
+        static constexpr const int size = n_jpos;
+    };
+
+    template<>
+    struct Sensor<mjtSensor::mjSENS_JOINTVEL>{
+        static constexpr const int size = n_jvel;
+    };
+
+    template<>
+    struct Sensor<mjtSensor::mjSENS_FRAMEPOS>{
+        static constexpr const int size = 3;
+    };
+
+    template<>
+    struct Sensor<mjtSensor::mjSENS_FRAMEQUAT>{
+        static constexpr const int size = 4;
+    };
+
+    template<>
+    struct Sensor<mjtSensor::mjSENS_RANGEFINDER>{
+        static constexpr const int size = 1;
+    };
 
     /* Raw Types Used TODO: Inherit traits*/
     template<typename T_Eigen>

@@ -5,10 +5,8 @@
 #include <thread>
 
 #include "gtest/gtest.h"
-#include "../src/utilities/buffer_utils.h"
 #include "../src/controller/ilqr.h"
 #include "../src/controller/controller.h"
-#include "../src/controller/par_mppi_ddp.h"
 #include "../src/utilities/fast_derivatives.h"
 
 #include "Eigen/Core"
@@ -72,18 +70,49 @@ public:
 
 TEST_F(DerivativeTests, CP_CTRL_Deriv)
 {
-    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
-
     MJDataEig eig_d(m);
-    eig_d.set_state(PosVector::Zero(), VelVector::Zero());
+    PosVector pos; pos << 0, M_PI;
+    eig_d.set_state(pos, VelVector::Zero());
 
-    MJDerivativeParams<void(const mjModel*, mjData*), double> deriv_params{
-        eig_d.m_ctrl, mj_step, 1e-6, state_size, n_ctrl
-    };
+    FiniteDifference fd(m);
+
+    MJDynDerivative<void(const mjModel*, mjData*), double> deriv_mj(m);
+    deriv_mj.m_params.m_wrt = deriv_mj.m_ed.m_ctrl;
+    deriv_mj.m_params.m_wrt_id = WRT::CTRL;
 
     {
-        TimeBench timer("Deriv Comp");
-        MJDerivative<void(const mjModel*, mjData*), double> deriv_mj(deriv_params, m);
-        std::cout << deriv_mj(eig_d) << std::endl;
+        TimeBench timer("Deriv Comp New");
+        const auto res = deriv_mj.dyn_derivative(eig_d);
+        std::cout << res << std::endl;
+    }
+
+    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
+    {
+        TimeBench timer("Deriv Comp Original");
+        fd.f_x_f_u(d);
+        const auto res = fd.f_u();
+        std::cout << res << std::endl;
+    }
+}
+
+
+
+TEST_F(DerivativeTests, JOINT_ID) {
+    d->qpos[0] = 0;
+    d->qpos[1] = M_PI;
+    d->qvel[0] = 0;
+    d->qvel[1] = 0;
+
+    // In general finite differences the perturbation happens with respect to all the states in order.
+    // in this case states being, pos, vel, acc. so a call to finite diff w.r.t to some parameter implicitly traverses
+    // the states in order.
+
+    // In that sense the type perturbation is important depending on the joint type.
+    // For example:
+    for(int i = 0; i < m->nv; ++i)
+    {
+        printf("Joint id: %i, Body id: %i, Start add qpos: %i Start add qvel %i \n",
+               m->dof_jntid[i], m->dof_bodyid[i], m->jnt_qposadr[i], m->jnt_dofadr[i]
+       );
     }
 }

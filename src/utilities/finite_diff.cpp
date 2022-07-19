@@ -172,7 +172,7 @@ FiniteDifference::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *
 {
     static const auto row_ctrl = _m->nu;
     ctrl_jacobian result;
-    auto pos_diff = 0.0;
+    double pos_diff, vel_diff = 0.0;
 
     for(int i = 0; i < row_ctrl; ++i)
     {
@@ -190,7 +190,8 @@ FiniteDifference::finite_diff_wrt_ctrl(const FDFuncArgs& fd_args, const mjData *
 
         for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
         {
-            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
+            vel_diff = _d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq];
+            result(j, i) = vel_diff / eps;
         }
         // undo perturbation
         copy_data(_m, d, _d_cp);
@@ -209,7 +210,7 @@ FiniteDifference::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjD
 {
     state_vel_jacobian result;
     auto row = _m->nv;
-    auto pos_diff = 0.0;
+    double pos_diff, vel_diff = 0.0;
     for(int i = 0; i < row; i++)
     {
         perturb_target(fd_args.target, id, i);
@@ -226,7 +227,8 @@ FiniteDifference::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjD
 
         for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
         {
-            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
+            vel_diff =  _d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq];
+            result(j, i) = vel_diff / eps;
         }
         // undo perturbation
         copy_data(_m, d, _d_cp);
@@ -243,13 +245,11 @@ FiniteDifference::finite_diff_wrt_state_vel(const FDFuncArgs& fd_args, const mjD
 
 
 typename FiniteDifference::state_pos_jacobian
-FiniteDifference::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
-                                                                   const mjData *d,
-                                                                   const WithRespectTo id)
+FiniteDifference::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args, const mjData *d, const WithRespectTo id)
 {
     state_pos_jacobian result;
     auto row = _m->nq;
-    auto pos_diff = 0.0;
+    double pos_diff, vel_diff = 0.0;
     for(int i = 0; i < row; i++)
     {
         perturb_target(fd_args.target, id, i);
@@ -266,7 +266,8 @@ FiniteDifference::finite_diff_wrt_state_pos(const FDFuncArgs& fd_args,
 
         for(int j = _m->nq; j < _m->nv + _m->nq; ++j)
         {
-            result(j, i) = (_d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq]) / eps;
+            vel_diff = _d_cp->qvel[j - _m->nq] - fd_args.centre_vel[j - _m->nq];
+            result(j, i) = vel_diff / eps;
         }
         // undo perturbation
         copy_data(_m, d, _d_cp);
