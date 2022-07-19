@@ -71,7 +71,6 @@ public:
 TEST_F(DerivativeTests, CP_CTRL_Deriv)
 {
     MJDataEig eig_d(m);
-    PosVector pos; pos << 0, M_PI;
     eig_d.set_state(pos, VelVector::Zero());
 
     FiniteDifference fd(m);

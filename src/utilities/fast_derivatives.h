@@ -34,7 +34,6 @@ struct MJDataEig
     m_sens(m_d->sensordata, m_m->nsensordata)
     {}
 
-
     void set_state(const PosVector& pos, const VelVector& vel) {m_pos = pos; m_vel = vel;}
     void set_ctrl(const CtrlVector& ctrl){m_ctrl = ctrl;}
 
@@ -91,9 +90,7 @@ public:
         return m_sens_res;
     };
 
-
 private:
-
     // Deal with free and ball joints
     void perturb(const int idx)
     {
@@ -126,7 +123,6 @@ private:
             m_params.m_wrt(idx) = m_params.m_wrt(idx) + m_params.m_eps;
         }
     }
-
 
 public:
     MJDerivativeParams<F, T> m_params;
