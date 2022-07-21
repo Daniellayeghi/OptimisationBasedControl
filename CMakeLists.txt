@@ -43,7 +43,4 @@ add_subdirectory(src)
 add_subdirectory(app)
 add_subdirectory(test)
 add_subdirectory(third_party)
-
-if(${BUILD_BINDINGS})
-    add_subdirectory(bindings)
-endif()
+add_subdirectory(bindings)

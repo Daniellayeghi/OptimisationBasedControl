@@ -5,33 +5,30 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(pybind)
+set (PYBIND11_PYTHON_VERSION "3.7")
+find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Interpreter)
+find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Development)
+message(${Python3_INCLUDE_DIRS})
 
-find_package(PythonInterp 3)
-find_package(PythonLibs   3)
-
-if(PYTHONINTERP_FOUND AND PYTHONLIBS_FOUND)
-    INCLUDE_DIRECTORIES(
-            ${PYTHON_INCLUDE_DIRS}
-            ${PYBIND11_INCLUDE_DIRS}
-    )
-
-    pybind11_add_module(example MODULE example_binding.cpp)
-    target_link_libraries(example PRIVATE mujoco::mujoco)
-    SET_TARGET_PROPERTIES( example
-            PROPERTIES
-            PREFIX ""
-            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/example"
-            )
-
-    CONFIGURE_FILE( example/__init__.py
-            ${CMAKE_CURRENT_BINARY_DIR}/example/__init__.py
-            )
+INCLUDE_DIRECTORIES(
+        ${PYBIND11_INCLUDE_DIRS}
+)
 
 
-    # Ditto for the setup file.
-    CONFIGURE_FILE( example/setup.py
-            ${CMAKE_CURRENT_BINARY_DIR}/example/setup.py
-            )
-else()
-    message(FATAL_ERROR "Binding deps not found!")
-endif()
+pybind11_add_module(mj_derivative example_mj_derivative.cpp)
+target_link_libraries(mj_derivative PRIVATE mujoco::mujoco Eigen3::Eigen)
+SET_TARGET_PROPERTIES( mj_derivative
+        PROPERTIES
+        PREFIX ""
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mj_derivative"
+        )
+
+CONFIGURE_FILE( mj_derivative/__init__.py
+        ${CMAKE_CURRENT_BINARY_DIR}/mj_derivative/__init__.py
+        )
+
+
+# Ditto for the setup file.
+CONFIGURE_FILE( mj_derivative/setup.py
+        ${CMAKE_CURRENT_BINARY_DIR}/mj_derivative/setup.py
+        )

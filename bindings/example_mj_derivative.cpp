@@ -1,9 +1,10 @@
-#ifndef OPTCONTROL_MUJOCO_FAST_DERIVATIVES_H
-#define OPTCONTROL_MUJOCO_FAST_DERIVATIVES_H
-
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/eigen.h>
+#include <mujoco/mujoco.h>
+#include <iostream>
 #include <vector>
 #include <mujoco/mjdata.h>
-#include <mujoco/mujoco.h>
 #include <Eigen/Core>
 
 namespace
@@ -35,13 +36,13 @@ struct MJDerivativeParams{
 struct MJDataEig
 {
     explicit MJDataEig(const mjModel* m) :
-    m_m(m),
-    m_d(mj_makeData(m)),
-    m_ctrl(m_d->ctrl, m_m->nu),
-    m_pos(m_d->qpos, m_m->nq),
-    m_vel(m_d->qvel, m_m->nv),
-    m_acc(m_d->qacc, m_m->nv),
-    m_sens(m_d->sensordata, m_m->nsensordata)
+            m_m(m),
+            m_d(mj_makeData(m)),
+            m_ctrl(m_d->ctrl, m_m->nu),
+            m_pos(m_d->qpos, m_m->nq),
+            m_vel(m_d->qvel, m_m->nv),
+            m_acc(m_d->qacc, m_m->nv),
+            m_sens(m_d->sensordata, m_m->nsensordata)
     {}
 
     void set_state(const Eigen::VectorXd& pos, const Eigen::VectorXd& vel) {m_pos = pos; m_vel = vel;}
@@ -160,5 +161,22 @@ private:
     Eigen::MatrixXd m_sens_res;
 };
 
+namespace py = pybind11;
 
-#endif //OPTCONTROL_MUJOCO_FAST_DERIVATIVES_H
+PYBIND11_MODULE(mj_derivative, mj_d) {
+    py::class_<MJDerivative>(mj_d, "MJDerivative")
+            .def(py::init<const mjModel*>())
+            .def("dyn_derivative", &MJDerivative::dyn_derivative)
+            .def("sen_derivative", &MJDerivative::sens_derivative);
+
+    py::class_<MJDataEig>(mj_d, "MJDataEig")
+            .def(py::init<const mjModel*>())
+            .def("set_state", &MJDataEig::set_state)
+            .def("set_ctrl", &MJDataEig::set_ctrl);
+
+#ifdef VERSION_INFO
+    mj_d.attr("__version__") = VERSION_INFO;
+#else
+    mj_d.attr("__version__") = "dev";
+#endif
+}
