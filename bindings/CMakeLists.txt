@@ -4,13 +4,14 @@ FetchContent_Declare(
         GIT_TAG        v2.6.0b1
 )
 
+set(PYBIND11_PYTHON_VERSION 3.7 CACHE STRING "")
 FetchContent_MakeAvailable(pybind)
-set (PYBIND11_PYTHON_VERSION "3.7")
 find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Interpreter)
 find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Development)
 message(${Python3_INCLUDE_DIRS})
 
 INCLUDE_DIRECTORIES(
+        ${Python3_INCLUDE_DIRS}
         ${PYBIND11_INCLUDE_DIRS}
 )
 

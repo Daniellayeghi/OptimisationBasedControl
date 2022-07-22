@@ -35,7 +35,9 @@ public:
     }
 
 
-    virtual void compute_value(const std::vector<StateVector>& x_vec, const std::vector<CtrlVector>& u_vec, std::vector<double>& value_vec, const mjData* d, const mjModel* m) const
+    virtual void compute_value(const std::vector<StateVector>& x_vec,
+                               const std::vector<CtrlVector>& u_vec,
+                               std::vector<double>& value_vec, const mjData* d, const mjModel* m) const
     {
         const T& underlying = static_cast<const T&>(*this);
         underlying.compute_value(x_vec, u_vec, value_vec,d, m);
@@ -46,6 +48,14 @@ public:
     {
         T &underlying = static_cast<T &>(*this);
         underlying.running_cost(d, m);
+    }
+
+    FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
+    {
+        StateVector x; CtrlVector u;
+        MujocoUtils::fill_state_vector(d, x, m);
+        MujocoUtils::fill_ctrl_vector(d, u, m);
+        return {x - m_x_goal, u};
     }
 
 
@@ -71,16 +81,8 @@ public:
     };
 
 
-    FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
-    {
-        StateVector x; CtrlVector u;
-        MujocoUtils::fill_state_vector(d, x, m);
-        MujocoUtils::fill_ctrl_vector(d, u, m);
-        return {x - m_x_goal, u};
-    }
-
-
-    double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec, const mjData* d, const mjModel *m) override
+    double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec,
+                             const mjData* d, const mjModel *m) override
     {
         double cst = 0;
 
@@ -96,7 +98,11 @@ public:
     }
 
 
-    void compute_value(const std::vector<StateVector>& x_vec, const std::vector<CtrlVector>& u_vec, std::vector<double>& value_vec, const mjData* d, const mjModel* m) const override
+    void compute_value(const std::vector<StateVector>& x_vec,
+                       const std::vector<CtrlVector>& u_vec,
+                       std::vector<double>& value_vec,
+                       const mjData* d,
+                       const mjModel* m) const override
     {
         using namespace GenericMap;
         using T_op = double;
@@ -194,21 +200,16 @@ class PICost : public BaseCost<PICost>
 {
     friend class BaseCost<PICost>;
 public:
-    PICost(StateVector x_goal, StateMatrix x_gain, StateMatrix x_tgain, CtrlMatrix u_gain, RunningCostPtr* r_cost, RunningCostPtr* terminal_cost, const MPPIDDPCstParams& cst_params) :
-            BaseCost<PICost>(std::move(x_goal), std::move(x_gain), std::move(x_tgain), std::move(u_gain), r_cost), m_terminal_cost(terminal_cost), m_cst_params(cst_params)
+    PICost(StateVector x_goal, StateMatrix x_gain, StateMatrix x_tgain, CtrlMatrix u_gain, RunningCostPtr* r_cost,
+           RunningCostPtr* terminal_cost, const MPPIDDPCstParams& cst_params) :
+            BaseCost<PICost>(std::move(x_goal), std::move(x_gain), std::move(x_tgain),
+                             std::move(u_gain), r_cost), m_terminal_cost(terminal_cost), m_cst_params(cst_params)
     {
     };
 
 
-    FastPair<StateVector, CtrlVector> compute_errors(const mjData *d, const mjModel* m)
-    {
-        StateVector x_err; CtrlVector u_err;
-        MujocoUtils::fill_state_vector(d, x_err, m);
-        MujocoUtils::fill_ctrl_vector(d, u_err, m);
-        return {x_err, - u_err};
-    }
-
-    double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec, const mjData* d, const mjModel *m) override
+    double traj_running_cost(const std::vector<StateVector> &x_vec, const std::vector<CtrlVector> &u_vec,
+                             const mjData* d, const mjModel *m) override
     {
         double cst = 0;
 
@@ -224,7 +225,8 @@ public:
 
 
     void compute_state_value(const std::vector<StateVector>& x_vec, const std::vector<CtrlVector>& u_vec,
-                             GenericUtils::FastPair<std::vector<StateVector>, std::vector<double>>& state_value_vec, const mjData* d, const mjModel* m) const
+                             GenericUtils::FastPair<std::vector<StateVector>, std::vector<double>>& state_value_vec,
+                             const mjData* d, const mjModel* m) const
     {
         using namespace GenericMap;
         using T_op = double;
@@ -259,14 +261,17 @@ public:
                 2 * new_control.transpose() * m_cst_params.m_ctrl_variance_inv * control
         )(0, 0);
 
-        const auto arunning_cost = [&](const StateVector &state_vector, const CtrlVector &ctrl_vector, const mjData* data=nullptr, const mjModel *model=nullptr) {
+        const auto arunning_cost =
+                [&](const StateVector &state_vector, const CtrlVector &ctrl_vector,
+                    const mjData* data=nullptr, const mjModel *model=nullptr){
             StateVector state_error = m_x_goal - state_vector;
             CtrlVector ctrl_error = ctrl_vector;
             return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
                     (0, 0);
         };
 
-        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda + arunning_cost(state, new_control, data, model);
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda +
+        arunning_cost(state, new_control, data, model);
     }
 
 
