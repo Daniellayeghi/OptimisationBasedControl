@@ -75,11 +75,11 @@ TEST_F(DerivativeTests, CP_CTRL_Deriv)
     eig_d.set_state(pos, VelVector::Zero());
 
     FiniteDifference fd(m);
-    MJDerivative deriv_mj(m);
+    MJDerivative deriv_mj(m, 10);
 
     {
         TimeBench timer("Deriv Comp New");
-        const auto res = deriv_mj.sens_derivative(eig_d, WRT::CTRL);
+        const auto res = deriv_mj.dyn_derivative(eig_d);
         std::cout << res << std::endl;
     }
 

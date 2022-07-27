@@ -61,18 +61,23 @@ struct MJDataEig
 class MJDerivative
 {
 public:
-    explicit MJDerivative(const mjModel* m): m_m(m), m_ed(m), m_params{m_ed.m_ctrl, mj_step}
+    explicit MJDerivative(const mjModel* m, const WRT wrt): m_m(m), m_ed(m), m_params{m_ed.m_ctrl, mj_step}
 
     {
+        auto ref = select_ptr(wrt);
+        if (ref)
+            new (&m_params.m_wrt) Eigen::Map<Eigen::Matrix<double, -1, 1>>(ref->get());
+        else
+            std::cerr << "Cannot compute derivatives with respect to argument";
+
         m_sens_res = Eigen::MatrixXd(m_m->nsensordata, m_params.m_wrt.size());
-        m_dyn_res = Eigen::MatrixXd(m_m->nq +  m_m->nv * 2, m_params.m_wrt.size());
+        m_dyn_res = Eigen::MatrixXd(m_m->nD, m_params.m_wrt.size());
         m_pert = Eigen::VectorXd::Ones(m_params.m_wrt.size()) * m_params.m_eps;
     };
 
 
-    const Eigen::MatrixXd& dyn_derivative(const MJDataEig& ed, const WRT wrt)
+    const Eigen::MatrixXd& dyn_derivative(const MJDataEig& ed)
     {
-        select_ptr(wrt);
         copy_data(m_m, ed.m_d, m_ed.m_d);
         for (int i = 0; i < m_params.m_wrt.size(); ++i)
 
@@ -81,16 +86,14 @@ public:
             m_params.m_func(m_m, m_ed.m_d);
             m_dyn_res.block(0, i, m_m->nq, 1) =  (m_ed.m_pos - ed.m_pos) / m_params.m_eps;
             m_dyn_res.block(m_m->nq, i, m_m->nv, 1) =  (m_ed.m_vel - ed.m_vel) / m_params.m_eps;
-            m_dyn_res.block(m_m->nq + m_m->nv, i, m_m->nv, 1) =  (m_ed.m_acc - ed.m_acc) / m_params.m_eps;
             copy_data(m_m, ed.m_d, m_ed.m_d);
         }
         return m_dyn_res;
     };
 
 
-    const Eigen::MatrixXd& sens_derivative(const MJDataEig& ed, const WRT wrt)
+    const Eigen::MatrixXd& sens_derivative(const MJDataEig& ed)
     {
-        select_ptr(wrt);
         copy_data(m_m, ed.m_d, m_ed.m_d);
         for (int i = 0; i < m_params.m_wrt.size(); ++i)
         {
@@ -137,15 +140,15 @@ private:
     }
 
 
-    void select_ptr(const WRT wrt)
+    std::optional<std::reference_wrapper<Eigen::Map<Eigen::Matrix<double, -1, 1>>>> select_ptr(const WRT wrt)
     {
         switch (wrt)
         {
-            case WRT::CTRL: m_params.m_wrt = m_ed.m_ctrl; break;
-            case WRT::ACC: m_params.m_wrt = m_ed.m_acc; break;
-            case WRT::VEL: m_params.m_wrt = m_ed.m_vel; break;
-            case WRT::POS: m_params.m_wrt = m_ed.m_pos; break;
-            default: std::cerr << "Cannot compute derivatives with respect to argument";
+            case WRT::CTRL: return m_ed.m_ctrl; break;
+            case WRT::ACC: return m_ed.m_acc; break;
+            case WRT::VEL: return m_ed.m_vel; break;
+            case WRT::POS: return m_ed.m_pos; break;
+            default: return {};
         }
     }
 
