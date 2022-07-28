@@ -20,7 +20,6 @@ namespace
         mju_copy(data_cp->ctrl, data_src->ctrl, model->nu);
     }
 
-
     enum class WRT {POS = 0, VEL = 2, ACC = 3, CTRL = 4};
 }
 
