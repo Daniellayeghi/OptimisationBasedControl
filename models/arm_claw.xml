@@ -20,8 +20,7 @@
 	<size 	nuser_jnt="1"
 			nuser_geom="1"/>
 
-	<option	timestep="0.001"
-			gravity="0 0 -9.8"
+	<option	timestep="0.01"
 			viscosity="0"
 			iterations="20"/>
 	

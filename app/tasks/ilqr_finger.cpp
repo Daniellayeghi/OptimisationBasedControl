@@ -135,6 +135,9 @@ int main(int argc, const char** argv)
         mju_error_s("Load model error: %s", error);
     }
 
+    m->opt.enableflags = 1;
+    m->opt.o_margin = 0.02;
+    std::cout << "Margin: " << m->opt.o_margin << std::endl;
     // make data
     d = mj_makeData(m);
 
@@ -243,8 +246,6 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
             ilqr.control(d);
             pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
-            ilqr_buffer.update(ilqr.cached_control.data(), true);
-            zmq_buffer.send_buffers();
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
             mj_step(m, d);
         }

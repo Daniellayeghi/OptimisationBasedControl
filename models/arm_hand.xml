@@ -21,7 +21,6 @@
 			nuser_geom="1"/>
 
 	<option	timestep="0.01"
-			gravity="enable"
 			viscosity="0"
 			iterations="20"/>
 	
@@ -66,6 +65,7 @@
 					
 	<!--  ================= Palm ================= /-->
 				<body name="palm" pos="0.27 0 0">
+					<site name = "mid" pos = "0.045 0 0"/>
 					<geom class="1" name="palm" type="box" size="0.045 0.04 0.01" pos="0.045 0 0"/>
 					<joint name="w_abduction" type="hinge" pos="0 0 0" axis="0 0 1" range="-.5 .5" user="006"/>
 					<joint name="w_flexion" type="hinge" pos="0 0 0" axis="0 -1 0" range="-1.05 1.05" user="007"/>
@@ -153,6 +153,10 @@
 		<position joint='thumbFlex' 	name='AthumbFlex' 	kp="10"  ctrlrange='-2 1.05'/> /-->
 
 	</actuator>
+
+	<sensor>
+		<rangefinder site="mid"/>
+	</sensor>
 
 </mujoco>
 

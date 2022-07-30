@@ -22,7 +22,7 @@
     <material name="target_default" rgba=".6 .3 .3 1"/>
     <material name="target_highlight" rgba=".6 .3 .3 .4"/>
 </asset>
-<option timestep="0.01" integrator="RK4">
+<option timestep="0.01" integrator="RK4" margin="0.05">
     <flag contact="enable" energy="enable" gravity="enable"/>
 </option>
 <worldbody>
@@ -33,6 +33,7 @@
     <geom name="rail1" type="capsule" pos="0 .07 1" zaxis="1 0 0" size="0.02 4" material="decoration"/>
     <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4" material="decoration"/>
     <body name="cart" pos="0 0 1">
+        <site name="mid" pos="0 0 2" />
         <joint name="slider" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-1" margin = "0.1"/>
         <geom name="cart" type="box" size="0.2 0.15 0.1" material="self" mass="1"/>
     </body>
@@ -47,6 +48,9 @@
     <motor name="slide" joint="slider" gear="10" ctrllimited="true" ctrlrange="-1 1"/>
 </actuator>
 
+<sensor>
+    <rangefinder site="mid"/>
+</sensor>
 
 <contact>
     <exclude body1="world" body2="cart_2"/>
