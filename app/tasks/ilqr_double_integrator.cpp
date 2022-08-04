@@ -184,7 +184,7 @@ int main(int argc, const char** argv)
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     // initial position
-    for(auto goal = 30; goal < 50; ++goal) {
+    for(auto goal = 1; goal < 50; ++goal) {
         MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), 2);
         x_desired.block(0, 0, n_jpos, 1) = PosVector::Random();
         for (auto init = 1; init < 50; ++init) {
@@ -239,11 +239,11 @@ int main(int argc, const char** argv)
                 mjtNum simstart = d->time;
                 while (d->time - simstart < 1.0 / 60.0) {
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
+                    x_buff.push_buffer();
                     ilqr.control(d, false);
+                    u_buff.push_buffer();
 //                    simp_buff.update_buffer();
 //                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                    u_buff.push_buffer();
-                    x_buff.push_buffer();
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                     mj_step(m, d);
                 }

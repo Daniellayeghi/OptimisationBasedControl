@@ -22,7 +22,7 @@
     <material name="target_default" rgba=".6 .3 .3 1"/>
     <material name="target_highlight" rgba=".6 .3 .3 .4"/>
 </asset>
-<option timestep="0.01" integrator="RK4" margin="0.05">
+<option timestep="0.01" integrator="RK4">
     <flag contact="enable" energy="enable" gravity="enable"/>
 </option>
 <worldbody>

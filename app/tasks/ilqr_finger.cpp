@@ -136,8 +136,9 @@ int main(int argc, const char** argv)
     }
 
     m->opt.enableflags = 1;
-    m->opt.o_margin = 0.02;
+    m->opt.o_margin = 0.05;
     std::cout << "Margin: " << m->opt.o_margin << std::endl;
+
     // make data
     d = mj_makeData(m);
 

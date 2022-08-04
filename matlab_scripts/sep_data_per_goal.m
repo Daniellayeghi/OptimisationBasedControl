@@ -32,17 +32,18 @@ start_goal_s = string(ones(length(u_files), 2));
 
 
 for i  = 1:length(u_files)
-        file_names(i) = u_files(i).name;
-        start_end = extractBefore(file_names(i), goal_sfix);
-        start_end = extractAfter(start_end, start_pfix);
-        goals(i) = extractAfter(start_end, sep);
-        start(i) = extractBefore(start_end, sep);
-        start_goal(i, :) = [str2double(start(i)), str2double(goals(i))];
-        start_goal_s(i, :) = [start(i), goals(i)];
+    file_names(i) = u_files(i).name;
+    start_end = extractBefore(file_names(i), goal_sfix);
+    start_end = extractAfter(start_end, start_pfix);
+    goals(i) = extractAfter(start_end, sep);
+    start(i) = extractBefore(start_end, sep);
+    start_goal(i, :) = [str2double(start(i)), str2double(goals(i))];
+    start_goal_s(i, :) = [start(i), goals(i)];
 end
 
 ctrl_data = [];
 state_data = [];
+full_data = [];
 [r, ~] = size(start_goal_s);
 for i = 1:r
     ctrl_key = start_goal_s(i, 1) + "_" + start_goal_s(i, 2) + goal_sfix + "_" + f_ctrl_key;
@@ -53,18 +54,12 @@ for i = 1:r
     new_state = csvread(path + f_xname);
     [ctrl_data, new_ctrl] = cp_to_match_zero(ctrl_data, new_ctrl);
     [state_data, new_state] = cp_to_match_final(state_data, new_state);
-    ctrl_data = [ctrl_data, new_ctrl];
-    state_data = [state_data, new_state];
+    full_data = [full_data; new_state, ones(size(new_ctrl)) .* start_goal(i, :), new_ctrl];
 end
 
-f_u_name = "ctrl_files_di.csv";
-f_d_name = "desc_files_di.csv";
-f_x_name = "state_files_di.csv";
+f_d_name = "di_data_value.csv";
 
-dlmwrite(path + f_u_name, ctrl_data, 'delimiter', ',', 'precision', 10);
-dlmwrite(path + f_d_name, start_goal, 'delimiter', ',', 'precision', 10);
-dlmwrite(path + f_x_name, state_data, 'delimiter', ',', 'precision', 10);
-
+dlmwrite(path + f_d_name, full_data, 'delimiter', ',', 'precision', 10);
 %% Utility functions
 function name = match_file_to_name(key, path)
     f = dir(path + sprintf("*%s*", key) + ".csv");

@@ -154,9 +154,9 @@
 
 	</actuator>
 
-	<sensor>
-		<rangefinder site="mid"/>
-	</sensor>
+	<contact>
+<!--		<exclude body1="world" body2="object"/>-->
+	</contact>
 
 </mujoco>
 
