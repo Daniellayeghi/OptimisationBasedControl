@@ -6,7 +6,7 @@ set(CMAKE_USE_WIN32_THREADS_INIT 0)
 set(CMAKE_USE_PTHREADS_INIT 1)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-set(BINARIES simulate.cc)
+set(BINARIES simulate.cc derivative.cc)
 
 # Utility library
 add_library(uitools STATIC)

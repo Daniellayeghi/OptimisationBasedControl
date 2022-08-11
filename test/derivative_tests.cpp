@@ -70,26 +70,23 @@ public:
 
 TEST_F(DerivativeTests, CP_CTRL_Deriv)
 {
-    MJDataEig eig_d(m);
-    PosVector pos; pos << 0, M_PI;
-    eig_d.set_state(pos, VelVector::Zero());
-
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;MjDataVecView eig_d(m, d);
     FiniteDifference fd(m);
-    MJDerivativeParams params{1e-6, WRT::CTRL};
-    MJDerivative deriv_mj(m, params);
+
+    MjDerivativeParams params{1e-6, Wrt::State, Mode::Fwd};
+    MjDerivative deriv_mj(m, d, params);
 
     {
         TimeBench timer("Deriv Comp New");
-        auto& res = deriv_mj.dyn_derivative(eig_d);
-        const auto& res2 = deriv_mj.dyn_derivative(eig_d);
-        std::cout << res2 << std::endl;
+        auto& res = deriv_mj.output();
+        std::cout << res << std::endl;
     }
 
-    d->qpos[0] = 0; d->qpos[1] = M_PI; d->qvel[0] = 0; d->qvel[1] = 0;
+    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
     {
         TimeBench timer("Deriv Comp Original");
         fd.f_x_f_u(d);
-        const auto res = fd.f_u();
+        const auto res = fd.f_x();
         std::cout << res << std::endl;
     }
 }
