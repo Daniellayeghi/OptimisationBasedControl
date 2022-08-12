@@ -168,15 +168,18 @@ private:
 
 
     std::vector<std::reference_wrapper<EigenMatrixXMap>> select_ptr(const Wrt wrt) {
-        switch (wrt) {
-            case Wrt::Ctrl:
-                return {m_ed_internal.m_ctrl};
-                break;
-            case Wrt::State:
-                return{m_ed_internal.m_pos, m_ed_internal.m_vel, m_ed_internal.m_acc};
-            default:
-                return {m_ed_internal.m_ctrl};
-        }
+        if(m_params.m_mode_id == Mode::Fwd)
+            switch (wrt) {
+                case Wrt::Ctrl:
+                    return {m_ed_internal.m_ctrl};
+                    break;
+                case Wrt::State:
+                    return{m_ed_internal.m_pos, m_ed_internal.m_vel};
+                default:
+                    return {m_ed_internal.m_ctrl};
+            }
+        else
+            return{m_ed_internal.m_pos, m_ed_internal.m_vel, m_ed_internal.m_acc};
     }
 
 

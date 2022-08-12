@@ -73,7 +73,7 @@ TEST_F(DerivativeTests, CP_CTRL_Deriv)
     d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;MjDataVecView eig_d(m, d);
     FiniteDifference fd(m);
 
-    MjDerivativeParams params{1e-6, Wrt::State, Mode::Fwd};
+    MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd};
     MjDerivative deriv_mj(m, d, params);
 
     {
