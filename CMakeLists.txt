@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 include(FetchContent)
 
+find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Interpreter)
+find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Development)
+
 add_compile_options(-Wall -Wextra)
 find_package(Eigen3 REQUIRED)
 find_package(OpenGL REQUIRED)

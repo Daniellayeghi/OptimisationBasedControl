@@ -6,8 +6,8 @@ FetchContent_Declare(
 
 set(PYBIND11_PYTHON_VERSION 3.7 CACHE STRING "")
 FetchContent_MakeAvailable(pybind)
-find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Interpreter)
-find_package(Python3 3.7 EXACT REQUIRED COMPONENTS Development)
+
+
 message(${Python3_INCLUDE_DIRS})
 
 INCLUDE_DIRECTORIES(

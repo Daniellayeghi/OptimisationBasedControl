@@ -69,6 +69,13 @@ public:
             m_func_res = Eigen::MatrixXd(m_m->nq + m_m->nv, cols);
         else
             m_func_res = Eigen::MatrixXd(m_m->nv, cols);
+
+        m_fwd_out_res = Eigen::MatrixXd(m->nq + m->nv, m->nq + m->nv + m->nu);
+        m_inv_out_res = Eigen::MatrixXd(m->nv, m->nq + m->nv + m->nv);
+        m_fwd_sens_res = Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nu);
+        m_inv_sens_res = Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nv);
+        m_dfdx.leftCols(m->nq + m->nv);
+
     };
 
 
@@ -202,7 +209,17 @@ private:
     MjDataVecView m_ed_internal;
     const MjDataVecView m_ed_external;
     const mjModel *m_m;
+    Eigen::Block<Eigen::MatrixXd> m_dfdx;
+    Eigen::Block<Eigen::MatrixXd> m_dfdu;
+    Eigen::Block<Eigen::MatrixXd> m_dfsdu;
+    Eigen::Block<Eigen::MatrixXd> m_dfsdx;
+    Eigen::Block<Eigen::MatrixXd> m_dfinvdx_full;
+    Eigen::Block<Eigen::MatrixXd> m_dfinvsdx_full;
     Eigen::MatrixXd m_func_res;
+    Eigen::MatrixXd m_inv_out_res;
+    Eigen::MatrixXd m_fwd_out_res;
+    Eigen::MatrixXd m_fwd_sens_res;
+    Eigen::MatrixXd m_inv_sens_res;
     Eigen::MatrixXd m_sens_res;
     std::vector<std::reference_wrapper<EigenMatrixXMap>> m_wrts;
     const MjDerivativeParams m_params;
