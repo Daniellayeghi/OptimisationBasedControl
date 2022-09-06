@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
     // load model
     mjModel* m;
     m = mj_loadXML(
-            "/home/daniel/Repos/OptimisationBasedControl/models/doubleintegrator.xml",0, NULL, NULL
+            "/home/daniel/Repos/OptimisationBasedControl/models/cartpole.xml",0, NULL, NULL
     );
 
 
@@ -311,6 +311,7 @@ int main(int argc, char** argv) {
     mjData* d[MAXTHREAD];
     for (int n=0; n<nthread; n++) {
         d[n] = mj_makeData(m);
+        d[n]->qpos[0] = 0.5442; d[n]->qvel[0] = -1.03142738; d[n]->qacc[0] = -0.02782536;
     }
 
     // allocate derivatives
