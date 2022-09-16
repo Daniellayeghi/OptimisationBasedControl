@@ -1,6 +1,8 @@
 #include <mujoco/mujoco.h>
 #include <Eigen/Core>
 
+// https://www.dam.brown.edu/people/alcyew/handouts/numdiff.pdf
+
 
 using EigenMatrixXMap = Eigen::Map<Eigen::Matrix<double, -1, 1>>;
 
@@ -17,7 +19,7 @@ void copy_data(const mjModel *model, const mjData *data_src, mjData *data_cp) {
 
 
 enum class Wrt : int {
-    State = 0, Ctrl = 1, StateCtrl = 2, FullState = 3
+    State = 0, Ctrl = 1
 };
 
 enum class Mode : int {
@@ -25,11 +27,19 @@ enum class Mode : int {
 };
 
 
+enum class Order: int{
+    First = 0, Second = 1
+};
+
+
 class MjDerivativeParams{
 public:
-    MjDerivativeParams(double eps, const Wrt wrt, const Mode mode): m_eps(eps), m_mode_id(mode){};
+    MjDerivativeParams(double eps, const Wrt wrt, const Mode mode, const Order order):
+    m_eps(eps), m_wrt_id(wrt), m_mode_id(mode), m_order_id(order){};
     double m_eps = 1e-6;
+    const Wrt m_wrt_id = Wrt::Ctrl;
     const Mode m_mode_id = Mode::Fwd;
+    const Order m_order_id = Order::First;
 };
 
 
@@ -59,21 +69,8 @@ struct MjDataVecView {
 class MjDerivative {
 public:
     explicit MjDerivative(const mjModel* m, mjData*d, const MjDerivativeParams& params) :
-    m_d(mj_makeData(m)), m_ed_internal(m, m_d), m_ed_external(m, d),
-    m_m(m), m_wrts({m_ed_internal.m_ctrl}),
-
-    m_fwd_out_res(Eigen::MatrixXd(m->nq + m->nv, m->nq + m->nv + m->nu)),
-    m_inv_out_res(Eigen::MatrixXd(m->nv, m->nq + m->nv + m->nv)),
-    m_fwd_sens_res(Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nu)),
-    m_inv_sens_res(Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nv)),
-
-    m_wrts_map({
-        {Wrt::State, {m_ed_internal.m_pos, m_ed_internal.m_vel}},{Wrt::Ctrl, {m_ed_internal.m_ctrl}},
-        {Wrt::StateCtrl, {m_ed_internal.m_pos, m_ed_internal.m_vel, m_ed_internal.m_ctrl}},
-        {Wrt::FullState, {m_ed_internal.m_pos, m_ed_internal.m_vel, m_ed_internal.m_acc}}
-    }),
-    m_params(params), m_func(mj_step)
-    {
+            m_d(mj_makeData(m)), m_ed_internal(m, m_d), m_ed_external(m, d), m_m(m), m_wrts({m_ed_internal.m_ctrl}), m_params(params), m_func(mj_step){
+        m_wrts = select_ptr(m_params.m_wrt_id);
         m_func = select_mode(m_params.m_mode_id);
         auto cols = 0; for (const EigenMatrixXMap& wrt: m_wrts){cols += wrt.size();}
         m_sens_res = Eigen::MatrixXd(m_m->nsensordata, cols);
@@ -82,10 +79,10 @@ public:
         else
             m_func_res = Eigen::MatrixXd(m_m->nv, cols);
 
-        m_fwd_out_res = Eigen::MatrixXd(m->nq + m->nv, m->nq + m->nv + m->nu);
-        m_inv_out_res = Eigen::MatrixXd(m->nv, m->nq + m->nv + m->nv);
-        m_fwd_sens_res = Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nu);
-        m_inv_sens_res = Eigen::MatrixXd(m->nsensordata, m->nq + m->nv + m->nv);
+        if (m_params.m_order_id == Order::Second){
+             m_func_2nd_res = Eigen::MatrixXd(m_m->nq + m_m->nv, cols * cols);
+
+        }
     };
 
 
@@ -94,7 +91,7 @@ public:
     };
 
 
-    const Eigen::MatrixXd &inv(const Wrt wrt_id){
+    const Eigen::MatrixXd &inv(){
         mjcb_control = [](const mjModel* m, mjData* d){};
         long col = 0;
         for(EigenMatrixXMap& wrt: m_wrts)
@@ -112,7 +109,7 @@ public:
     };
 
 
-    const Eigen::MatrixXd &fwd(const Wrt wrt){
+    const Eigen::MatrixXd &fwd(){
         mjcb_control = [](const mjModel* m, mjData* d){};
         long col = 0;
         for(EigenMatrixXMap& wrt: m_wrts)
@@ -131,15 +128,53 @@ public:
     };
 
 
-    const Eigen::MatrixXd &output(const Wrt wrt){
+    const Eigen::MatrixXd &fwd_2nd(){
+
+        mjcb_control = [](const mjModel* m, mjData* d){};
+        long col = 0;
+
+        auto &grads = fwd();
+        const auto eps = pow(m_params.m_eps, 2);
+
+        for(EigenMatrixXMap& wrt: m_wrts) {
+            for (int d1 = 0; d1 < wrt.size(); ++d1) {
+                for (int d2 = 0; d2 < wrt.size(); ++d2) {
+                    const auto& wrt1 = wrt(d1, 0);
+                    // Fwd diff
+                    m_mag = 1;
+                    perturb(d1, wrt);
+                    perturb(d2, wrt);
+
+                    m_func(m_m, m_ed_internal.m_d);
+                    m_func_res.block(0, col + i, m_m->nq, 1) = (m_ed_internal.m_pos - 2 * m_ed_external.m_pos) / eps;
+                    m_func_res.block(m_m->nq, col + i, m_m->nv, 1) = (m_ed_internal.m_vel - 2 * m_ed_external.m_vel) / eps;
+
+                    copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+
+                    // Bwd component
+                    m_mag = -1;
+                    perturb(i, wrt);
+                    m_func(m_m, m_ed_internal.m_d);
+                    m_func_res.block(0, col + i, m_m->nq, 1) += (m_ed_internal.m_pos) / eps;
+                    m_func_res.block(m_m->nq, col + i, m_m->nv, 1) += (m_ed_internal.m_vel) / eps;
+
+                    // copy to original state
+                    copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+                }
+            }
+            col += wrt.size();
+        }
+    }
+
+    const Eigen::MatrixXd &output(){
         if(m_params.m_mode_id == Mode::Fwd)
-            return fwd(wrt);
+            return m_params.m_order_id == Order::First ? fwd() : fwd_2nd();
         else
-            return inv(wrt);
+            return inv();
     };
 
 
-    const Eigen::MatrixXd &sensor(const Wrt) {
+    const Eigen::MatrixXd &sensor() {
         mjcb_control = [](const mjModel* m, mjData* d){};
         long col = 0;
         for(EigenMatrixXMap& wrt: m_wrts)
@@ -159,7 +194,7 @@ public:
 private:
     // Deal with free and ball joints
     void perturb(const int idx, EigenMatrixXMap& wrt) {
-        if (&wrt == &m_ed_internal.m_pos) {
+        if (wrt.data() >= m_ed_internal.m_pos.data() and wrt.data() <= &m_ed_internal.m_pos.data()[m_m->nq]) {
             // get quaternion address if applicable`
             const auto jid = m_m->dof_jntid[idx];
             int quatadr = -1, dofpos = 0;
@@ -177,9 +212,9 @@ private:
                 angvel[dofpos] = m_params.m_eps;
                 mju_quatIntegrate(wrt.data() + quatadr, angvel, 1);
             } else
-                wrt.data()[m_m->jnt_qposadr[jid] + idx - m_m->jnt_dofadr[jid]] += m_params.m_eps;
+                wrt.data()[m_m->jnt_qposadr[jid] + idx - m_m->jnt_dofadr[jid]] += m_mag * m_params.m_eps;
         } else {
-            wrt(idx) = wrt(idx) + m_params.m_eps;
+            wrt(idx) = wrt(idx) + m_mag * m_params.m_eps;
         }
     }
 
@@ -219,20 +254,12 @@ private:
     MjDataVecView m_ed_internal;
     const MjDataVecView m_ed_external;
     const mjModel *m_m;
-//    Eigen::Block<Eigen::MatrixXd> m_dfdx;
-//    Eigen::Block<Eigen::MatrixXd> m_dfdu;
-//    Eigen::Block<Eigen::MatrixXd> m_dfsdu;
-//    Eigen::Block<Eigen::MatrixXd> m_dfsdx;
-//    Eigen::Block<Eigen::MatrixXd> m_dfinvdx_full;
-//    Eigen::Block<Eigen::MatrixXd> m_dfinvsdx_full;
-    Eigen::MatrixXd m_func_res = Eigen::MatrixXd(m_m->nq + m->nv, m->nq + m->nv + m->nu);
-    Eigen::MatrixXd m_inv_out_res;
-    Eigen::MatrixXd m_fwd_out_res;
-    Eigen::MatrixXd m_fwd_sens_res;
-    Eigen::MatrixXd m_inv_sens_res;
+    Eigen::MatrixXd m_func_res;
+    Eigen::MatrixXd m_func_2nd_res;
     Eigen::MatrixXd m_sens_res;
     std::vector<std::reference_wrapper<EigenMatrixXMap>> m_wrts;
-    std::map<Wrt, std::vector<std::reference_wrapper<EigenMatrixXMap>>> m_wrts_map;
     const MjDerivativeParams m_params;
     mjfGeneric m_func;
+    int m_mag = 1;
+    Eigen::VectorXd m_perts;
 };

@@ -73,7 +73,7 @@ TEST_F(DerivativeTests, CP_CTRL_Deriv)
     d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;MjDataVecView eig_d(m, d);
     FiniteDifference fd(m);
 
-    MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd};
+    MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd, Order::First};
     MjDerivative deriv_mj(m, d, params);
 
     {
@@ -108,6 +108,6 @@ TEST_F(DerivativeTests, JOINT_ID) {
     {
         printf("Joint id: %i, Body id: %i, Start add qpos: %i Start add qvel %i \n",
                m->dof_jntid[i], m->dof_bodyid[i], m->jnt_qposadr[i], m->jnt_dofadr[i]
-       );
+        );
     }
 }
