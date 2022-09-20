@@ -69,19 +69,22 @@ struct MjDataVecView {
 class MjDerivative {
 public:
     explicit MjDerivative(const mjModel* m, mjData*d, const MjDerivativeParams& params) :
-            m_d(mj_makeData(m)), m_ed_internal(m, m_d), m_ed_external(m, d), m_m(m), m_wrts({m_ed_internal.m_ctrl}), m_params(params), m_func(mj_step){
+            m_d(mj_makeData(m)), m_ed_internal(m, m_d), m_ed_external(m, d), m_m(m), m_wrts({m_ed_internal.m_ctrl}), m_params(params), m_func(mj_step) {
         m_wrts = select_ptr(m_params.m_wrt_id);
         m_func = select_mode(m_params.m_mode_id);
-        auto cols = 0; for (const EigenMatrixXMap& wrt: m_wrts){cols += wrt.size();}
+        auto cols = 0;
+        for (const EigenMatrixXMap &wrt: m_wrts) { cols += wrt.size(); }
         m_sens_res = Eigen::MatrixXd(m_m->nsensordata, cols);
         if (m_params.m_mode_id == Mode::Fwd)
             m_func_res = Eigen::MatrixXd(m_m->nq + m_m->nv, cols);
         else
             m_func_res = Eigen::MatrixXd(m_m->nv, cols);
 
-        if (m_params.m_order_id == Order::Second){
-             m_func_2nd_res = Eigen::MatrixXd(m_m->nq + m_m->nv, cols * cols);
-
+        if (m_params.m_order_id == Order::Second and m_params.m_mode_id == Mode::Fwd){
+            if (m_params.m_wrt_id == Wrt::State)
+                m_func_2nd_res = Eigen::MatrixXd(cols * (m_m->nq + m_m->nv), cols);
+            else if (m_params.m_wrt_id == Wrt::Ctrl)
+                m_func_2nd_res = Eigen::MatrixXd(cols * (m_m->nu), cols);
         }
     };
 
@@ -131,38 +134,69 @@ public:
     const Eigen::MatrixXd &fwd_2nd(){
 
         mjcb_control = [](const mjModel* m, mjData* d){};
-        long col = 0;
+        int deriv_group = 0;
 
-        auto &grads = fwd();
         const auto eps = pow(m_params.m_eps, 2);
+        auto deriv_size = 0; for (const EigenMatrixXMap &wrt: m_wrts) { deriv_size += wrt.size(); }
+        const int hess_group = int(m_func_2nd_res.rows() / deriv_size);
 
         for(EigenMatrixXMap& wrt: m_wrts) {
+            const int d_size = wrt.size();
             for (int d1 = 0; d1 < wrt.size(); ++d1) {
                 for (int d2 = 0; d2 < wrt.size(); ++d2) {
-                    const auto& wrt1 = wrt(d1, 0);
-                    // Fwd diff
+                    const int deriv_i = d1 + deriv_group; const int deriv_j = d2 + deriv_group;
+                    // f(arg + hi*ei + hjej) + f(arg) / (hihj)
                     m_mag = 1;
                     perturb(d1, wrt);
                     perturb(d2, wrt);
 
                     m_func(m_m, m_ed_internal.m_d);
-                    m_func_res.block(0, col + i, m_m->nq, 1) = (m_ed_internal.m_pos - 2 * m_ed_external.m_pos) / eps;
-                    m_func_res.block(m_m->nq, col + i, m_m->nv, 1) = (m_ed_internal.m_vel - 2 * m_ed_external.m_vel) / eps;
+                    const auto &res_q1 = (m_ed_internal.m_pos + m_ed_external.m_pos) / eps;
+                    const auto &res_v1 = (m_ed_internal.m_vel + m_ed_external.m_vel) / eps;
+
+                    for(int q = 0; q < m_m->nq; ++q)
+                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) = res_q1(d1, d2);
+
+                    for(int v = 0; v < m_m->nv; ++v)
+                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) = res_v1(d1, d2);
 
                     copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
 
-                    // Bwd component
-                    m_mag = -1;
-                    perturb(i, wrt);
+                    // f(arg + hi*ei + hj) + f(arg)  - f(arg + hi*ei)/ (hihj)
+                    m_mag = 1;
+                    perturb(d1, wrt);
+
                     m_func(m_m, m_ed_internal.m_d);
-                    m_func_res.block(0, col + i, m_m->nq, 1) += (m_ed_internal.m_pos) / eps;
-                    m_func_res.block(m_m->nq, col + i, m_m->nv, 1) += (m_ed_internal.m_vel) / eps;
+                    const auto &res_q2 = -(m_ed_internal.m_pos) / eps;
+                    const auto &res_v2 = -(m_ed_internal.m_vel) / eps;
+
+                    for(int q = 0; q < m_m->nq; ++q)
+                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) += res_q2(d1, d2);
+
+                    for(int v = 0; v < m_m->nv; ++v)
+                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) += res_v2(d1, d2);
+
+                    // f(arg + hi*ei + hj) + f(arg)  - f(arg + hj*ej)/ (hihj)
+                    copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+
+                    m_mag = 1;
+                    perturb(d1, wrt);
+
+                    m_func(m_m, m_ed_internal.m_d);
+                    const auto &res_q3 = -(m_ed_internal.m_pos) / eps;
+                    const auto &res_v3 = -(m_ed_internal.m_vel) / eps;
+
+                    for(int q = 0; q < m_m->nq; ++q)
+                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) += res_q3(d1, d2);
+
+                    for(int v = 0; v < m_m->nv; ++v)
+                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) += res_v3(d1, d2);
 
                     // copy to original state
                     copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
                 }
             }
-            col += wrt.size();
+            deriv_group += wrt.size();
         }
     }
 
