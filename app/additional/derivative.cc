@@ -21,6 +21,9 @@
 // enable compilation with and without OpenMP support
 #if defined(_OPENMP)
 #include <omp.h>
+#include <Eigen/Core>
+#include <iostream>
+
 #else
 // omp timer replacement
 #include <chrono>
@@ -54,6 +57,17 @@ int nwarmup = 3;            // center point repetitions to improve warmstart
 int nepoch = 20;            // number of timing epochs
 int nstep = 500;            // number of simulation steps per epoch
 double eps = 1e-6;          // finite-difference epsilon
+
+void copy_data(const mjModel *model, const mjData *data_src, mjData *data_cp) {
+    data_cp->time = data_src->time;
+    mju_copy(data_cp->qpos, data_src->qpos, model->nq);
+    mju_copy(data_cp->qvel, data_src->qvel, model->nv);
+    mju_copy(data_cp->qacc, data_src->qacc, model->nv);
+    mju_copy(data_cp->qfrc_applied, data_src->qfrc_applied, model->nv);
+    mju_copy(data_cp->xfrc_applied, data_src->xfrc_applied, 6 * model->nbody);
+    mju_copy(data_cp->ctrl, data_src->ctrl, model->nu);
+    mj_forward(model, data_cp);
+}
 
 
 // worker function for parallel finite-difference computation of derivatives
@@ -93,25 +107,27 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
     }
 
     // select output from forward or inverse dynamics
-    mjtNum* output = (isforward ? d->qacc : d->qfrc_inverse);
+    mjtNum* output = (isforward ? d->qpos : d->qfrc_inverse);
 
     // save output for center point and warmstart (needed in forward only)
     mju_copy(center, output, nv);
     mju_copy(warmstart, d->qacc_warmstart, nv);
 
     // select target vector and original vector for force or acceleration derivative
-    mjtNum* target = (isforward ? d->qfrc_applied : d->qacc);
-    const mjtNum* original = (isforward ? dmain->qfrc_applied : dmain->qacc);
+    mjtNum* target = (isforward ? d->ctrl : d->qacc);
+    const mjtNum* original = (isforward ? dmain->ctrl : dmain->qacc);
 
+    Eigen::MatrixXd dpos = Eigen::MatrixXd::Zero(m->nq, m->nu);
     // finite-difference over force or acceleration: skip = mjSTAGE_VEL
     for (int i=istart; i<iend; i++) {
+        copy_data(m, dmain, d);
         // perturb selected target
         target[i] += eps;
 
         // evaluate dynamics, with center warmstart
         if (isforward) {
             mju_copy(d->qacc_warmstart, warmstart, m->nv);
-            mj_forwardSkip(m, d, mjSTAGE_VEL, 1);
+            mj_step(m, d);
         } else {
             mj_inverseSkip(m, d, mjSTAGE_VEL, 1);
         }
@@ -121,12 +137,15 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 2
         for (int j=0; j<nv; j++) {
-            printf(" d%idacc%i = %f ", j, i, (output[j] - center[j])/eps);
+            dpos(j , i) = (output[j] - center[j])/eps;
             deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
 
     printf("\n");
+    std::cout << "dpos/du" << std::endl;
+    std::cout << dpos << std::endl;
+
     // finite-difference over velocity: skip = mjSTAGE_POS
     for (int i=istart; i<iend; i++) {
         // perturb velocity
@@ -145,7 +164,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 1
         for (int j=0; j<nv; j++) {
-            printf(" d%idvel%i = %f ", j, i, (output[j] - center[j])/eps);
+            printf("forward: %i d%idpos%i = %f ",isforward, j, i, (output[j] - center[j])/eps);
             deriv[(3*isforward+1)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
@@ -188,7 +207,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 0
         for (int j=0; j<nv; j++) {
-            printf(" d%idpos%i = %f ", j, i, (output[j] - center[j])/eps);
+            printf("forward: %i dpos%idpos%i = %f ",isforward, j, i, (output[j] - center[j])/eps);
             deriv[(3*isforward+0)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
@@ -296,7 +315,7 @@ int main(int argc, char** argv) {
     // load model
     mjModel* m;
     m = mj_loadXML(
-            "/home/daniel/Repos/OptimisationBasedControl/models/cartpole.xml",0, NULL, NULL
+            "/home/daniel/Repos/OptimisationBasedControl/models/2link.xml",0, NULL, NULL
     );
 
 
@@ -311,7 +330,7 @@ int main(int argc, char** argv) {
     mjData* d[MAXTHREAD];
     for (int n=0; n<nthread; n++) {
         d[n] = mj_makeData(m);
-        d[n]->qpos[0] = 0.5442; d[n]->qvel[0] = -1.03142738; d[n]->qacc[0] = -0.02782536;
+        d[n]->qpos[0] = 10; d[n]->qpos[1] = 10; d[n]->qvel[0] = 0; d[n]->qvel[1] = 0; d[n]->qacc[0] = 0; d[n]->qacc[1] = 0;
     }
 
     // allocate derivatives
@@ -349,7 +368,7 @@ int main(int argc, char** argv) {
         m->opt.tolerance = 0;
 
         // test forward and inverse
-        for (isforward=0; isforward<2; isforward++) {
+        for (isforward=1; isforward<2; isforward++) {
             // start timer
             double starttm = omp_get_wtime();
 
