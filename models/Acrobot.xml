@@ -61,8 +61,8 @@
 	</worldbody>
 
 	<actuator>
-<!--		<motor name="proximal" joint="proximal" gear="1"/>-->
-		<motor name="distal" joint="distal" gear="2"/>
+		<general name="proximal" joint="proximal" />
+		<general name="distal" joint="distal" gear="1.25 0 0 0 0 0" />
 	</actuator>
 
 	<!-- All finger observations are functions of sensors. This is useful for finite-differencing. -->

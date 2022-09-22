@@ -84,7 +84,7 @@ public:
             if (m_params.m_wrt_id == Wrt::State)
                 m_func_2nd_res = Eigen::MatrixXd(cols * (m_m->nq + m_m->nv), cols);
             else if (m_params.m_wrt_id == Wrt::Ctrl)
-                m_func_2nd_res = Eigen::MatrixXd(cols * (m_m->nu), cols);
+                m_func_2nd_res = Eigen::MatrixXd(cols * (m_m->nq + m_m->nv), cols);
         }
     };
 
@@ -131,73 +131,95 @@ public:
     };
 
 
-    const Eigen::MatrixXd &fwd_2nd(){
-
+    const Eigen::MatrixXd &fwd_2nd()
+    {
         mjcb_control = [](const mjModel* m, mjData* d){};
         int deriv_group = 0;
+
+        auto nq = m_m->nq, nv = m_m->nv;
+        auto nx = nq+nv;
 
         const auto eps = pow(m_params.m_eps, 2);
         auto deriv_size = 0; for (const EigenMatrixXMap &wrt: m_wrts) { deriv_size += wrt.size(); }
         const int hess_group = int(m_func_2nd_res.rows() / deriv_size);
+        copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
 
         for(EigenMatrixXMap& wrt: m_wrts) {
             const int d_size = wrt.size();
             for (int d1 = 0; d1 < wrt.size(); ++d1) {
                 for (int d2 = 0; d2 < wrt.size(); ++d2) {
-                    const int deriv_i = d1 + deriv_group; const int deriv_j = d2 + deriv_group;
-                    // f(arg + hi*ei + hjej) + f(arg) / (hihj)
-                    m_mag = 1;
+                    const int deriv_i = d1 + deriv_group; const int deriv_j = d2;
+                    // f(arg + hi*ei + hjej)
                     perturb(d1, wrt);
                     perturb(d2, wrt);
 
                     m_func(m_m, m_ed_internal.m_d);
-                    const auto &res_q1 = (m_ed_internal.m_pos + m_ed_external.m_pos) / eps;
-                    const auto &res_v1 = (m_ed_internal.m_vel + m_ed_external.m_vel) / eps;
 
-                    for(int q = 0; q < m_m->nq; ++q)
-                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) = res_q1(d1, d2);
+                    for(int q = 0; q < nq; ++q)
+                        m_func_2nd_res(deriv_i + (q * d_size), deriv_j) = m_ed_internal.m_pos[q];
 
-                    for(int v = 0; v < m_m->nv; ++v)
-                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) = res_v1(d1, d2);
+                    for(int v = 0; v < nv; ++v)
+                    {
+                        auto h_i = v + nq;
+                        m_func_2nd_res(deriv_i + (h_i * d_size), deriv_j) = m_ed_internal.m_vel[v];
+                    }
 
                     copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
 
-                    // f(arg + hi*ei + hj) + f(arg)  - f(arg + hi*ei)/ (hihj)
-                    m_mag = 1;
+                    // f(arg + hi*ei + hj * ej) - f(arg + hi*ei)
                     perturb(d1, wrt);
 
                     m_func(m_m, m_ed_internal.m_d);
-                    const auto &res_q2 = -(m_ed_internal.m_pos) / eps;
-                    const auto &res_v2 = -(m_ed_internal.m_vel) / eps;
 
                     for(int q = 0; q < m_m->nq; ++q)
-                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) += res_q2(d1, d2);
+                        m_func_2nd_res(deriv_i + (q * d_size), deriv_j) -= m_ed_internal.m_pos[q];
 
-                    for(int v = 0; v < m_m->nv; ++v)
-                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) += res_v2(d1, d2);
+                    for(int v = 0; v < nv; ++v)
+                    {
+                        auto h_i = v + nq;
+                        m_func_2nd_res(deriv_i + (h_i * d_size), deriv_j) -= m_ed_internal.m_vel[v];
+                    }
 
-                    // f(arg + hi*ei + hj) + f(arg)  - f(arg + hj*ej)/ (hihj)
                     copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
 
-                    m_mag = 1;
-                    perturb(d1, wrt);
+                    // f(arg + hi*ei + hj * ej) - f(arg + hi*ei) - f(arg + hj*ej)
+                    perturb(d2, wrt);
 
                     m_func(m_m, m_ed_internal.m_d);
-                    const auto &res_q3 = -(m_ed_internal.m_pos) / eps;
-                    const auto &res_v3 = -(m_ed_internal.m_vel) / eps;
 
                     for(int q = 0; q < m_m->nq; ++q)
-                        m_func_2nd_res(deriv_i + (q * hess_group), deriv_j) += res_q3(d1, d2);
+                        m_func_2nd_res(deriv_i + (q * d_size), deriv_j) -= m_ed_internal.m_pos[q];
 
                     for(int v = 0; v < m_m->nv; ++v)
-                        m_func_2nd_res(deriv_i + (v * hess_group), deriv_j) += res_v3(d1, d2);
+                    {
+                        auto h_i = v + nq;
+                        m_func_2nd_res(deriv_i + (h_i * d_size), deriv_j) -= m_ed_internal.m_vel[v];
+                    }
 
-                    // copy to original state
+                    copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+
+                    // f(arg + hi*ei + hj * ej) - f(arg + hi*ei) - f(arg + hj*ej) + f(arg)
+                    m_func(m_m, m_ed_internal.m_d);
+
+                    for(int q = 0; q < m_m->nq; ++q)
+                    {
+                        m_func_2nd_res(deriv_i + (q * d_size), deriv_j) += m_ed_internal.m_pos[q];
+                        m_func_2nd_res(deriv_i + (q * d_size), deriv_j) /= eps;
+                    }
+
+                    for(int v = 0; v < m_m->nv; ++v)
+                    {
+                        auto h_i = v + nq;
+                        m_func_2nd_res(deriv_i + (h_i * d_size), deriv_j) += m_ed_internal.m_vel[v];
+                        m_func_2nd_res(deriv_i + (h_i * d_size), deriv_j) /= eps;
+                    }
+
                     copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
                 }
             }
             deriv_group += wrt.size();
         }
+        return m_func_2nd_res;
     }
 
     const Eigen::MatrixXd &output(){
@@ -246,9 +268,9 @@ private:
                 angvel[dofpos] = m_params.m_eps;
                 mju_quatIntegrate(wrt.data() + quatadr, angvel, 1);
             } else
-                wrt.data()[m_m->jnt_qposadr[jid] + idx - m_m->jnt_dofadr[jid]] += m_mag * m_params.m_eps;
+                wrt.data()[m_m->jnt_qposadr[jid] + idx - m_m->jnt_dofadr[jid]] += m_params.m_eps;
         } else {
-            wrt(idx) = wrt(idx) + m_mag * m_params.m_eps;
+            wrt(idx) = wrt(idx) + m_params.m_eps;
         }
     }
 
@@ -294,6 +316,5 @@ private:
     std::vector<std::reference_wrapper<EigenMatrixXMap>> m_wrts;
     const MjDerivativeParams m_params;
     mjfGeneric m_func;
-    int m_mag = 1;
     Eigen::VectorXd m_perts;
 };
