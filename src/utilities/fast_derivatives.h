@@ -119,11 +119,20 @@ public:
         {
             copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
             for (int i = 0; i < wrt.size(); ++i) {
+                // f(u + e)
                 perturb(i, wrt);
                 m_func(m_m, m_ed_internal.m_d);
-                m_func_res.block(0, col + i, m_m->nq, 1) = (m_ed_internal.m_pos - m_ed_external.m_pos) / m_params.m_eps;
-                m_func_res.block(m_m->nq, col + i, m_m->nv, 1) = (m_ed_internal.m_vel - m_ed_external.m_vel) / m_params.m_eps;
+                m_func_res.block(0, col + i, m_m->nq, 1) = m_ed_internal.m_pos;
+                m_func_res.block(m_m->nq, col + i, m_m->nv, 1) = m_ed_internal.m_vel;
                 copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+
+                // f(u + e) - f(u) / eps
+                m_func(m_m, m_ed_internal.m_d);
+                m_func_res.block(0, col + i, m_m->nq, 1) -= m_ed_internal.m_pos;
+                m_func_res.block(m_m->nq, col + i, m_m->nv, 1) -= m_ed_internal.m_vel;
+                m_func_res.block(0, col + i, m_m->nq, 1) /= m_params.m_eps;
+                m_func_res.block(m_m->nq, col + i, m_m->nv, 1) /= m_params.m_eps;
+
             }
             col += wrt.size();
         }

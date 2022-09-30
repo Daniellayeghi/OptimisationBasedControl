@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
     // load model
     mjModel* m;
     m = mj_loadXML(
-            "/home/daniel/Repos/OptimisationBasedControl/models/2link.xml",0, NULL, NULL
+            "/home/daniel/Repos/OptimisationBasedControl/models/doubleintegrator.xml",0, NULL, NULL
     );
 
 

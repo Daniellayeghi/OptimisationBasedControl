@@ -20,7 +20,7 @@ public:
         mj_activate(MUJ_KEY_PATH);
         char error[1000] = "Could not load binary model";
         m = mj_loadXML(
-                "/home/daniel/Repos/OptimisationBasedControl/models/2link.xml",0, error, 1000
+                "/home/daniel/Repos/OptimisationBasedControl/models/doubleintegrator.xml",0, error, 1000
         );
 
         if (!m)
@@ -70,8 +70,10 @@ public:
 
 TEST_F(DerivativeTests, CP_CTRL_Jac)
 {
-    d->qpos[0] = 0; d->qvel[0] = 0; d->qacc[0] = 0;
-    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;    FiniteDifference fd(m);
+    d->qpos[0] = 0.3; d->qvel[0] = 0.6; d->qacc[0] = 0;
+//    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;
+
+    FiniteDifference fd(m);
 
     MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd, Order::First};
     MjDerivative deriv_mj(m, d, params);
@@ -83,11 +85,11 @@ TEST_F(DerivativeTests, CP_CTRL_Jac)
     }
 
     d->qpos[0] = 0; d->qvel[0] = 0; d->qacc[0] = 0;
-    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;    
+//    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;
     {
         TimeBench timer("Deriv Comp Original");
         fd.f_x_f_u(d);
-        const auto res = fd.f_x();
+        const auto res = fd.f_u();
         std::cout << res << std::endl;
     }
 }
@@ -96,8 +98,9 @@ TEST_F(DerivativeTests, CP_CTRL_Jac)
 TEST_F(DerivativeTests, CP_CTRL_Hess)
 {
     d->qpos[0] = 10; d->qvel[0] = 0; d->qacc[0] = 0;
-    d->qpos[1] = 10; d->qvel[1] = 0; d->qacc[1] = 0;
-    d->ctrl[0] = 0; d->ctrl[1] = 0;
+//    d->qpos[1] = 10; d->qvel[1] = 0; d->qacc[1] = 0;
+    d->ctrl[0] = 0;
+//    d->ctrl[1] = 0;
     FiniteDifference fd(m);
 
     MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd, Order::Second};
@@ -106,15 +109,6 @@ TEST_F(DerivativeTests, CP_CTRL_Hess)
     {
         TimeBench timer("Deriv Comp New");
         auto& res = deriv_mj.output();
-        std::cout << res << std::endl;
-    }
-
-    d->qpos[0] = 0; d->qvel[0] = 0; d->qacc[0] = 0;
-    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;
-    {
-        TimeBench timer("Deriv Comp Original");
-        fd.f_x_f_u(d);
-        const auto res = fd.f_x();
         std::cout << res << std::endl;
     }
 }
