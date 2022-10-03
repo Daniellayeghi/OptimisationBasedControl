@@ -34,7 +34,7 @@
     <geom name="rail2" type="capsule" pos="0 -.07 1" zaxis="1 0 0" size="0.02 4" material="decoration"/>
     <body name="cart" pos="0 0 1">
         <site name="mid" pos="0 0 2" />
-        <joint name="slider" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-1" margin = "0.1"/>
+        <joint name="slider" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-1"/>
         <geom name="cart" type="box" size="0.2 0.15 0.1" material="self" mass="1"/>
     </body>
     <body name="cart_2" pos="2 0 1">

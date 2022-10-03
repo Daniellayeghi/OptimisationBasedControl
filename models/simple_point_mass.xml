@@ -26,8 +26,8 @@
         <material name="target_highlight" rgba=".6 .3 .3 .4"/>
     </asset>
 
-    <option timestep="0.02">
-        <flag contact="disable"/>
+    <option timestep="0.01">
+        <flag contact="enable"/>
     </option>
 
     <default>
@@ -47,14 +47,12 @@
         <body name="pointmass" pos="0 0 .01">
             <camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
             <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" />
-            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" />
             <geom name="pointmass" type="sphere" size=".01" material="self" mass=".3"/>
         </body>
 
         <body name="pointmass2" pos=".2 0 .01">
             <camera name="cam1" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
             <joint name="root_x2" type="slide"  pos="0 0 0" axis="1 0 0" />
-            <joint name="root_y2" type="slide"  pos="0 0 0" axis="0 1 0" />
             <geom name="pointmass2" type="sphere" size=".01" material="self" mass=".3"/>
         </body>
 
@@ -64,11 +62,9 @@
     <tendon>
         <fixed name="t1">
             <joint joint="root_x" coef="1"/>
-            <joint joint="root_y" coef="0"/>
         </fixed>
         <fixed name="t2">
             <joint joint="root_x" coef="0"/>
-            <joint joint="root_y" coef="1"/>
         </fixed>
     </tendon>
 

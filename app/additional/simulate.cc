@@ -20,10 +20,17 @@
 #include <thread>
 
 #include <mujoco/mjxmacro.h>
+#include "Eigen/Core"
+#include <iostream>
 #include "uitools.h"
 
 #include "array_safety.h"
 namespace mju = ::mujoco::sample_util;
+Eigen::MatrixXd A;
+Eigen::MatrixXd B;
+Eigen::Map<Eigen::Matrix<double, 1, 1>> u(nullptr);
+Eigen::Map<Eigen::Matrix<double, 2, 1>> q(nullptr);
+Eigen::Map<Eigen::Matrix<double, 2, 1>> qd(nullptr);
 
 
 //-------------------------------- global -----------------------------------------------
@@ -1188,6 +1195,14 @@ void loadmodel(void) {
   mj_deleteModel(m);
   m = mnew;
   d = mj_makeData(m);
+  new (&u) Eigen::Map<Eigen::Matrix<double, 1, 1>>(d->ctrl);
+  new (&A) Eigen::MatrixXd(m->nv * 2, m->nv * 2);
+  new (&B) Eigen::MatrixXd(m->nu, m->nv * 2);
+  new (&q) Eigen::Map<Eigen::Matrix<double, 1, 2>>(d->qpos);
+  new (&qd) Eigen::Map<Eigen::Matrix<double, 1, 2>>(d->qvel);
+
+  d->qpos[0] = 0;
+  d->qpos[1] = .2;
   mj_forward(m, d);
 
   // allocate ctrlnoise
@@ -1927,6 +1942,9 @@ void simulate(void) {
 
     // start exclusive access
     mtx.lock();
+    Eigen::MatrixXd B_u(1, 2); B_u << 0, 0;
+    Eigen::MatrixXd x_u(1, 2); x_u << 0, 0;
+    Eigen::MatrixXd x_u_des(1, 2); x_u_des << 0.4, 0;
 
     // run only if model is present
     if (m) {
@@ -1965,8 +1983,14 @@ void simulate(void) {
           mjv_applyPerturbForce(m, d, &pert);
 
           // run single step, let next iteration deal with timing
-
           mj_step(m, d);
+          mjd_transitionFD(m, d, 1e-6, 0, A.data(), B.data());
+          std::cout << "A: \n" << A << std::endl;
+          std::cout << "B: \n" << B << std::endl;
+          B_u(0, 0) = B(0, 1); B_u(0, 1) = B(0, 3);
+          x_u(0, 0) = d->qpos[1]; x_u(0, 1) = d->qvel[1];
+            std::cout << "Error: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() << std::endl;
+            std::cout << "Cost: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() * (B_u * B_u.transpose()) << std::endl;
         }
 
         // in-sync
@@ -1982,6 +2006,13 @@ void simulate(void) {
             // run mj_step
             mjtNum prevtm = d->time*settings.slow_down;
             mj_step(m, d);
+            mjd_transitionFD(m, d, 1e-6, 0, A.data(), B.data());
+            std::cout << "A: \n" << A << std::endl;
+            std::cout << "B: \n" << B << std::endl;
+            B_u(0, 0) = B(0, 1); B_u(0, 1) = B(0, 3);
+            x_u(0, 0) = d->qpos[1]; x_u(0, 1) = d->qvel[1];
+            std::cout << "Error: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() << std::endl;
+            std::cout << "Cost: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() *  (B_u * B_u.transpose()) << std::endl;
 
             // break on reset
             if (d->time*settings.slow_down<prevtm) {
