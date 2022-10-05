@@ -231,7 +231,7 @@ int main(int argc, const char** argv)
     // To show difference in sampling try 3 samples
     MPPIDDPParamsPar params {
             100, 100,0.0001, 0, 1, 1, 25,
-            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}
     };
 
     MPPIDDPCstParams p{1, 0.0001, ctrl_var.inverse()};

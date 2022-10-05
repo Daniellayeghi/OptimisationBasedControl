@@ -28,13 +28,14 @@ ILQR::ILQR(FiniteDifference& fd,
     m_x_traj.assign(m_params.simulation_time + 1, StateVector::Zero());
     m_u_traj_new.assign(m_params.simulation_time, CtrlVector::Zero());
     m_u_traj_cp.assign(m_params.simulation_time,CtrlVector::Zero());
-    _covariance.assign(m_params.simulation_time, CtrlMatrix::Identity());
-    _covariance_new.assign(m_params.simulation_time, CtrlMatrix::Identity());
+    m_covariance.assign(m_params.simulation_time, CtrlMatrix::Identity());
+    m_covariance_new.assign(m_params.simulation_time, CtrlMatrix::Identity());
+    m_cond_number.assign(m_params.simulation_time, 1e6);
+    m_cond_number_new.assign(m_params.simulation_time, 1e6);
     m_Qu_traj.assign(m_params.simulation_time, CtrlVector::Zero());
     m_Quu_traj.assign(m_params.simulation_time, CtrlMatrix::Zero());
     m_state_value.first.assign(m_params.simulation_time+1, StateVector::Zero());
     m_state_value.second.assign(m_params.simulation_time+1, 0);
-
     if (m_params.m_grav_comp)
         s_callback_ctrl = [](const mjModel* m, mjData *d){
             mju_copy(d->qfrc_applied, d->qfrc_bias, m->nu);
@@ -218,15 +219,19 @@ void ILQR::backward_pass()
                     hessian_matrix_t::Identity()
             );
 
+            Eigen::JacobiSVD<CtrlMatrix> svd(Quu_reg);
+
             const CtrlMatrix cov = hessian_inverse.block(
                     state_size, state_size, n_ctrl, n_ctrl
             );
 
             if (std::any_of(cov.data(), cov.data() + cov.size(), [](const double val) {return not std::isnan(val);}))
             {
-                _covariance_new[time] = cov;
+                m_covariance_new[time] = cov;
+                m_cond_number_new[time] = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size()-1);
             } else {
-                _covariance_new[time] = CtrlMatrix::Identity();
+                m_covariance_new[time] = CtrlMatrix::Identity();
+                m_cond_number_new[time] = 1e6;
             }
 
             // Compute the feedback and the feedforward gain
@@ -250,7 +255,7 @@ void ILQR::temporal_average_covariance()
 {
     auto iter = 0.0; auto weight_den = 0.0; CtrlMatrix weight_sum_num = CtrlMatrix::Zero();
 
-    for(auto& cov :_covariance)
+    for(auto& cov :m_covariance)
     {
         double weight = (m_params.simulation_time - iter)/m_params.simulation_time;
         weight_den += weight;
@@ -331,7 +336,8 @@ void ILQR::forward_pass(const mjData* d)
             m_u_traj = m_u_traj_new;
             m_u_traj_cp = m_u_traj;
             m_x_traj = m_x_traj_new;
-            _covariance = _covariance_new;
+            m_covariance = m_covariance_new;
+            m_cond_number = m_cond_number_new;
             printf("Cost = %f, Cost Diff = %f, Expected Diff = %f, Lambda = %f, Update = %s, last_position = %f\n",
                    _prev_total_cost, _prev_total_cost - new_total_cost, expected_cost_red, m_regularizer(0.0), status.c_str(), m_x_traj_new.front()(0, 0));
             break;
@@ -344,8 +350,11 @@ void ILQR::forward_pass(const mjData* d)
 
     if (status == "N")
     {
-        std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
-        _covariance.back() = CtrlMatrix::Identity() * 0.15;
+        std::rotate(m_covariance.begin(), m_covariance.begin() + 1, m_covariance.end());
+        m_covariance.back() = CtrlMatrix::Identity() * 0.15;
+
+        std::rotate(m_cond_number.begin(), m_cond_number.begin() + 1, m_cond_number.end());
+        m_cond_number.back() = 1e6;
     }
 }
 
@@ -362,12 +371,15 @@ void ILQR::control(const mjData* d, const bool skip)
             if (minimal_grad()) break;
             if (m_good_backpass) forward_pass(d);
 //            m_cf.m_u_prev = m_u_traj.front();
-            cost.emplace_back(_prev_total_cost);
+            m_cost.emplace_back(_prev_total_cost);
         }
     }
     else{
-        std::rotate(_covariance.begin(), _covariance.begin() + 1, _covariance.end());
-        _covariance.back() = CtrlMatrix::Identity() * 0.15;
+        std::rotate(m_covariance.begin(), m_covariance.begin() + 1, m_covariance.end());
+        m_covariance.back() = CtrlMatrix::Identity() * 0.15;
+
+        std::rotate(m_cond_number.begin(), m_cond_number.begin() + 1, m_cond_number.end());
+        m_cond_number.back() = 1e6;
     }
 
     cached_control = m_u_traj.front();

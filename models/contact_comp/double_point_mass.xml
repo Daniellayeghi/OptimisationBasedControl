@@ -47,12 +47,14 @@
         <body name="pointmass1" pos="-.0 .0 .042">
             <camera name="cam0" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
             <joint name="root_x" type="slide"  pos="0 0 0" axis="1 0 0" damping="3" frictionloss=".01"/>
+            <joint name="root_y" type="slide"  pos="0 0 0" axis="0 1 0" damping="3" frictionloss=".01"/>
             <geom name="pointmass1" type="sphere" size=".042" material="self" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
         </body>
 
         <body name="pointmass2" pos="-.0 .0 .042">
             <camera name="cam1" pos="0 -0.3 0.3" xyaxes="1 0 0 0 0.7 0.7"/>
             <joint name="root_x2" type="slide"  pos="0 0 0" axis="1 0 0" damping="3" frictionloss=".01"/>
+            <joint name="root_y2" type="slide"  pos="0 0 0" axis="0 1 0" damping="3" frictionloss=".01"/>
             <geom name="pointmass2" type="sphere" size=".042" material="self" mass=".6" condim="4"  group="2" solimp="0.9 0.95 0.001" solref="0.02 1"/>
         </body>
 
@@ -61,9 +63,11 @@
     <tendon>
         <fixed name="t1">
             <joint joint="root_x" coef="1"/>
+            <joint joint="root_y" coef="0"/>
         </fixed>
         <fixed name="t2">
-            <joint joint="root_x2" coef="1"/>
+        <joint joint="root_x" coef="0"/>
+        <joint joint="root_y" coef="1"/>
         </fixed>
     </tendon>
 

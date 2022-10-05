@@ -77,9 +77,12 @@ private:
     std::vector<double> exp_cost_reduction;
 
 public:
-    std::vector<CtrlMatrix> _covariance;
-    std::vector<CtrlMatrix> _covariance_new;
-    std::vector<double> cost;
+    std::vector<CtrlMatrix> m_covariance;
+    std::vector<CtrlMatrix> m_covariance_new;
+    std::vector<double> m_cond_number_new;
+    std::vector<double> m_cond_number;
+    std::vector<double> m_cost;
+    Eigen::JacobiSVD<CtrlMatrix> m_svd;
 
 private:
     FiniteDifference& _fd;

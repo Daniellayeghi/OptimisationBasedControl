@@ -8,6 +8,7 @@ constexpr const int nthreads = n_threads;
 static void (*s_callback_ctrl)(const mjModel *, mjData *);
 static auto step = [](const mjModel* m, mjData* d, mjfGeneric cbc){mjcb_control = cbc;  mj_step(m, d);};
 
+
 MPPIDDPPar::MPPIDDPPar(const mjModel* m, PICost& cost, MPPIDDPParamsPar& params):
         m_padded_cst(params.m_k_samples, std::vector<double>(8)),
         m_sample_ctrl_traj(params.m_k_samples),
@@ -33,6 +34,7 @@ MPPIDDPPar::MPPIDDPPar(const mjModel* m, PICost& cost, MPPIDDPParamsPar& params)
     m_x_traj.assign(m_params.m_sim_time + 1, StateVector::Zero());
     m_u_traj_new.assign(m_params.m_sim_time+1, CtrlVector ::Zero());
     m_ddp_cov_inv_vec.assign(m_params.m_sim_time, CtrlMatrix::Identity());
+    m_adapt_importance.assign(m_params.m_sim_time, 0);
     m_state_value.first.assign(m_params.m_sim_time+1, StateVector::Zero());
     m_state_value.second.assign(m_params.m_sim_time+1, 0);
 
@@ -52,7 +54,10 @@ void MPPIDDPPar::compute_cov_from_hess(const std::vector<CtrlMatrix> &ddp_varian
 {
 #pragma omp  parallel for default(none) shared(m_ddp_cov_inv_vec, ddp_variance, m_params) num_threads(nthreads)
     for (auto elem = 0; elem < m_params.m_sim_time; ++elem)
+    {
         m_ddp_cov_inv_vec[elem] = (ddp_variance[elem] / m_params.ddp_cov_reg).llt().solve(CtrlMatrix::Identity());
+        m_adapt_importance[elem] = MathUtils::Activations::logistic_1<double>(1/m_params.m_ddp_args.third[elem]);
+    }
 }
 
 
@@ -169,7 +174,9 @@ void MPPIDDPPar::rollout_trajectories(const mjData* d)
 
                 m_padded_cst[sample][0] += m_cost_func.pi_ddp_cost(
                         t_d.next, m_u_traj[time], pert_sample,
-                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time], mjdata, m_m);
+                        m_params.m_ddp_args.first[time], m_ddp_cov_inv_vec[time],
+                        m_adapt_importance[time], mjdata, m_m
+                        );
 
             }
 

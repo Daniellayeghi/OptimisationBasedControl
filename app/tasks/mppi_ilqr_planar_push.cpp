@@ -248,7 +248,7 @@ int main(int argc, const char** argv)
 
     MPPIDDPParams params {
         30, 75, 0.0001, 0, 1, 1,1,
-        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+        ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}
     };
     QRCostDDP qrcost(params, running_cost, terminal_cost);
     MPPIDDP pi(m, qrcost, params);

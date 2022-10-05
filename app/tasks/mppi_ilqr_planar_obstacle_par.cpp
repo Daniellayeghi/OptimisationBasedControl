@@ -283,8 +283,8 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParamsPar params{
-                250, 75, .1, 1, 1, 1, 1e4,ctrl_mean,
-                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed, importance_reg, false
+                250, 75, .1, 1, 1, 1, 1e4, ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}, seed, importance_reg, false
         };
 
         MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};

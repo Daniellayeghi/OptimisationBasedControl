@@ -61,4 +61,11 @@ namespace MathUtils::Coord
     };
 }
 
+
+namespace MathUtils::Activations
+{
+    template<typename Scalar>
+    constexpr const auto logistic_1 = [](const Scalar x){return 1 / 1 + std::exp(-.1 * (x - 25));};
+}
+
 #endif //OPTCONTROL_MUJOCO_MATH_UTILS_H

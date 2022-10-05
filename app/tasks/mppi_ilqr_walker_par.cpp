@@ -263,7 +263,7 @@ int main(int argc, const char** argv)
 
         MPPIDDPParamsPar params{
                 700, 75, 0.25, 1, 1, 1, 5e3,
-                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
+                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance},
                 1, importance_reg, false
         };
 

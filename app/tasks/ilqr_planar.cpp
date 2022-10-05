@@ -281,7 +281,7 @@ int main(int argc, const char** argv)
 
     MPPIDDPParamsPar params{
             10, 75, 0.001, 0, 1, 1, 1,
-            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}
+            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}
     };
 
     MPPIDDPCstParams cst_params{1, 0.001, ctrl_var.inverse()};

@@ -260,8 +260,8 @@ int main(int argc, const char** argv)
         ILQR ilqr(fd, cost_func, ilqr_params, m, d, nullptr);
 
         MPPIDDPParams params{
-            50, 75, 0.25, 1, 1, 1,5,
-            ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+                50, 75, 0.25, 1, 1, 1, 5,
+                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}, seed
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);

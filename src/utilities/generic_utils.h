@@ -18,6 +18,15 @@ namespace GenericUtils
     };
 
 
+    template<typename T1, typename T2, typename T3>
+    struct FastTriplet
+    {
+        T1 first;
+        T2 second;
+        T3 third;
+    };
+
+
     template<typename T>
     void sg_filter(const std::vector<T>& input, std::vector<T>& result)
     {

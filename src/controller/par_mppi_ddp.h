@@ -32,7 +32,7 @@ struct MPPIDDPParamsPar{
     const CtrlVector pi_ctrl_mean;
     const CtrlMatrix ddp_variance;
     const CtrlMatrix ctrl_variance;
-    const FastPair<std::vector<CtrlVector>&, std::vector<CtrlMatrix>&> m_ddp_args;
+    const FastTriplet<std::vector<CtrlVector>&, std::vector<CtrlMatrix>&, std::vector<double>&> m_ddp_args;
     const int m_seed = 1;
     const std::function<double(const mjData* data, const mjModel *model)>&  m_importance_reg =
             [&](const mjData* data=nullptr, const mjModel *model=nullptr){return 1.0;};
@@ -156,6 +156,7 @@ private:
     std::vector<Eigen::EigenMultivariateNormal<double>> m_dist_gens;
     std::vector<mjData *> m_thread_mjdata;
     std::vector<CtrlMatrix> m_ddp_cov_inv_vec;
+    std::vector<double> m_adapt_importance;
     struct m_ThreadData{
         StateVector current = StateVector::Zero(), next = StateVector::Zero();
         CtrlVector instant_ctrl = CtrlVector::Zero();

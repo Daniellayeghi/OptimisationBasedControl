@@ -250,8 +250,9 @@ int main(int argc, const char** argv)
 
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
-                20, 75, 0.1, 1, 1, 1, 1000, ctrl_mean,
-                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed, importance_reg, false};
+            20, 75, 0.1, 1, 1, 1, 1000, ctrl_mean,
+            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance, ilqr.m_cond_number}, seed, importance_reg, false
+        };
 
 
         MPPIDDPCstParams p{1, 0.1, ctrl_var.inverse()};
@@ -308,9 +309,9 @@ int main(int argc, const char** argv)
                 pi.control(d);
                 simp_buff.update_buffer();
                 ilqr.m_u_traj = pi.m_u_traj;
-                zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
-                zmq_buffer.send_buffers();
+//                zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
+//                pos_buff.push_buffer(); vel_buff.push_buffer(); ctrl_buff.push_buffer(); cost_buff.push_buffer();
+//                zmq_buffer.send_buffers();
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                 mj_step(m, d);
             }

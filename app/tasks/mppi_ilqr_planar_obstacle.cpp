@@ -268,8 +268,8 @@ int main(int argc, const char** argv)
 
         // New result version try with higher regularisation but start at 20
         MPPIDDPParams params{
-            50, 75, .3, 1, 1, 1, 20,ctrl_mean,
-            ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, seed
+                50, 75, .3, 1, 1, 1, 20, ctrl_mean,
+                ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance}, seed
         };
         QRCostDDP qrcost(params, running_cost, terminal_cost);
         MPPIDDP pi(m, qrcost, params);

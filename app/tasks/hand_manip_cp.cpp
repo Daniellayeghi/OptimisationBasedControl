@@ -262,7 +262,7 @@ int main(int argc, const char** argv)
         // To show difference in sampling try 3 samples
         MPPIDDPParamsPar params{
                 5, 10, 0.1, 1, 1, 1, 675,
-                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance},
+                ctrl_mean, ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr.m_covariance},
                 1};
 
         MPPIDDPCstParams cst_params{1, 0.1, ctrl_var.inverse()};
@@ -322,7 +322,7 @@ int main(int argc, const char** argv)
                 mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::dummy_controller;
                 ilqr.control(d, false);
                 if(iteration == 3)
-                    std::cout << "Trace: " << iteration << " " << ilqr._covariance.front().trace() << std::endl;
+                    std::cout << "Trace: " << iteration << " " << ilqr.m_covariance.front().trace() << std::endl;
                 pi.control(d);
                 simp_buff.update_buffer();
                 ilqr.m_u_traj = pi.m_u_traj;;

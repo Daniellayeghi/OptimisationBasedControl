@@ -190,7 +190,7 @@ public:
 struct MPPIDDPCstParams {
     const double m_importance = 0;
     const double m_lambda  = 0;
-    const CtrlMatrix  m_ctrl_variance_inv;
+    const CtrlMatrix&  m_ctrl_variance_inv;
     const std::function<double(const mjData* data, const mjModel *model)>&  m_importance_reg =
             [](const mjData* data=nullptr, const mjModel *model=nullptr){return 1.0;};
 };
@@ -247,9 +247,10 @@ public:
                        const CtrlVector& delta_control,
                        const CtrlVector& ddp_mean_control,
                        const CtrlMatrix& ddp_covariance_inv,
+                       const double& ddp_hess_cond,
                        const mjData* data, const mjModel *model)
     {
-        const auto importance = m_cst_params.m_importance * m_cst_params.m_importance_reg(data, model);
+        const auto importance = ddp_hess_cond; //m_cst_params.m_importance * m_cst_params.m_importance_reg(data, model);
         CtrlVector new_control = control + delta_control;
         double ddp_bias = ((new_control - ddp_mean_control).transpose() * ddp_covariance_inv *  (new_control - ddp_mean_control)
                           )(0, 0) * m_cst_params.m_importance;
