@@ -11,13 +11,16 @@
 
 #include "Eigen/Core"
 
-constexpr const int nu = 2;
-constexpr const int np = 2;
-constexpr const int nv = 2;
+constexpr const int nu = 1;
+constexpr const int np = 1;
+constexpr const int nv = 1;
 constexpr const int ns = np + nv;
 constexpr const int nf = np + nv + nu;
 
-constexpr auto check_size = [](){full_size != nf; FAIL();};
+constexpr auto check_size = [](){
+    if(full_size != nf)
+        FAIL();
+};
 
 class DerivativeTests : public testing::Test {
 
@@ -56,7 +59,6 @@ public:
     void TearDown()
     {
         check_size();
-        mjcb_control = MyController<ILQR, np + nv, n_ctrl>::dummy_controller;
         mjv_freeScene(&scn);
         mjr_freeContext(&con);
         mj_deleteData(d);
