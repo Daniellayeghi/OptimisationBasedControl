@@ -18,7 +18,7 @@ constexpr const int ns = np + nv;
 constexpr const int nf = np + nv + nu;
 
 constexpr auto check_size = [](){
-    if(full_size != nf)
+    if constexpr (full_size != nf)
         FAIL();
 };
 
