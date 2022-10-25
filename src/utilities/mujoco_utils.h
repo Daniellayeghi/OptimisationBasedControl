@@ -18,6 +18,7 @@ namespace MujocoUtils
         mju_copy(data_cp->qfrc_applied, data_src->qfrc_applied, model->nv);
         mju_copy(data_cp->xfrc_applied, data_src->xfrc_applied, 6 * model->nbody);
         mju_copy(data_cp->ctrl, data_src->ctrl, model->nu);
+        mj_forward(model, data_cp);
     }
 
 

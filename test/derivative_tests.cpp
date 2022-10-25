@@ -17,21 +17,18 @@ constexpr const int nv = 2;
 constexpr const int ns = np + nv;
 constexpr const int nf = np + nv + nu;
 
+constexpr auto check_size = [](){full_size != nf; FAIL();};
 
 class DerivativeTests : public testing::Test {
 
 public:
     void SetUp()
     {
-        if constexpr(nf != full_size) {
-            std::cout << "Size Mismatch" << std::endl;
-            FAIL();
-        }
-
+        check_size();
         mj_activate(MUJ_KEY_PATH);
         char error[1000] = "Could not load binary model";
         m = mj_loadXML(
-                "/home/daniel/Repos/OptimisationBasedControl/models/2link.xml",0, error, 1000
+            "/home/daniel/Repos/OptimisationBasedControl/models/doubleintegrator.xml",0, error, 1000
         );
 
         if (!m)
@@ -58,11 +55,7 @@ public:
 
     void TearDown()
     {
-        if constexpr(nf != full_size) {
-            std::cout << "Size Mismatch" << std::endl;
-            FAIL();
-        }
-
+        check_size();
         mjcb_control = MyController<ILQR, np + nv, n_ctrl>::dummy_controller;
         mjv_freeScene(&scn);
         mjr_freeContext(&con);
@@ -83,16 +76,13 @@ public:
 };
 
 
-TEST_F(DerivativeTests, CP_CTRL_Deriv)
+TEST_F(DerivativeTests, CP_CTRL_Jac)
 {
-    if constexpr(nf != full_size) {
-        std::cout << "Size Mismatch" << std::endl;
-        FAIL();
-    }
 
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
+    check_size();
+    d->qpos[0] = 0.3; d->qvel[0] = 0.6; d->qacc[0] = 0;
+//    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;
 
-    MjDataVecView eig_d(m, d);
     FiniteDifference fd(m);
 
     MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd, Order::First};
@@ -104,7 +94,8 @@ TEST_F(DerivativeTests, CP_CTRL_Deriv)
         std::cout << res << std::endl;
     }
 
-    d->qpos[0] = 0; d->qpos[1] = 0; d->qvel[0] = 0; d->qvel[1] = 0;
+    d->qpos[0] = 0; d->qvel[0] = 0; d->qacc[0] = 0;
+//    d->qpos[1] = 0; d->qvel[1] = 0; d->qacc[1] = 0;
     {
         TimeBench timer("Deriv Comp Original");
         fd.f_x_f_u(d);
@@ -114,16 +105,29 @@ TEST_F(DerivativeTests, CP_CTRL_Deriv)
 }
 
 
-TEST_F(DerivativeTests, JOINT_ID) {
+TEST_F(DerivativeTests, CP_CTRL_Hess)
+{
+    check_size();
+    d->qpos[0] = 10; d->qvel[0] = 0; d->qacc[0] = 0;
+    d->ctrl[0] = 0;
+    FiniteDifference fd(m);
 
-    if constexpr(nf != full_size) {
-        std::cout << "Size Mismatch" << std::endl;
-        FAIL();
+    MjDerivativeParams params{1e-6, Wrt::Ctrl, Mode::Fwd, Order::Second};
+    MjDerivative deriv_mj(m, d, params);
+
+    {
+        TimeBench timer("Deriv Comp New");
+        auto& res = deriv_mj.output();
+        std::cout << res << std::endl;
     }
+}
 
+
+TEST_F(DerivativeTests, JOINT_ID)
+{
+    check_size();
     d->qpos[0] = 0;
     d->qvel[0] = 0;
-
 
     // In general finite differences the perturbation happens with respect to all the states in order.
     // in this case states being, pos, vel, acc. so a call to finite diff w.r.t to some parameter implicitly traverses

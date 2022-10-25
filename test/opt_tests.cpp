@@ -18,6 +18,7 @@ constexpr const int np = 2;
 constexpr const int nv = 2;
 constexpr const int nf = np + nv + nu;
 
+constexpr auto check_size = [](){full_size != nf; FAIL();};
 
 class SolverTests : public testing::Test {
 

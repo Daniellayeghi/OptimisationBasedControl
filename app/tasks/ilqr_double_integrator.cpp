@@ -21,6 +21,7 @@ using namespace std::chrono;
 // MuJoCo data structures
 mjModel* m = NULL;                  // MuJoCo model
 mjData* d = NULL;                   // MuJoCo data
+mjData* d_cp = NULL;                   // MuJoCo data
 mjvCamera cam;                      // abstract camera
 mjvOption opt;                      // visualization options
 mjvScene scn;                       // abstract scene
@@ -134,6 +135,7 @@ int main(int argc, const char** argv)
 
     // make data
     d = mj_makeData(m);
+    d_cp = mj_makeData(m);
 
     // init GLFW
     if( !glfwInit() )
@@ -169,8 +171,7 @@ int main(int argc, const char** argv)
 
     StateVector x_gain_vec; x_gain_vec << 1, .5;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
-    CtrlMatrix u_gain; u_gain << 10;
-    CtrlMatrix du_gain; du_gain << 0;
+    CtrlMatrix u_gain; u_gain << 50;
 
     // install GLFW mouse and keyboard callbacks
     glfwSetKeyCallback(window, keyboard);
@@ -179,18 +180,24 @@ int main(int argc, const char** argv)
     glfwSetScrollCallback(window, scroll);
 
     PosVector init_pos = PosVector::Zero();
+    VelVector init_vel = VelVector::Zero();
     PosVector goal_pos = PosVector::Zero();
     Eigen::Map<PosVector> pos_map(d->qpos);
     Eigen::Map<VelVector> vel_map(d->qvel);
 
     // initial position
-    for(auto goal = 1; goal < 50; ++goal) {
-        MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), 2);
-        x_desired.block(0, 0, n_jpos, 1) = PosVector::Random();
-        for (auto init = 1; init < 50; ++init) {
-            MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 1);
+    for(auto goal = 0; goal < 100; ++goal) {
+        MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(goal_pos.data(), 0.5);
+        std::copy(goal_pos.data(), goal_pos.data() + n_jpos, x_desired.data());
+        x_desired.block(n_jpos, 0, n_jvel, 1) = VelVector::Zero();
+        for (auto init = 0; init < 100; ++init) {
+            MujocoUtils::copy_data(m, d_cp, d);
+            MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), 0.5);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
+            MathUtils::Rand::random_iid_data_const_bound<double, n_jvel>(init_vel.data(), .3);
+            std::copy(init_vel.data(), init_vel.data() + n_jvel, d->qvel);
 
+            mj_step(m, d);
             FiniteDifference fd(m);
             QRCst cost_func(x_desired, x_gain, x_terminal_gain, u_gain, nullptr);
             ILQRParams params {1e-6, 1.6, 1.6, 0, 75, 1,  false};
@@ -202,28 +209,37 @@ int main(int argc, const char** argv)
             mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
 /* ============================================CSV Output Files=======================================================*/
             const std::string path = "/home/daniel/Repos/OptimisationBasedControl/data/";
-            const auto goal_state = std::to_string((x_desired(0)));
-            const auto start_state = std::to_string((init_pos(0)));
 
-            const std::string mode = std::to_string(goal) + std::to_string(init) + "_start_" + start_state + "_" + goal_state + "_goal_";
-            std::fstream ctrl_file(path + mode + name + "_ctrl"  ".csv", std::fstream::out | std::fstream::trunc);
-            std::fstream state_file(path + mode + name + "_state"  ".csv", std::fstream::out | std::fstream::trunc);
+//            const std::string mode = std::to_string(goal) + std::to_string(init) + "_start_" + start_state + "_" + goal_state + "_goal_";
+            const std::string mode = "di_one_goal";
+            std::fstream ctrl_file(path + mode + "_ctrl"  ".csv", std::fstream::in | std::fstream::out | std::fstream::app);
+            std::fstream pos_file(path + mode + "_pos"  ".csv", std::fstream::in | std::fstream::out | std::fstream::app);
+            std::fstream vel_file(path + mode + "_vel"  ".csv", std::fstream::in | std::fstream::out | std::fstream::app);
+            std::fstream goal_file(path + mode + "_goal"  ".csv", std::fstream::in | std::fstream::out | std::fstream::app);
 
             GenericBuffer<CtrlVector> u_bt{ilqr.cached_control.data()};
-            GenericBuffer<StateVector> x_bt{ilqr.m_x_traj.front().data()};
+            GenericBuffer<PosVector> p_bt{d->qpos};
+            GenericBuffer<VelVector> v_bt{d->qvel};
+            GenericBuffer<StateVector> g_bt{x_desired.data()};
+            GenericBuffer<StateVector> i_bt{init_pos.data()};
 
             DataBuffer<GenericBuffer<CtrlVector>> u_buff;
-            DataBuffer<GenericBuffer<StateVector>> x_buff;
+            DataBuffer<GenericBuffer<PosVector>> p_buff;
+            DataBuffer<GenericBuffer<VelVector>> v_buff;
+            DataBuffer<GenericBuffer<StateVector>> g_buff;
 
             u_buff.add_buffer_and_file({&u_bt, &ctrl_file});
-            x_buff.add_buffer_and_file({&x_bt, &state_file});
+            p_buff.add_buffer_and_file({&p_bt, &pos_file});
+            v_buff.add_buffer_and_file({&v_bt, &vel_file});
+            g_buff.add_buffer_and_file({&g_bt, &goal_file});
+
 
             /* Use REQ because we want to make sure we recieved all info*/
             printf("Connecting to viewer server…\n");
             ZMQUBuffer<RawTypeEig<CtrlVector>::type> zmq_buffer(ZMQ_PUSH, "tcp://localhost:5555");
 
             std::vector<BufferParams<scalar_type, char>> buffer_params{
-                    {ilqr.cached_control.data(),ilqr.cached_control.data() + n_ctrl, 'q'},
+                    {ilqr.cached_control.data(),ilqr.cached_control.data() + n_ctrl, 'q'}
             };
 
             SimpleBuffer<RawTypeEig<CtrlVector>::scalar, char> simp_buff(buffer_params);
@@ -239,13 +255,16 @@ int main(int argc, const char** argv)
                 mjtNum simstart = d->time;
                 while (d->time - simstart < 1.0 / 60.0) {
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::dummy_controller;
-                    x_buff.push_buffer();
+                    p_buff.push_buffer();
+                    v_buff.push_buffer();
+                    g_buff.push_buffer();
                     ilqr.control(d, false);
                     u_buff.push_buffer();
 //                    simp_buff.update_buffer();
 //                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
                     mjcb_control = MyController<ILQR, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                     mj_step(m, d);
+//                    break;
                 }
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -263,9 +282,12 @@ int main(int argc, const char** argv)
                 // process pending GUI events, call GLFW callbacks
                 glfwPollEvents();
 
-                if (save_data or ((pos_des - pos_map).norm() < 1e-3 and (vel_des - vel_map).norm() < 1e-3)) {
+                if (save_data or ((pos_des - pos_map).norm() < 1e-1 and (vel_des - vel_map).norm() < 1e-2)) {
+
                     u_buff.save_buffer();
-                    x_buff.save_buffer();
+                    p_buff.save_buffer();
+                    v_buff.save_buffer();
+                    g_buff.save_buffer();
                     std::cout << "Saved!" << std::endl;
                     save_data = false;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));

@@ -17,11 +17,12 @@
 #include <cstring>
 
 #include <mujoco/mujoco.h>
+#include "Eigen/Core"
+
 
 // enable compilation with and without OpenMP support
 #if defined(_OPENMP)
 #include <omp.h>
-#include <Eigen/Core>
 #include <iostream>
 
 #else
@@ -137,7 +138,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 2
         for (int j=0; j<nv; j++) {
-            dpos(j , i) = (output[j] - center[j])/eps;
+
             deriv[(3*isforward+2)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
@@ -164,7 +165,7 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 1
         for (int j=0; j<nv; j++) {
-            printf("forward: %i d%idpos%i = %f ",isforward, j, i, (output[j] - center[j])/eps);
+
             deriv[(3*isforward+1)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
@@ -207,7 +208,6 @@ void worker(const mjModel* m, const mjData* dmain, mjData* d, int id) {
 
         // compute column i of derivative 0
         for (int j=0; j<nv; j++) {
-            printf("forward: %i dpos%idpos%i = %f ",isforward, j, i, (output[j] - center[j])/eps);
             deriv[(3*isforward+0)*nv*nv + i + j*nv] = (output[j] - center[j])/eps;
         }
     }
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
     // load model
     mjModel* m;
     m = mj_loadXML(
-            "/home/daniel/Repos/OptimisationBasedControl/models/2link.xml",0, NULL, NULL
+            "/home/daniel/Repos/OptimisationBasedControl/models/doubleintegrator.xml",0, NULL, NULL
     );
 
 
@@ -330,7 +330,10 @@ int main(int argc, char** argv) {
     mjData* d[MAXTHREAD];
     for (int n=0; n<nthread; n++) {
         d[n] = mj_makeData(m);
-        d[n]->qpos[0] = 10; d[n]->qpos[1] = 10; d[n]->qvel[0] = 0; d[n]->qvel[1] = 0; d[n]->qacc[0] = 0; d[n]->qacc[1] = 0;
+
+
+        d[n]->qpos[0] = 0; d[n]->qvel[0] = 0; d[n]->qacc[0] = 0;
+//        d[n]->qpos[1] = 0; d[n]->qvel[1] = 0; d[n]->qacc[1] = 0;
     }
 
     // allocate derivatives
@@ -384,6 +387,14 @@ int main(int argc, char** argv) {
         // check derivatives
         checkderiv(m,  d[0], error[epoch]);
     }
+
+    int na = m->na, nu = m->nu;
+    int ndx = 2*m->nv+na;
+    Eigen::MatrixXd A; A = Eigen::MatrixXd::Zero(ndx, ndx);
+    Eigen::MatrixXd B; B = Eigen::MatrixXd::Zero(ndx, m->nu);
+    mjd_transitionFD(m, dmain, 1e-6, 0, A.data(), B.data());
+    std::cout << "A: \n" << A << std::endl;
+    std::cout << "B: \n" << B << std::endl;
 
     // compute statistics
     double mcputm[2] = {0, 0}, merror[8] = {0, 0, 0, 0, 0, 0, 0, 0};

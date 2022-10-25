@@ -26,9 +26,21 @@
         <material name="target_default" rgba=".6 .3 .3 1"/>
         <material name="target_highlight" rgba=".6 .3 .3 .4"/>
     </asset>
-    <option timestep="0.1" integrator="RK4">
+    <option timestep="0.01" integrator="RK4">
         <flag contact="disable" energy="enable" gravity="enable"/>
     </option>
+
+    <default>
+        <default class="pole">
+            <joint type="hinge" axis="0 1 0"  damping="2e-6"/>
+            <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" material="self" mass=".1"/>
+        </default>
+        <default class="pole_2">
+            <joint type="hinge" axis="0 1 0"  damping="2e-6"/>
+            <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" material="self" mass=".1"/>
+        </default>
+
+    </default>
 
 
     <worldbody>
@@ -41,6 +53,10 @@
         <body name="cart" pos="0 0 1">
             <joint name="slider" type="slide" limited="false" axis="1 0 0" range="-1.8 1.8" solreflimit=".08 1" damping="5e-4"/>
             <geom name="cart" type="box" size="0.2 0.15 0.1" material="self"  mass="1"/>
+            <body name="pole_1" childclass="pole">
+                <joint name="hinge_1"/>
+                <geom name="pole_1"/>
+            </body>
         </body>
     </worldbody>
 
