@@ -2,75 +2,46 @@
 <!--COMPARE AT 30 and 100 SAMPLES with cov reg as 0.5 with 0.9 importance lambda 0.001-->
 <!--0.9 importance and 1 cov reg fro 100 samples-->
 
-<mujoco model="planar point mass">
+<mujoco model="planar_point_mass_1D">
     <compiler angle="radian"></compiler>
-    <option timestep="0.01" iterations="20" apirate="200">
-        <flag warmstart="enable" gravity="enable"></flag>
-    </option>   <visual>
+
+    <visual>
         <quality shadowsize="2048" />
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1" />
     </visual>
 
-    <default class="main">
-        <geom friction=".7" solimp="0.9 0.97 0.001" solref=".01 1"/>
-        <joint solimplimit="0 0.99 0.01" solreflimit=".005 1"/>
-        <general ctrllimited="true" ctrlrange="-1 1" />
-    </default>
-
-    <default class="object">
-        <geom material="self"/>
-    </default>
+    <option timestep="0.01" integrator="RK4">
+        <flag contact="enable" energy="enable" gravity="enable"/>
+    </option>
 
     <asset>
         <texture type="skybox" name="skybox" builtin="gradient" mark="random" rgb1="0.4 0.6 0.8" rgb2="0 0 0" markrgb="1 1 1" width="800" height="4800" />
         <texture type="2d" name="grid" builtin="checker" mark="edge" rgb1="0.1 0.2 0.3" rgb2="0.2 0.3 0.4" markrgb="0.2 0.3 0.4" width="300" height="300" />
-        <material name="grid" texture="grid" texuniform="true" reflectance="0.2" />
-        <material name="self" rgba="0.7 0.5 0.3 1" />
-        <material name="self_default" rgba="0.7 0.5 0.3 1" />
-        <material name="self_highlight" rgba="0 0.5 0.3 1" />
-        <material name="effector" rgba="0.7 0.4 0.2 1" />
-        <material name="effector_default" rgba="0.7 0.4 0.2 1" />
-        <material name="effector_highlight" rgba="0 0.5 0.3 1" />
-        <material name="decoration" rgba="0.3 0.5 0.7 1" />
-        <material name="eye" rgba="0 0.2 1 1" />
-        <material name="target" rgba="0.6 0.3 0.3 1" />
-        <material name="target_default" rgba="0.6 0.3 0.3 1" />
-        <material name="target_highlight" rgba="0.6 0.3 0.3 0.4" />
     </asset>
+
     <worldbody>
-        <geom name="ground" size="0.35 0.35 0.1" pos="-0.0 0 0.0" type="plane" />
-        <geom name="wall_x" size="0.02 0.3 0.02" pos="-0.35 0 0.02" quat="0.707107 0 0.707107 0" type="plane" />
-        <geom name="wall_y" size="0.3 0.02 0.02" pos="0 -0.35 0.02" quat="0.707107 -0.707107 0 0" type="plane" />
-        <geom name="wall_neg_x" size="0.02 0.3 0.02" pos="0.35 0 0.02" quat="0.707107 0 -0.707107 0" type="plane" />
-        <geom name="wall_neg_y" size="0.3 0.02 0.02" pos="0 0.35 0.02" quat="0.707107 0.707107 0 0" type="plane" />
+        <geom name="ground" size="4 4 0.1" pos="-0.0 0 0.0" type="plane" rgba=".123 .140 .28 1"/>
+        <geom name="wall_x" size="0.02 4 0.02" pos="-4 0 0.02" quat="0.707107 0 0.707107 0" type="plane" rgba=".250 .126 .2 1"/>
+        <geom name="wall_y" size="4 0.02 0.02" pos="0 -4 0.02" quat="0.707107 -0.707107 0 0" type="plane" rgba=".250 .126 .2 1" />
+        <geom name="wall_neg_x" size="0.02 4 0.02" pos="4 0 0.02" quat="0.707107 0 -0.707107 0" type="plane" rgba=".250 .126 .2 1"/>
+        <geom name="wall_neg_y" size="4 0.02 0.02" pos="0 4 0.02" quat="0.707107 0.707107 0 0" type="plane" rgba=".250 .126 .2 1"/>
         <camera name="fixed" pos="0 0 0.75" />
         <light name="light" pos="0 0 1" dir="0 0 -1" />
-        <body pos="0 0 0.02" quat="0.707107 0.707107 0 0">
-            <inertial pos="0 0 -0.0291932" mass="0.0591876" diaginertia="7.61519e-05 7.40747e-05 6.21876e-06" />
-            <joint name="proximal" pos="0 0 0" axis="0 -1 0" ref="-1.5708" range="-130 -60" damping="0.25" />
-            <geom name="proximal_decoration" size="0.024 0.02" quat="0.707107 0.707107 0 0" type="cylinder" material="decoration" />
-            <geom name="proximal" size="0.015 0.05" pos="0 0 -0.05" type="capsule" material="self" />
-            <body pos="0 0 -0.1">
-                <inertial pos="0 0 -0.05" mass="0.0217147" diaginertia="2.14541e-05 2.14541e-05 6.9487e-07" />
-                <joint name="distal" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.3" />
-                <geom name="distal" size="0.012 0.05" pos="0 0 -0.05" type="capsule" material="self" />
-                <body pos="0 0 -0.1">
-                    <inertial pos="0 0 -0.05" mass="0.00522761" diaginertia="4.73273e-06 4.73273e-06 4.18209e-08" />
-                    <joint name="distal2" pos="0 0 0" axis="0 -1 0" range="-45 45" damping="0.4" />
-                    <geom name="distal2" size="0.01 0.05" pos="0 0 -0.05" type="capsule" material="self"/>
-                </body>
-            </body>
+
+        <body name="box0" pos=".0 0 .111">
+            <joint name="box0_x" type="slide" axis="1 0 0" ref="0" solreflimit=".08 1" damping="5e-1"/>
+<!--            <joint name="box0_y" type="slide" axis="0 1 0" ref="0" solreflimit=".08 1" damping="5e-1"/>-->
+            <geom  name="box0" type="sphere" size="0.1 0.11 0.1"  mass="1" rgba="0.7 0.1 0.3 1"/>
         </body>
 
-        <body name="box0" pos=".0 0 .022" childclass="object">
-            <joint name="box0_x" type="slide" axis="1 0 0" ref="0" frictionloss=".00" damping=".7" />
-            <joint name="box0_y" type="slide" axis="0 1 0" ref="0" frictionloss=".00" damping=".7"/>
-            <geom  name="box0" type="box" size=".022 .022 .022" mass="10"/>
+        <body name="box1" pos=".0 0 .111">
+            <joint name="box1_x" type="slide" axis="1 0 0" ref="0" solreflimit=".08 1" damping="5e-1"/>
+<!--            <joint name="box1_y" type="slide" axis="0 1 0" ref="0" solreflimit=".08 1" damping="5e-1"/>-->
+            <geom  name="box1" type="sphere" size="0.1 0.11 0.1"  mass="1" rgba="0.2 0.5 0.3 1"/>
         </body>
     </worldbody>
+
     <actuator>
-        <general name="proximal" joint="proximal" gear="0.35 0 0 0 0 0" />
-        <general name="distal" joint="distal" gear="0.5 0 0 0 0 0" />
-        <general name="distal2" joint="distal2" gear="0.6 0 0 0 0 0" />
+        <general name="slider" joint="box0_x" gear="0.35 0 0 0 0 0" />
     </actuator>
 </mujoco>

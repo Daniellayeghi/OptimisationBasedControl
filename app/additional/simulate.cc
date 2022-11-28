@@ -26,12 +26,9 @@
 
 #include "array_safety.h"
 namespace mju = ::mujoco::sample_util;
-Eigen::MatrixXd A;
-Eigen::MatrixXd B;
-Eigen::Map<Eigen::Matrix<double, 1, 1>> u(nullptr);
-Eigen::Map<Eigen::Matrix<double, 2, 1>> q(nullptr);
-Eigen::Map<Eigen::Matrix<double, 2, 1>> qd(nullptr);
 
+Eigen::Vector3d tip_pos;
+Eigen::Vector3d spinner_pos;
 
 //-------------------------------- global -----------------------------------------------
 
@@ -1195,15 +1192,10 @@ void loadmodel(void) {
   mj_deleteModel(m);
   m = mnew;
   d = mj_makeData(m);
-  new (&u) Eigen::Map<Eigen::Matrix<double, 1, 1>>(d->ctrl);
-  new (&A) Eigen::MatrixXd(m->nv * 2, m->nv * 2);
-  new (&B) Eigen::MatrixXd(m->nu, m->nv * 2);
-  new (&q) Eigen::Map<Eigen::Matrix<double, 1, 2>>(d->qpos);
-  new (&qd) Eigen::Map<Eigen::Matrix<double, 1, 2>>(d->qvel);
-
   d->qpos[0] = 0;
-  d->qpos[1] = .2;
+  d->qpos[1] = 1;
   mj_forward(m, d);
+
 
   // allocate ctrlnoise
   free(ctrlnoise);
@@ -1926,6 +1918,12 @@ void render(GLFWwindow* window) {
 
 // simulate in background thread (while rendering in main thread)
 void simulate(void) {
+    auto distance_cost = [](const mjModel* m, const mjData *d){
+        Eigen::Vector3d pos1, pos2;
+        std::copy(&d->sensordata[0], &d->sensordata[2], pos1.data());
+        std::copy(&d->sensordata[3], &d->sensordata[5], pos2.data());
+        std::cout << "dist cost: " << mju_dist3(pos1.data(), pos2.data()) << "\n";
+    };
     // cpu-sim syncronization point
   double cpusync = 0;
   mjtNum simsync = 0;
@@ -1942,9 +1940,6 @@ void simulate(void) {
 
     // start exclusive access
     mtx.lock();
-    Eigen::MatrixXd B_u(1, 2); B_u << 0, 0;
-    Eigen::MatrixXd x_u(1, 2); x_u << 0, 0;
-    Eigen::MatrixXd x_u_des(1, 2); x_u_des << 0.4, 0;
 
     // run only if model is present
     if (m) {
@@ -1984,13 +1979,6 @@ void simulate(void) {
 
           // run single step, let next iteration deal with timing
           mj_step(m, d);
-          mjd_transitionFD(m, d, 1e-6, 0, A.data(), B.data());
-          std::cout << "A: \n" << A << std::endl;
-          std::cout << "B: \n" << B << std::endl;
-          B_u(0, 0) = B(0, 1); B_u(0, 1) = B(0, 3);
-          x_u(0, 0) = d->qpos[1]; x_u(0, 1) = d->qvel[1];
-            std::cout << "Error: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() << std::endl;
-            std::cout << "Cost: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() * (B_u * B_u.transpose()) << std::endl;
         }
 
         // in-sync
@@ -2003,17 +1991,17 @@ void simulate(void) {
             mjv_applyPerturbPose(m, d, &pert, 0);  // move mocap bodies only
             mjv_applyPerturbForce(m, d, &pert);
 
+            const auto geom_pos = d->geom_xpos;
+            tip_pos(0) = geom_pos[3*4]; tip_pos(1) = geom_pos[(3*4) + 1],   tip_pos(2) = geom_pos[(3*4) + 2];
+            spinner_pos(0) = geom_pos[3*7]; spinner_pos(1) = geom_pos[(3*7) + 1]; spinner_pos(2) = geom_pos[(3*7) + 1];
+            auto dist = mju_dist3(tip_pos.data(), spinner_pos.data());
+//            std::cout << dist << std::endl
+//              mj_inverse(m, d);
+//              std::cout << d->qfrc_inverse[1] << std::endl;
+//            distance_cost(m, d);
             // run mj_step
             mjtNum prevtm = d->time*settings.slow_down;
             mj_step(m, d);
-            mjd_transitionFD(m, d, 1e-6, 0, A.data(), B.data());
-            std::cout << "A: \n" << A << std::endl;
-            std::cout << "B: \n" << B << std::endl;
-            B_u(0, 0) = B(0, 1); B_u(0, 1) = B(0, 3);
-            x_u(0, 0) = d->qpos[1]; x_u(0, 1) = d->qvel[1];
-            std::cout << "Error: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() << std::endl;
-            std::cout << "Cost: \n" << (x_u - x_u_des) * (x_u - x_u_des).transpose() *  (B_u * B_u.transpose()) << std::endl;
-
             // break on reset
             if (d->time*settings.slow_down<prevtm) {
               break;

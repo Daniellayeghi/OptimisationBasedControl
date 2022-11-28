@@ -136,6 +136,8 @@ public:
             }
             col += wrt.size();
         }
+
+        copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
         return m_func_res;
     };
 
@@ -246,10 +248,15 @@ public:
         {
             copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
             for (int i = 0; i < wrt.size(); ++i) {
+                // f(x + e)
                 perturb(i, wrt);
-                m_func(m_m, m_ed_internal.m_d);
-                m_sens_res.col(i + col) = (m_ed_internal.m_sens - m_ed_external.m_sens) / m_params.m_eps;
+                mj_forward(m_m, m_ed_internal.m_d);
+                m_sens_res.col(i + col) = (m_ed_internal.m_sens);
+                // f(x + e) - f(x) / e
                 copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+                mj_forward(m_m , m_ed_internal.m_d);
+                m_sens_res.col(i + col) -= (m_ed_internal.m_sens);
+                m_sens_res.col(i + col) /= m_params.m_eps;
             }
             col += wrt.size();
         }
