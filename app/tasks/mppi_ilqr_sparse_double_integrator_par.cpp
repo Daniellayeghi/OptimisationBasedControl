@@ -111,7 +111,7 @@ int main(int argc, const char** argv)
     // load and compile model
     char error[1000] = "Could not load binary model";
 
-    std::string model_path = "../../../models/", name = "doubleintegrator";
+    std::string model_path = "../../../models/", name = "doubleintegrator_sparse";
 
     // check command-line arguments
     if( argc<2 ) {
@@ -157,17 +157,17 @@ int main(int argc, const char** argv)
     mjr_makeContext(m, &con, mjFONTSCALE_150);   // model-specific context
 
     // setup cost params
-    StateVector x_desired; x_desired << 0, 0;
+    StateVector x_desired; x_desired << 0, 0, 0, 0;
     Eigen::Ref<PosVector> pos_des = x_desired.block(0,0, n_jpos, 1);
     Eigen::Ref<VelVector> vel_des = x_desired.block(n_jpos, 0, n_jvel, 1);
     CtrlVector u_desired; u_desired << 0;
 
-    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 1, 1;
+    StateVector x_terminal_gain_vec; x_terminal_gain_vec << 0, 100, 0, 1;
     StateMatrix x_terminal_gain = x_terminal_gain_vec.asDiagonal();
 
-    StateVector x_gain_vec; x_gain_vec << 1, 1;
+    StateVector x_gain_vec; x_gain_vec << 0, 100, 0, 1;
     StateMatrix x_gain = x_gain_vec.asDiagonal();
-    CtrlMatrix u_gain; u_gain << 10;
+    CtrlMatrix u_gain; u_gain << .1;
     CtrlMatrix du_gain; du_gain << 0;
 
     // install GLFW mouse and keyboard callbacks
@@ -191,15 +191,30 @@ int main(int argc, const char** argv)
     CtrlMatrix control_reg;
     control_reg = u_gain * 0;
 
+
+    auto distance_cost = [](const mjModel* m, const mjData *d){
+        Eigen::Vector3d pos1, pos2;
+        std::copy(&d->sensordata[0], &d->sensordata[2], pos1.data());
+        std::copy(&d->sensordata[3], &d->sensordata[5], pos2.data());
+        std::cout << "dist cost: " << std::pow(mju_dist3(pos1.data(), pos2.data()), 2) << "\n";
+    };
+
     const auto running_cost =
             [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
-                return (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)
-                        (0, 0);
+                Eigen::Vector3d pos1, pos2;
+                std::copy(&d->sensordata[0], &d->sensordata[2], pos1.data());
+                std::copy(&d->sensordata[3], &d->sensordata[5], pos2.data());
+
+                auto dist_cst = mju_dist3(pos1.data(), pos2.data()) * 1;
+                auto task_cst = (x_err.transpose() * x_gain * x_err + u_err.transpose() * u_gain * u_err)(0, 0);
+                auto full_cst = task_cst * std::exp(dist_cst) * 0.001 + dist_cst * task_cst * 0.00000001;
+                return full_cst;
             };
+    
 
     const auto terminal_cost =
             [](const StateVector& x_err, const CtrlVector& u_err, const StateMatrix& x_gain, const CtrlMatrix& u_gain, const mjData* d, const mjModel* m){
-                return (x_err.transpose() * x_gain * x_err)(0, 0);
+                return (x_err.transpose() * x_gain * x_err)(0, 0) * 0;
             };
 
     using namespace MathUtils;
@@ -208,6 +223,9 @@ int main(int argc, const char** argv)
     PosVector goal_pos = PosVector::Zero();
     Eigen::Map<PosVector> pos_map(d->qpos);
     Eigen::Map<VelVector> vel_map(d->qvel);
+    StateVector state;
+    CtrlVector ctrl;
+    mj_step(m, d);
 
     const auto seed = 3;
     for(auto goal = 1; goal < 2; ++goal)
@@ -216,8 +234,9 @@ int main(int argc, const char** argv)
 //        x_desired.block(0, 0, n_jpos, 1) = goal_pos;
         for (auto init = 1; init < 10; ++init)
         {
+            double low_lim[2] = {-5.5, -2.5}; double up_lim[2] = {-5, -2};
             // Init random pos
-            MathUtils::Rand::random_iid_data_const_bound<double, n_jpos>(init_pos.data(), lim);
+            MathUtils::Rand::random_iid_data<double, n_jpos>(init_pos.data(), low_lim, up_lim);
             std::copy(init_pos.data(), init_pos.data() + n_jpos, d->qpos);
 
             FiniteDifference fd(m);
@@ -227,11 +246,11 @@ int main(int argc, const char** argv)
 
             // To show difference in sampling try 3 samples
             MPPIDDPParamsPar params{
-                    800, 75, 0.1, 1, 0, 1, 1000,ctrl_mean,
+                    100, 75, 0.15, 0, 1, 1, 1000,ctrl_mean,
                     ddp_var, ctrl_var, {ilqr.m_u_traj_cp, ilqr._covariance}, 1
             };
 
-            MPPIDDPCstParams p{0, 0.1, ctrl_var.inverse()};
+            MPPIDDPCstParams p{0, 0.15, ctrl_var.inverse()};
             PICost cst(x_desired, x_gain, x_terminal_gain, control_reg, running_cost, terminal_cost, p);
             MPPIDDPPar pi(m, cst, params);
 
@@ -279,10 +298,13 @@ int main(int argc, const char** argv)
                     ilqr.control(d, false);
                     pi.control(d, false);
                     simp_buff.update_buffer();
+                    MujocoUtils::fill_state_vector(d, state, m);
+                    MujocoUtils::fill_ctrl_vector(d, ctrl, m);
+                    running_cost2(x_desired - state, ctrl, x_gain, u_gain, d, m);
                     ilqr.m_u_traj = pi.m_u_traj;
-                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
-                    state_buff.push_buffer();
-                    value_buff.push_buffer();
+//                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
+//                    state_buff.push_buffer();
+//                    value_buff.push_buffer();
                     mjcb_control = MyController<ControlType, n_jpos + n_jvel, n_ctrl>::callback_wrapper;
                     mj_step(m, d);
                 }
@@ -302,7 +324,7 @@ int main(int argc, const char** argv)
                 // process pending GUI events, call GLFW callbacks
                 glfwPollEvents();
 
-                if (save_data or ((pos_des - pos_map).norm() < 1e-2 and (vel_des - vel_map).norm() < 1e-3)) {
+                if (save_data or ((pos_des - pos_map).norm() < 1e-1 and (vel_des - vel_map).norm() < 1e-1)) {
                     state_buff.save_buffer();
                     value_buff.save_buffer();
                     std::cout << "Saved!" << std::endl;

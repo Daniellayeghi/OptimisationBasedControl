@@ -261,17 +261,7 @@ public:
                 2 * new_control.transpose() * m_cst_params.m_ctrl_variance_inv * control
         )(0, 0);
 
-        const auto arunning_cost =
-                [&](const StateVector &state_vector, const CtrlVector &ctrl_vector,
-                    const mjData* data=nullptr, const mjModel *model=nullptr){
-            StateVector state_error = m_x_goal - state_vector;
-            CtrlVector ctrl_error = ctrl_vector;
-            return (state_error.transpose() * m_x_gain * state_error + ctrl_error.transpose() * m_u_gain * ctrl_error)
-                    (0, 0);
-        };
-
-        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda +
-        arunning_cost(state, new_control, data, model);
+        return 0.5 * (ddp_bias + passive_bias + common_bias) * m_cst_params.m_lambda + running_cost(data, model);
     }
 
 
