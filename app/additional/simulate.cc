@@ -25,6 +25,11 @@
 #include "uitools.h"
 
 #include "array_safety.h"
+#include "../../src/utilities/fast_derivatives.h"
+
+MjDerivativeParams params{1e-6, Wrt::State, Mode::Inv, Order::First};
+MjDerivative* deriv_op = nullptr;
+
 namespace mju = ::mujoco::sample_util;
 
 Eigen::Vector3d tip_pos;
@@ -1192,8 +1197,6 @@ void loadmodel(void) {
   mj_deleteModel(m);
   m = mnew;
   d = mj_makeData(m);
-  d->qpos[0] = 0;
-  d->qpos[1] = 1;
   mj_forward(m, d);
 
 
@@ -1918,12 +1921,6 @@ void render(GLFWwindow* window) {
 
 // simulate in background thread (while rendering in main thread)
 void simulate(void) {
-    auto distance_cost = [](const mjModel* m, const mjData *d){
-        Eigen::Vector3d pos1, pos2;
-        std::copy(&d->sensordata[0], &d->sensordata[2], pos1.data());
-        std::copy(&d->sensordata[3], &d->sensordata[5], pos2.data());
-        std::cout << "dist cost: " << mju_dist3(pos1.data(), pos2.data()) << "\n";
-    };
     // cpu-sim syncronization point
   double cpusync = 0;
   mjtNum simsync = 0;
@@ -1943,6 +1940,8 @@ void simulate(void) {
 
     // run only if model is present
     if (m) {
+        MjDerivative deriv_mj(m, d, params);
+        deriv_op = &deriv_mj;
         m->opt.enableflags = 5;
       // running
       if (settings.run) {
@@ -1990,15 +1989,9 @@ void simulate(void) {
             mju_zero(d->xfrc_applied, 6*m->nbody);
             mjv_applyPerturbPose(m, d, &pert, 0);  // move mocap bodies only
             mjv_applyPerturbForce(m, d, &pert);
+            if (deriv_op)
+                std::cout << deriv_op->output() << "\n" << std::endl;
 
-            const auto geom_pos = d->geom_xpos;
-            tip_pos(0) = geom_pos[3*4]; tip_pos(1) = geom_pos[(3*4) + 1],   tip_pos(2) = geom_pos[(3*4) + 2];
-            spinner_pos(0) = geom_pos[3*7]; spinner_pos(1) = geom_pos[(3*7) + 1]; spinner_pos(2) = geom_pos[(3*7) + 1];
-            auto dist = mju_dist3(tip_pos.data(), spinner_pos.data());
-//            std::cout << dist << std::endl
-//              mj_inverse(m, d);
-//              std::cout << d->qfrc_inverse[1] << std::endl;
-//            distance_cost(m, d);
             // run mj_step
             mjtNum prevtm = d->time*settings.slow_down;
             mj_step(m, d);
@@ -2129,7 +2122,8 @@ int main(int argc, const char** argv) {
   // start simulation thread
   std::thread simthread(simulate);
 
-  // event loop
+
+    // event loop
   while (!glfwWindowShouldClose(window) && !settings.exitrequest) {
     // start exclusive access (block simulation thread)
     mtx.lock();

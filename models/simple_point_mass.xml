@@ -68,8 +68,6 @@
         </fixed>
     </tendon>
 
-
-
     <actuator>
         <motor name="t1" tendon="t1"/>
         <motor name="t2" tendon="t2"/>

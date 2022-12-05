@@ -12,8 +12,8 @@
 #include "Eigen/Core"
 
 constexpr const int nu = 1;
-constexpr const int np = 1;
-constexpr const int nv = 1;
+constexpr const int np = 2;
+constexpr const int nv = 2;
 constexpr const int ns = np + nv;
 constexpr const int nf = np + nv + nu;
 

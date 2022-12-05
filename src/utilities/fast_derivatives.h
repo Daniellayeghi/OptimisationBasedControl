@@ -48,15 +48,15 @@ struct MjDataVecView {
             m_m(m),
             m_d(d),
             m_ctrl(m_d->ctrl, m_m->nu),
-            m_qfrc_inverse(m_d->qfrc_inverse, m_m->nv),
+            m_qfrc_inverse(m_d->qfrc_inverse, m_m->nu),
             m_pos(m_d->qpos, m_m->nq),
             m_vel(m_d->qvel, m_m->nv),
             m_acc(m_d->qacc, m_m->nv),
             m_sens(m_d->sensordata, m_m->nsensordata) {}
 
 
-    const mjModel *m_m;
-    mjData *m_d;
+    const mjModel* m_m;
+    mjData* m_d;
     Eigen::Map <Eigen::VectorXd> m_ctrl;
     Eigen::Map <Eigen::VectorXd> m_qfrc_inverse;
     Eigen::Map <Eigen::VectorXd> m_pos;
@@ -103,8 +103,12 @@ public:
             for (int i = 0; i < wrt.size(); ++i) {
                 perturb(i, wrt);
                 m_func(m_m, m_ed_internal.m_d);
-                m_func_res.block(0, col + i, m_m->nv, 1) = (m_ed_internal.m_qfrc_inverse - m_ed_external.m_qfrc_inverse) / m_params.m_eps;
+                m_func_res.block(0, col + i, m_m->nv, 1) = m_ed_internal.m_qfrc_inverse;
                 copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
+
+                m_func(m_m, m_ed_internal.m_d);
+                m_func_res.block(0, col + i, m_m->nv, 1) -= m_ed_internal.m_qfrc_inverse;
+                m_func_res.block(0, col + i, m_m->nv, 1) /= m_params.m_eps;
             }
             col += wrt.size();
         }
@@ -151,7 +155,9 @@ public:
         auto nx = nq+nv;
 
         const auto eps = pow(m_params.m_eps, 2);
-        auto deriv_size = 0; for (const EigenMatrixXMap &wrt: m_wrts) { deriv_size += wrt.size(); }
+        auto deriv_size = 0; for (const EigenMatrixXMap &wrt: m_wrts) {
+            deriv_size += wrt.size();
+        }
         const int hess_group = int(m_func_2nd_res.rows() / deriv_size);
         copy_data(m_m, m_ed_external.m_d, m_ed_internal.m_d);
 
