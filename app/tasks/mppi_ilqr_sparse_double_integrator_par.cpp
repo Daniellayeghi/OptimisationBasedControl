@@ -300,7 +300,7 @@ int main(int argc, const char** argv)
                     simp_buff.update_buffer();
                     MujocoUtils::fill_state_vector(d, state, m);
                     MujocoUtils::fill_ctrl_vector(d, ctrl, m);
-                    running_cost2(x_desired - state, ctrl, x_gain, u_gain, d, m);
+//                    running_cost2(x_desired - state, ctrl, x_gain, u_gain, d, m);
                     ilqr.m_u_traj = pi.m_u_traj;
 //                    zmq_buffer.send_buffer(simp_buff.get_buffer(), simp_buff.get_buffer_size());
 //                    state_buff.push_buffer();

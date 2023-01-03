@@ -30,10 +30,16 @@
 MjDerivativeParams params{1e-6, Wrt::State, Mode::Inv, Order::First};
 MjDerivative* deriv_op = nullptr;
 
-namespace mju = ::mujoco::sample_util;
 
-Eigen::Vector3d tip_pos;
-Eigen::Vector3d spinner_pos;
+namespace mju = ::mujoco::sample_util;
+struct FDdata
+{
+    FDdata() : A(1, 1), B(1, 1){};
+    Eigen::MatrixXd A;
+    Eigen::MatrixXd B;
+};
+
+FDdata* fd_data_ptr = nullptr;
 
 //-------------------------------- global -----------------------------------------------
 
@@ -1199,7 +1205,6 @@ void loadmodel(void) {
   d = mj_makeData(m);
   mj_forward(m, d);
 
-
   // allocate ctrlnoise
   free(ctrlnoise);
   ctrlnoise = (mjtNum*) malloc(sizeof(mjtNum)*m->nu);
@@ -1942,6 +1947,10 @@ void simulate(void) {
     if (m) {
         MjDerivative deriv_mj(m, d, params);
         deriv_op = &deriv_mj;
+        FDdata fd_data;
+        fd_data.A.resize(2*m->nv+m->na, 2*m->nv+m->na);
+        fd_data.B.resize(2*m->nv+m->na, m->nu);
+        fd_data_ptr = &fd_data;
         m->opt.enableflags = 5;
       // running
       if (settings.run) {
@@ -1991,6 +2000,9 @@ void simulate(void) {
             mjv_applyPerturbForce(m, d, &pert);
             if (deriv_op)
                 std::cout << deriv_op->output() << "\n" << std::endl;
+              mjd_transitionFD(m, d, 1e-6, 0, fd_data_ptr->A.data(), fd_data_ptr->B.data());
+              std::cout << "------------------------------" << std::endl;
+              std::cout << fd_data_ptr->B << std::endl;
 
             // run mj_step
             mjtNum prevtm = d->time*settings.slow_down;

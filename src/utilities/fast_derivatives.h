@@ -48,7 +48,7 @@ struct MjDataVecView {
             m_m(m),
             m_d(d),
             m_ctrl(m_d->ctrl, m_m->nu),
-            m_qfrc_inverse(m_d->qfrc_inverse, m_m->nu),
+            m_qfrc_inverse(m_d->qfrc_inverse, m_m->nv),
             m_pos(m_d->qpos, m_m->nq),
             m_vel(m_d->qvel, m_m->nv),
             m_acc(m_d->qacc, m_m->nv),
